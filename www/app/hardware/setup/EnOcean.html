@@ -1,0 +1,169 @@
+<div id="hardwarecontent" class="container"></div>
+<div id="enocean" style="display:none;">
+    <div class="page-header-small">
+        <table id="management" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+                <td>
+                    <h1 data-i18n="Nodes">Nodes</h1>
+                </td>
+				<td>
+					<a href='javascript:EnOceanSetCode();'>                                  <button type="button" data-i18n=">Set Code" class="btn btn-primary">Set Code</button></a>
+					<a href='javascript:EnOceanCmd("SendCode"       ,0,128,0,128);'>         <button type="button" data-i18n=">SendCode" class="btn btn-primary">SendCode</button></a>
+					<a href='javascript:EnOceanCmd("Lock"           ,0,128,0,128);'>         <button type="button" data-i18n="Lock" class="btn btn-primary">Lock</button></a>
+					<a href='javascript:EnOceanCmd("UnLock"         ,0,128,0,128);'>         <button type="button" data-i18n="UnLock" class="btn btn-primary">UnLock</button></a>
+					<a href='javascript:EnOceanCmd("LearnIn"        ,1,1,0,128);'>           <button type="button" data-i18n=">LearnIn" class="btn btn-primary">LearnIn</button></a>
+					<a href='javascript:EnOceanCmd("LearnOut"       ,1,1,0,128);'>           <button type="button" data-i18n=">LearnOut" class="btn btn-primary">LearnOut</button></a>
+					<a href='javascript:EnOceanCmd("GetProductId"   ,0,1,0,128);'>           <button type="button" data-i18n="Get Product Id" class="btn btn-primary">GetProductId</button></a>
+					<a href='javascript:EnOceanCmd("QueryId"        ,0,1,0,128);'>           <button type="button" data-i18n="Query Id" class="btn btn-primary">QueryId</button></a>
+					<a href='javascript:EnOceanCmd("Ping"           ,1,128,0,128);'>         <button type="button" data-i18n=">Ping" class="btn btn-primary">Ping</button></a>
+					<a href='javascript:EnOceanCmd("Action"         ,1,1,0,128);'>           <button type="button" data-i18n=">Action" class="btn btn-primary">Action</button></a>
+					<a href='javascript:EnOceanCmd("QueryStatus"    ,1,128,0,128);'>         <button type="button" data-i18n="QueryStatus" class="btn btn-primary">QueryStatus</button></a>
+					<a href='javascript:EnOceanCmd("ResetToDefaults",1,128,0,128);'>         <button type="button" data-i18n="Reset" class="btn btn-primary">Reset</button></a>
+					<a href='javascript:EnOceanCmd("QueryFunction"  ,1,1,0,128);'>           <button type="button" data-i18n="QueryFunction" class="btn btn-primary">QueryFunction</button></a>
+					<a href='javascript:EnOceanCmd("Link"           ,2,2,0,128);'>           <button type="button" data-i18n="Link" class="btn btn-primary">Link</button></a>
+
+<!--					<a href='javascript:EnOceanCmd("SetRepeaterQueryLevelOff",1,128,0,128);'><button type="button" data-i18n="LevelOff" class="btn btn-primary">LevelOff</button></a>
+					<a href='javascript:EnOceanCmd("SetRepeaterQueryLevel1"  ,1,128,0,128);'><button type="button" data-i18n="Level1" class="btn btn-primary">Level1</button></a>
+					<a href='javascript:EnOceanCmd("SetRepeaterQueryLevel2"  ,1,128,0,128);'><button type="button" data-i18n="Level2" class="btn btn-primary">Level2</button></a>
+					<a href='javascript:EnOceanCmd("GetRepeaterQuery"        ,1,128,0,128);'><button type="button" data-i18n="RepeaterQuery" class="btn btn-primary">RepeaterQuery</button></a>
+//-->
+					<a href='javascript:EnOceanCmd("SetRepeaterNodonLevelOff",1,128,0,128);'><button type="button" data-i18n="LevelOff" class="btn btn-primary">LevelOff</button></a>
+					<a href='javascript:EnOceanCmd("SetRepeaterNodonLevel1"  ,1,128,0,128);'><button type="button" data-i18n="Level1" class="btn btn-primary">Level1</button></a>
+					<a href='javascript:EnOceanCmd("SetRepeaterNodonLevel2"  ,1,128,0,128);'><button type="button" data-i18n="Level2" class="btn btn-primary">Level2</button></a>
+
+					<a href='javascript:EnOceanVldSend();'>                                  <button type="button" data-i18n="VldSend" class="btn btn-primary">VldSend</button></a>
+					<a href='javascript:EnOceanCreateSensor();'>                             <button type="button" data-i18n="Create Sensor" class="btn btn-primary">Create Sensor</button></a>
+					<a href='javascript:EnOceanCmd("ClearTeachInStatus"      ,1,128,0,128);'><button type="button" data-i18n="Teach In Status" class="btn btn-primary">Clear Teach In Status</button></a>
+<!--					<a href='javascript:EnOceanCmd("DeleteEntrys"   ,1,1,1,128);'>           <button type="button" data-i18n="DeleteEntrys" class="btn btn-primary">DeleteEntrys</button></a>
+					<a href='javascript:EnOceanCmd("Delete"                  ,1,128,0,128);'><button type="button" data-i18n="Delete" class="btn btn-primary">Delete</button></a>
+//-->
+				</td>
+                <td align="right">
+                    <div class="dropdown">
+                        <button class="btn dropdown-toggle sr-only" type="button" id="dropdownMenu1" data-toggle="dropdown">
+                            <span data-i18n="RMCC">RMCC</span>
+                            <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu pull-right" role="menu" aria-labelledby="dropdownMenu1">
+                            <table id="item" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td> <a href='javascript:EnOceanSetCode();'>                                  <button type="button" data-i18n=">Set Code" class="btn btn-primary">Set Code</button></a>          </td>
+                                    <td> <a href='javascript:EnOceanCmd("SendCode"       ,0,128,0,128);'>         <button type="button" data-i18n=">SendCode" class="btn btn-primary">SendCode</button></a>          </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("Lock"           ,0,128,0,128);'>         <button type="button" data-i18n="Lock" class="btn btn-primary">Lock</button></a>                   </td>
+                                    <td> <a href='javascript:EnOceanCmd("UnLock"         ,0,128,0,128);'>         <button type="button" data-i18n="UnLock" class="btn btn-primary">UnLock</button></a>               </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("LearnIn"        ,1,1,0,128);'>           <button type="button" data-i18n=">LearnIn" class="btn btn-primary">LearnIn</button></a>            </td>
+                                    <td> <a href='javascript:EnOceanCmd("LearnOut"       ,1,1,0,128);'>           <button type="button" data-i18n=">LearnOut" class="btn btn-primary">LearnOut</button></a>          </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("GetProductId"   ,0,1,0,128);'>           <button type="button" data-i18n="Get Product Id" class="btn btn-primary">GetProductId</button></a> </td>
+                                    <td> <a href='javascript:EnOceanCmd("QueryId"        ,1,1,0,128);'>           <button type="button" data-i18n="Query Id" class="btn btn-primary">QueryId</button></a>            </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("Ping"           ,1,128,0,128);'>         <button type="button" data-i18n=">Ping" class="btn btn-primary">Ping</button></a>                  </td>
+                                    <td> <a href='javascript:EnOceanCmd("Action"         ,1,1,0,128);'>           <button type="button" data-i18n=">Action" class="btn btn-primary">Action</button></a>              </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("QueryStatus"    ,1,128,0,128);'>         <button type="button" data-i18n="QueryStatus" class="btn btn-primary">QueryStatus</button></a>     </td>
+                                    <td> <a href='javascript:EnOceanCmd("QueryFunction"  ,1,1,0,128);'>           <button type="button" data-i18n="QueryFunction" class="btn btn-primary">QueryFunction</button></a> </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("ResetToDefaults",1,128,0,128);'>         <button type="button" data-i18n="Reset" class="btn btn-primary">Reset</button></a>                 </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("SetRepeaterQueryLevelOff",1,128,0,128);'><button type="button" data-i18n="LevelOff" class="btn btn-primary">LevelOff</button></a>           </td>
+                                    <td> <a href='javascript:EnOceanCmd("SetRepeaterQueryLevel1"  ,1,128,0,128);'><button type="button" data-i18n="Level1" class="btn btn-primary">Level1</button></a>               </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("SetRepeaterQueryLevel2"  ,1,128,0,128);'><button type="button" data-i18n="Level2" class="btn btn-primary">Level2</button></a>               </td>
+                                    <td> <a href='javascript:EnOceanCmd("GetRepeaterQuery"        ,1,128,0,128);'><button type="button" data-i18n="RepeaterQuery" class="btn btn-primary">RepeaterQuery</button></a> </td>
+                                </tr>
+                                <tr>
+                                    <td> <a href='javascript:EnOceanCmd("Delete"                  ,1,128,0,128);'><button type="button" data-i18n="Delete" class="btn btn-primary">Delete</button></a>               </td>
+                                    <td> <a href='javascript:EnOceanVldSend();'>                                  <button type="button" data-i18n="VldSend" class="btn btn-primary">VldSend</button></a>             </td>
+                                </tr>
+                            </table>
+
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <table class="display" id="nodestable" border="0" cellpadding="0" cellspacing="0" width="100%">
+        <thead>
+            <tr>
+                <th width="80" align="center" data-i18n="DeviceID">DeviceID</th>
+                <th width="30" align="left" data-i18n="Unit">Unit</th>
+                <th width="150" align="left" data-i18n="Name">Name</th>
+                <th align="left" data-i18n="Description">Description</th>
+                <th width="100" align="center" data-i18n="Manufacturer">Manufacturer</th>
+                <th width="50" align="center" data-i18n="Profile">Profile</th>
+                <th width="70" align="center" data-i18n="Type">Type</th>
+                <th width="80" align="left" data-i18n="Teach In Status">Teach In Status</th>
+                <th width="50" align="left" data-i18n="EnOcean Type">EnOcean Type</th>
+                <th width="80" align="left" data-i18n="Status">Status</th>
+            </tr>
+        </thead>
+    </table>
+    <table id="updelclr" border="0" cellpadding="0" cellspacing="0" width="100%" style="display:none;">
+        <tr>
+            <td>
+                <a class="btnstyle3-dis" id="nodeupdate" data-i18n="Update">Update</a>&nbsp;&nbsp;&nbsp;
+                <a class="btnstyle3-dis" id="nodedelete" data-i18n="Delete">Delete</a>
+            </td>
+            <td align="right">
+                <a class="btnstyle3" id="nodelistrefresh" data-i18n="Refresh" onclick="RefreshOpenZWaveNodeTable();">Refresh</a>
+            </td>
+        </tr>
+    </table>
+    <table id="TableLink" border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td>
+                <h2 data-i18n="Table Link">Table Link</h2>
+            </td>
+            <td>
+                <a href='javascript:EnOceanCmd("GetLinkTable"   ,1,1,0,128);'>           <button type="button" data-i18n="GetLinkTable"  class="btn btn-primary">GetLinkTable</button></a>
+                <a href='javascript:EnOceanCmd("DeleteEntrys"   ,1,1,1,128);'>           <button type="button" data-i18n="DeleteEntrys"  class="btn btn-primary">DeleteEntrys</button></a>
+                <a href='javascript:EnOceanCmd("GetLinkConfig"  ,1,1,1,1  );'>           <button type="button" data-i18n="GetLinkConfig" class="btn btn-primary">GetLinkConfig</button></a>
+                <a href='javascript:EnOceanCmd("SetLinkConfig"  ,1,1,1,1  );'>           <button type="button" data-i18n="SetLinkConfig" class="btn btn-primary">SetLinkConfig</button></a>
+            </td>
+            <td align="right">
+                <div class="dropdown">
+                    <button class="btn dropdown-toggle sr-only" type="button" id="dropdownMenu1" data-toggle="dropdown">
+                        <span data-i18n="Link">Link</span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu pull-right" role="menu" aria-labelledby="dropdownMenu1">
+                        <table id="item" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                                <td> <a href='javascript:EnOceanSetCode();'>                                  <button type="button" data-i18n=">Set Code" class="btn btn-primary">Set Code</button></a>          </td>
+                                <td> <a href='javascript:EnOceanCmd("SendCode"       ,0,128,0,128);'>         <button type="button" data-i18n=">SendCode" class="btn btn-primary">SendCode</button></a>          </td>
+                            </tr>
+                        </table>
+
+                    </ul>
+                </div>
+            </td>
+        </tr>
+    </table>
+    <br>
+    <div id="configuration">
+        <table class="display" id="inboundlinktable" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <thead>
+                <tr>
+                    <th width="80" align="center" data-i18n="Entry">Entry</th>
+                    <th width="50" align="left" data-i18n="Profile">Profile</th>
+                    <th width="100" align="left" data-i18n="Name">Name</th>
+                    <th align="left" data-i18n="SensorId">SensorId</th>
+                    <th width="120" align="center" data-i18n="Channel">Channel</th>
+                    <th width="50" align="left" data-i18n="Delete">Delete</th>
+                </tr>
+            </thead>
+        </table>
+
+    </div>
+</div>

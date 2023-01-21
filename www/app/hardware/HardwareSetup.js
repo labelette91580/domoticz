@@ -8,6 +8,7 @@ define([
     'hardware/setup/Pinger',
     'hardware/setup/WakeOnLan',
     'hardware/setup/ZWave',
+    'hardware/setup/EnOcean',
 ], function (app) {
     app.controller('HardwareSetupController', function ($routeParams, domoticzApi) {
         var vm = this;
