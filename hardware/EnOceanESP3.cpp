@@ -420,7 +420,7 @@ void CEnOceanESP3::GetNodesJSON(Json::Value &root)
 	root["esp3controlleridchip"] = idStr;
 
 	int i = 0;
-	for (auto item = m_nodes.m_sensors.begin(); item != m_nodes.m_sensors.end(); item++, i++)
+	for (auto item = m_nodes.begin(); item != m_nodes.end(); item++, i++)
 	{
 		NodeInfo node = item->second;
 
@@ -3629,7 +3629,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 
 				Log(LOG_NORM, "UTE %s-directional %s request from Node %08X, nb_channels %u, %sresponse expected",
 					(ute_direction == 0) ? "uni" : "bi",
-					(ute_request == 0) ? "teach-in" : ((ute_request == 1) ? "teach-out" : "teach-in or teach-out"),
+					(ute_request == TEACH_IN_REQUEST) ? "teach-in" : ((ute_request == TEACH_DELETION_REQUEST) ? "teach-out" : "teach-in or teach-out"),
 					senderID, num_channel,
 					(ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED) ? "" : "no ");
 
@@ -3665,7 +3665,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 //				if (pNode == nullptr)
                 if(!NodeIsAlreadyTeachedIn(senderID))
 				{ // Node not found
-					if (ute_request == 1)
+					if (ute_request == TEACH_DELETION_REQUEST)
 					{ // Node not found and teach-out request => ignore
 						Log(LOG_NORM, "Unknown Node %08X, teach-out request ignored", senderID);
 
@@ -3791,12 +3791,12 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 
 				CheckAndUpdateNodeRORG(pNode, node_RORG);
 
-				if (ute_request == 0)
+				if (ute_request == TEACH_IN_REQUEST)
 				{ // Node found and teach-in request => ignore
 					Log(LOG_NORM, "Node %08X (%s) already known with EEP %02X-%02X-%02X, teach-in request ignored",
 						senderID, pNode->name.c_str(), pNode->RORG, pNode->func, pNode->type);
 
-					if (ute_response == 0)
+					if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 					{ // Build and send response
 						buf[1] |= (TEACHIN_ACCEPTED & 0x03) << 4;
 
@@ -3805,13 +3805,13 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 					}
 				}
-				else if (ute_request == 1 || ute_request == 2)
+				else if (ute_request == TEACH_DELETION_REQUEST || ute_request == TEACH_IN_OR_DELETION_REQUEST)
 				{ // Node found and teach-out request => teach-out
 					// Ignore teach-out request to avoid teach-in/out loop
 					Debug(DEBUG_NORM, "UTE msg: Node %08X (%s), teach-out request not supported",
 						senderID, pNode->name.c_str());
 
-					if (ute_response == 0)
+					if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 					{ // Build and send response
 						buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
