@@ -709,6 +709,7 @@ namespace http
 			// pollpost.html
 			RegisterRType("openzwavenodes", [this](auto&& session, auto&& req, auto&& root) { RType_OpenZWaveNodes(session, req, root); });
 #endif
+			RegisterRType("enocean",[this](auto &&session, auto &&req, auto &&root) { RType_OpenEnOcean(session, req, root); });  
 			// EnOcean helpers cmds
 
 			RegisterCommandCode("enoceangetmanufacturers", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetManufacturers(session, req, root); });

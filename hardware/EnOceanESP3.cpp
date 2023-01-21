@@ -304,7 +304,17 @@ typedef enum
 	TEACHOUT_ACCEPTED = 2, 	// Request accepted, teach-out successful
 	EEP_NOT_SUPPORTED = 3, 	// Request not accepted, EEP not supported
 } UTE_RESPONSE_CODE;
-
+typedef enum
+{
+	EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED = 0,		
+	NO_EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED = 1,		
+} EEP_TEACH_IN_RESPONSE_MESSAGE;
+typedef enum
+{
+	TEACH_IN_REQUEST = 0,		
+	TEACH_DELETION_REQUEST = 1,		
+	TEACH_IN_OR_DELETION_REQUEST = 2,		
+} TEACH_REQUEST ;
 // UTE Direction response codes
 typedef enum
 {
@@ -368,20 +378,19 @@ void CEnOceanESP3::LoadNodesFromDatabase()
 
 	for (const auto &sd : result)
 	{
-		NodeInfo node;
-
-		node.idx = static_cast<uint32_t>(std::stoul(sd[0]));
-		node.nodeID = static_cast<uint32_t>(std::stoul(sd[1]));
-		node.name = sd[2];
-		node.manufacturerID = static_cast<uint16_t>(std::stoul(sd[3]));
-		node.RORG = static_cast<uint8_t>(std::stoul(sd[4]));
-		node.func = static_cast<uint8_t>(std::stoul(sd[5]));
-		node.type = static_cast<uint8_t>(std::stoul(sd[6]));
-		node.description = sd[7];
-
 		uint32_t nValue = static_cast<uint32_t>(std::stoul(sd[8]));
 
-		node.teachin_mode = static_cast<TeachinMode>(bitrange(nValue, TEACHIN_MODE_SHIFT, TEACHIN_MODE_MASK));
+		m_nodes.add(
+		static_cast<uint32_t>(std::stoul(sd[0])),
+		static_cast<uint32_t>(std::stoul(sd[1])),
+																		 sd[2]  , 
+		static_cast<uint16_t>(std::stoul(sd[3])),
+		static_cast<uint8_t>(std::stoul(sd[4])) ,
+		static_cast<uint8_t>(std::stoul(sd[5])),
+		static_cast<uint8_t>(std::stoul(sd[6])),
+																		sd[7],
+		static_cast<TeachinMode>(bitrange(nValue, TEACHIN_MODE_SHIFT, TEACHIN_MODE_MASK))
+		);
 /*
 		Debug(DEBUG_NORM, "LoadNodesFromDatabase: Idx %u Node %08X Name '%s'",
 			node.idx, node.nodeID, node.name.c_str());
@@ -391,19 +400,14 @@ void CEnOceanESP3::LoadNodesFromDatabase()
 		Debug(DEBUG_NORM, "LoadNodesFromDatabase: Manufacturer %03X (%s) Description '%s'",
 			node.manufacturerID, GetManufacturerName(node.manufacturerID), node.description.c_str());
 */
-		m_nodes[node.nodeID] = node;
 	}
 }
 
-CEnOceanESP3::NodeInfo* CEnOceanESP3::GetNodeInfo(const uint32_t nodeID)
+enocean::NodeInfo* CEnOceanESP3::GetNodeInfo(const uint32_t nodeID)
 {
-	auto node = m_nodes.find(nodeID);
-
-	if (node == m_nodes.end())
-		return nullptr;
-
-	return &(node->second);
+	return  m_nodes.find(nodeID);
 }
+
 
 void CEnOceanESP3::GetNodesJSON(Json::Value &root)
 {
@@ -416,7 +420,7 @@ void CEnOceanESP3::GetNodesJSON(Json::Value &root)
 	root["esp3controlleridchip"] = idStr;
 
 	int i = 0;
-	for (auto item = m_nodes.begin(); item != m_nodes.end(); item++, i++)
+	for (auto item = m_nodes.m_sensors.begin(); item != m_nodes.m_sensors.end(); item++, i++)
 	{
 		NodeInfo node = item->second;
 
@@ -563,19 +567,17 @@ void CEnOceanESP3::TeachInNode(const uint32_t nodeID, const uint16_t manID,
 		Log(LOG_ERROR, "Teach-in Node: problem creating Node %08X in database?!?!", nodeID);
 		return;
 	}
-	NodeInfo node;
+    m_nodes.add(
+		static_cast<uint32_t>(std::stoul(result[0][0])), 
+		nodeID,  
+		result[0][1],  
+		manID,   
+		RORG,   
+		func,   
+		type,   
+		result[0][2], 
+		teachin_mode  );
 
-	node.idx = static_cast<uint32_t>(std::stoul(result[0][0]));
-	node.nodeID = nodeID;
-	node.name = result[0][1];
-	node.manufacturerID = manID;
-	node.RORG = RORG;
-	node.func = func;
-	node.type = type;
-	node.description = result[0][2];
-	node.teachin_mode = teachin_mode;
-
-	m_nodes[nodeID] = node;
 
 	if (teachin_mode != VIRTUAL_NODE)
 		m_last_teachedin_nodeID = nodeID;
@@ -722,6 +724,28 @@ void CEnOceanESP3::Do_Work()
 			sec_counter++;
 			if (sec_counter % 12 == 0) // Each 12 seconds, m_LastHeartbeat is updated
 				m_LastHeartbeat = mytime(nullptr);
+
+			testParsingData( sec_counter);
+
+			if ( (sec_counter % 5 == 0) &&  (isOpen() ) )
+            {
+                uint8_t cmd;
+
+	            // Request BASE_ID
+	            if ( m_id_base == 0) {
+	                cmd = CO_RD_IDBASE;
+	                Debug(DEBUG_HARDWARE, "Request base ID");
+	                SendESP3PacketQueued(PACKET_COMMON_COMMAND, &cmd, 1, nullptr, 0);
+                }	            // Request base version
+	            if (m_id_chip == 0 )
+                {
+                cmd = CO_RD_VERSION;
+	            Debug(DEBUG_HARDWARE, "Request base version");
+	            SendESP3PacketQueued(PACKET_COMMON_COMMAND, &cmd, 1, nullptr, 0);
+                }
+	            
+            }
+				
 		}
 		if (!isOpen())
 		{ // ESP3 controller is not open
@@ -1754,9 +1778,10 @@ bool CEnOceanESP3::OpenSerialDevice()
 
 	EnableLearnMode(1);
 
-	for (const auto &itt : ESP3TestsCases)
+	for (const auto &itt : ESP3TestsCases){
+        //updateCrc((uint8_t * )itt.data(),itt.size());
 		ReadCallback((const char *)itt.data(), itt.size());
-
+    }
 	Debug(DEBUG_NORM, "------------ ESP3 tests end -----------------------------");
 #endif
 
@@ -1768,11 +1793,17 @@ bool CEnOceanESP3::OpenSerialDevice()
 	Debug(DEBUG_HARDWARE, "Request base ID");
 	SendESP3PacketQueued(PACKET_COMMON_COMMAND, &cmd, 1, nullptr, 0);
 
+    sleep_milliseconds(100);
 	// Request base version
 	m_id_chip = 0;
 	cmd = CO_RD_VERSION;
 	Debug(DEBUG_HARDWARE, "Request base version");
 	SendESP3PacketQueued(PACKET_COMMON_COMMAND, &cmd, 1, nullptr, 0);
+    sleep_milliseconds(100);
+	//setRepeaterLevelOn();
+    sleep_milliseconds(100);
+	getRepeaterLevel();
+    sleep_milliseconds(100);
 
 	return true;
 }
@@ -2155,7 +2186,7 @@ bool CEnOceanESP3::WriteToHardware(const char *pdata, const unsigned char length
 		}
 		uint8_t cmnd = xcmd->cmnd;
 		uint8_t CHN = xcmd->unitcode - 1;
-		uint8_t POS = (cmnd == gswitch_sOpen) ? 0 : ((cmnd == gswitch_sClose) ? 100 : 100 - xcmd->level);	
+		uint8_t POS = (cmnd == gswitch_sOpen) ? 0 : ((cmnd == gswitch_sClose) ? 100 : 100 - xcmd->level);//getPositionFromCommandLevel ??
 		
 		if (POS == m_last_blind_position)
 			cmnd = gswitch_sStop;
@@ -2323,6 +2354,7 @@ void CEnOceanESP3::ParseESP3Packet(uint8_t packettype, uint8_t *data, uint16_t d
 		{
 			uint8_t return_code = data[0];
 
+			this->parsePACKET_RESPONSE(data,datalen);
 			if (return_code != RET_OK)
 			{
 				Log(LOG_ERROR, "HwdID %d, received error response %s", m_HwdID, GetReturnCodeLabel(return_code));
@@ -2373,6 +2405,10 @@ void CEnOceanESP3::ParseESP3Packet(uint8_t packettype, uint8_t *data, uint16_t d
 			ParseERP1Packet(data, datalen, optdata, optdatalen);
 			return;
 
+		case PACKET_REMOTE_MAN_COMMAND :
+			parse_PACKET_REMOTE_MAN_COMMAND(data, datalen,  optdatalen);
+			return;
+			
 		default:
 			Log(LOG_ERROR, "HwdID %d, ESP3 Packet Type not supported (%s)", m_HwdID, GetPacketTypeLabel(packettype));
 	}
@@ -3591,16 +3627,16 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 				uint8_t node_func = data[6];
 				uint8_t node_RORG = data[7];
 
-				Log(LOG_NORM, "UTE %s-directional %s request from Node %08X, %sresponse expected",
+				Log(LOG_NORM, "UTE %s-directional %s request from Node %08X, nb_channels %u, %sresponse expected",
 					(ute_direction == 0) ? "uni" : "bi",
 					(ute_request == 0) ? "teach-in" : ((ute_request == 1) ? "teach-out" : "teach-in or teach-out"),
-					senderID,
-					(ute_response == 0) ? "" : "no ");
+					senderID, num_channel,
+					(ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED) ? "" : "no ");
 
 				uint8_t buf[13];
 				uint8_t optbuf[7];
 
-				if (ute_response == 0)
+				if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED )
 				{ // Prepare response buffer
 					// The device intended to be taught-in broadcasts a query message
 					// and gets back an addresses response message, containing its own ID as the transmission target address
@@ -3626,32 +3662,33 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					optbuf[5] = 0xFF; // RSSI : Send = 0xFF
 					optbuf[6] = 0x00; // Seurity Level : Send = ignored
 				}
-				if (pNode == nullptr)
+//				if (pNode == nullptr)
+                if(!NodeIsAlreadyTeachedIn(senderID))
 				{ // Node not found
 					if (ute_request == 1)
 					{ // Node not found and teach-out request => ignore
 						Log(LOG_NORM, "Unknown Node %08X, teach-out request ignored", senderID);
 
-						if (ute_response == 0)
+						if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 						{ // Build and send response
 							buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
 							Debug(DEBUG_NORM, "Send UTE teach-out refused response");
-
-							SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+							//not work with nodon switch : wait learn timeout from equipement
+							//SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 						}
 						return;
 					}
 					if (!m_sql.m_bAcceptNewHardware)
 					{ // Node not found and learn mode disabled => error
 						Log(LOG_NORM, "Unknown Node %08X, please allow accepting new hardware and proceed to teach-in", senderID);
-						if (ute_response == 0)
+						if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 						{ // Build and send response
 							buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
 							Debug(DEBUG_NORM, "Send UTE teach-in refused response");
-
-							SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+							//not work with nodon switch : wait learn timeout from equipement
+							//SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 						}
 						return;
 					}
@@ -3675,7 +3712,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						Log(LOG_ERROR, "UTE teach-in: problem retrieving Node %08X in database?!?!", senderID);
 						return;
 					}
-					if (ute_response == 0)
+					if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 					{ // Build and send response
 						buf[1] |= (TEACHIN_ACCEPTED & 0x03) << 4;
 
@@ -3779,8 +3816,9 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
 						Debug(DEBUG_NORM, "Send UTE teach-out refused response");
+							//not work with nodon switch : wait learn timeout from equipement
 
-						SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+						//SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 					}
 				}
 			}
@@ -3788,7 +3826,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 
 		case RORG_VLD:
 			{ // VLD telegram, D2-XX-XX, Variable Length Data
-				if (pNode == nullptr)
+                if(!NodeIsAlreadyTeachedIn(senderID))
+//				if (pNode == nullptr)
 				{
 					Log(LOG_NORM, "VLD msg: Unknown Node %08X, please proceed to teach-in", senderID);
 					return;
@@ -4035,6 +4074,9 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 				Log(LOG_ERROR, "VLD msg: Node %08X (%s) EEP %02X-%02X-%02X not supported",
 					senderID, pNode->name.c_str(), pNode->RORG, pNode->func, pNode->type);
 			}
+			return;
+		case RORG_MSC:
+            parse_PACKET_MAN_SPECIFIC_COMMAND(data, datalen,  optdatalen);
 			return;
 
 		default:
@@ -4437,7 +4479,7 @@ void CEnOceanESP3::sendVld(unsigned int sID, unsigned int destID, unsigned char 
  * sendVld(nodeID, D2050X_CMD2, 0, 2, END_ARG_DATA);
  *   send a Stop command to destID channel 0
  */
-uint32_t CEnOceanESP3::sendVld(unsigned int srcID, unsigned int destID, T_DATAFIELD *OffsetDes, ...)
+uint32_t CEnOceanESP3::sendVld(unsigned int srcID, unsigned int destID, enocean::T_DATAFIELD *OffsetDes, ...)
 {
 	uint8_t data[256 + 2];
 	va_list value;
@@ -4458,6 +4500,32 @@ uint32_t CEnOceanESP3::sendVld(unsigned int srcID, unsigned int destID, T_DATAFI
 	return DataSize;
 }
 
+bool CEnOceanESP3::updateSwitchType(int HardwareID, const char *deviceID, _eSwitchType SwitchType)
+{
+	std::vector<std::vector<std::string>> result;
+
+	result = m_sql.safe_query("SELECT ID FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q')", HardwareID, deviceID);
+	if (!result.empty())
+	{
+		m_sql.safe_query("UPDATE DeviceStatus SET SwitchType=%d WHERE (ID=='%q')", SwitchType, result[0][0].c_str());
+		return false;
+	}
+	return true;
+}
+
+
+//return position 0..100% from command / level
+int CEnOceanESP3::getPositionFromCommandLevel(int cmnd, int pos)
+{
+	if (cmnd == light2_sOn)
+		pos = 100;
+	else if (cmnd == light2_sOff)
+		pos = 0;
+	else
+		pos = pos * 100 / 15;
+
+	return pos;
+}
 // Webserver helpers
 
 namespace http
@@ -4704,3 +4772,4 @@ namespace http
 		}
 	} // namespace server
 } // namespace http
+#include "EnOceanESP3New.cpp"

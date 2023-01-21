@@ -9,6 +9,7 @@ define([
     'hardware/setup/WakeOnLan',
     'hardware/setup/MQTT-AD',
     'hardware/setup/ZWave',
+    'hardware/setup/EnOcean',
 ], function (app) {
     app.controller('HardwareSetupController', function ($routeParams, domoticzApi) {
         var vm = this;
