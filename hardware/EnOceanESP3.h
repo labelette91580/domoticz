@@ -90,7 +90,7 @@ private:
 	uint32_t m_retrycntr;
 	std::shared_ptr<std::thread> m_thread;
 
-	enocean::T_NODES m_nodes;
+//	enocean::T_NODES m_nodes;
 
 	uint8_t m_buffer[ESP3_PACKET_BUFFER_SIZE];
 	uint32_t m_bufferpos;
