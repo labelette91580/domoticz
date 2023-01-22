@@ -234,7 +234,7 @@ namespace http {
 			root["message"] = "Communication Timeout";
 //			Log(LOG_ERROR, "EnOcean: Server Error: %s  cmd:%s Hwid:%s arg:%s  Entry=%s", root["message"].asString().c_str(), cmd.c_str(), hwid.c_str(), arg.c_str(), request::findValue(&req, "entry").c_str());
 			pEnocean->Log(LOG_ERROR, "Server Error: %s  cmd:%s ", root["message"].asString().c_str(), root["cmd"].asString().c_str());
-			pEnocean->setCommStatus(COM_OK);
+//			pEnocean->setCommStatus(COM_OK);
 		}
 		}
 
@@ -407,6 +407,8 @@ namespace http {
 				for ( int i = 0; i < nbSelectedDevice; i++) {
 					deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
                     pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+					if (!pEnocean->isCommStatusOk())
+						break;
 					pEnocean->queryStatus(DeviceIdStringToUInt(deviceId));
                     root["message"] = pEnocean->waitRemote_man_answer(QUERY_STATUS_ANSWER, RMCC_ACK_TIMEOUT).message;
 				}
@@ -937,7 +939,7 @@ namespace http {
 			if (pfunction != EnOcean_webcommands.end())
 			{
 				pfunction->second(session, req, root,  nbSelectedDevice ,  iHardwareID, pEnocean);
-		        pEnocean->setCommStatus(COM_OK);
+//		        pEnocean->setCommStatus(COM_OK);
 			}
             return;
 		}

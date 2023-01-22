@@ -1312,9 +1312,12 @@ void CEnOceanRMCC::clearRemote_man_answer()
 T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int timeout)
 {
 //	clearRemote_man_answer();
+	std::string logStr;
 	T_RMCC_RESULT remote_man_answer;
-    Log(LOG_NORM, "Wait: Waiting ,%02X:%s ",premote_man_answer, RMCC_Cmd_Desc(premote_man_answer) );
-    remote_man_answer.function=0;
+//    Log(LOG_NORM, "Wait: Waiting ,%02X:%s ",premote_man_answer, RMCC_Cmd_Desc(premote_man_answer) );
+    logStr = std_format ( "Wait: %02X:%s / ",premote_man_answer, RMCC_Cmd_Desc(premote_man_answer) );
+
+	remote_man_answer.function=0;
 	setCommStatus(COM_OK);
 	timeout *= 10;
     sleep_milliseconds(100);
@@ -1323,8 +1326,10 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int ti
         if (getRemote_man_answer_queue_size() > 0 )
         {
             remote_man_answer = getRemote_man_answer();
-            Log(LOG_NORM, "Wait: Reading ,%02X:%s ,%d Time:%d ms",remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function),getRemote_man_answer_queue_size(), timeout*100);
-        }
+//            Log(LOG_NORM, "Wait: Reading ,%02X:%s ,%d Time:%d ms",remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function),getRemote_man_answer_queue_size(), timeout*100);
+			if (remote_man_answer.function != 0xFF )
+				logStr += std_format ("Read: %02X:%s ,%d Time:%d ms",remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function),getRemote_man_answer_queue_size(), timeout*100);
+		}
         else
         {
 		    sleep_milliseconds(100);
@@ -1334,10 +1339,13 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int ti
 	}
     if( (remote_man_answer.function==0) || (timeout == 0) ) {
 		setCommStatus(COM_TIMEOUT);
-		Log(LOG_NORM, "Wait: TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
+//		Log(LOG_NORM, "Wait: TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
+		logStr += std_format (": TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
 	}
     else
-        Log(LOG_NORM, "Wait: Recving OK " );
+//        Log(LOG_NORM, "Wait: Recving OK " );
+        logStr += std_format(": Recving OK " );
+		Log(LOG_NORM, logStr.c_str());
 
 
 	return remote_man_answer;
