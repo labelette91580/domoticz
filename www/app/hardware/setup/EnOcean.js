@@ -13,7 +13,7 @@ define(['app'], function (app) {
 		
 		const confirmAction          = ['Delete', 'DeleteEntrys'];
 		const refreshLinkTableAction = ['GetLinkTable', 'Link','DeleteEntrys'];
-		const refreshNodeTableAction = ['Delete', 'GetProductId','LearnIn','ClearTeachInStatus'];
+		const refreshNodeTableAction = ['Delete', 'GetProductId', 'LearnIn', 'ClearTeachInStatus'];
 
 		getNodeName = function (node) {
 			return node ? node.nodeName : '';
@@ -34,44 +34,64 @@ define(['app'], function (app) {
 		    var data = oTable.fnGetData(anSelected[0]);
 		    EnOceanDeviceSendDialogOpen($.hwid, data[5], data[0], data[7]);
 		}
-		EnOceanSendCmd = function(cmd,payload)
-		{
-		    $.ajax({
-		        //		        type: 'POST',
-		        url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=" + cmd,
-		        data: payload,
-		        async: false,
-		        dataType: 'json',
-		        success: function (data) {
-		            if (data.status == "ERR"){
-		                ShowNotify($.t('Error function '+cmd + ' : ' + data.message ) , 2500, true);
+
+		function ShowWaiting(txt, iserror) {
+				$("#notification").html('<p>' + txt + '</p>');
+
+				if (typeof iserror != 'undefined') {
+					$("#notification").css("background-color", "red");
+				} else {
+					$("#notification").css("background-color", "#204060");
+				}
+				$("#notification").center();
+				$("#notification").show();
+	}
+
+	function HideWaiting() {
+		$("#notification").hide();
+	}
+
+		EnOceanSendCmd = function (cmd, payload) {
+			$.ajax({
+				beforeSend: function () {
+					ShowWaiting($.t('Waiting response ' + cmd), true);
+				},
+				//		        type: 'POST',
+				url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=" + cmd,
+				data: payload,
+				async: true,
+				dataType: 'json',
+				success: function (data) {
+					HideNotify();
+					if (data.status == "ERR") {
+						ShowNotify($.t('Error function ' + cmd + ' : ' + data.message), 2500, true);
 						refreshStatus($.deviceIdSelected[0], "failed");
-						}
-					else
-		            if (data.message != "Undefined")
-					{
-						bootbox.confirm(data.message ,	function (result) {	});
-						refreshStatus($.deviceIdSelected[0], "ok");
-		            }
-					else if (data.status == "OK"){
-		                ShowNotify($.t('Function '+cmd + ' =  OK '  ), 2500, true);
-		                //bootbox.alert($.t('Function '+cmd + ' =  OK '  ));
-						refreshStatus($.deviceIdSelected[0], "ok");
 					}
-					if ( refreshLinkTableAction.includes(cmd) )
+					else
+						if (data.message != "Undefined") {
+							bootbox.confirm(data.message, function (result) { });
+							refreshStatus($.deviceIdSelected[0], "ok");
+						}
+						else if (data.status == "OK") {
+							ShowNotify($.t('Function ' + cmd + ' =  OK '), 2500, true);
+							//bootbox.alert($.t('Function '+cmd + ' =  OK '  ));
+							refreshStatus($.deviceIdSelected[0], "ok");
+						}
+					if (refreshLinkTableAction.includes(cmd))
 						refreshLinkTable($.deviceIdSelected[0]);
 
-					if (refreshNodeTableAction.includes(cmd) )
+					if (refreshNodeTableAction.includes(cmd))
 						RefreshOpenEnOceanNodeTable();
 
-		            if (typeof data.result != 'undefined') {
+					if (typeof data.result != 'undefined') {
 
-		            }
-		        },
-		        error: function (response) {
-		        }
-		    });
-		
+					}
+				},
+				error: function (response) {
+					HideNotify();
+					ShowNotify($.t('Error waiting function ' + cmd), 2500, true);
+				}
+			});
 		}
 
 		EnOceanConfirmAndSendCmd = function(cmd,payload)
