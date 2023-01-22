@@ -32,7 +32,7 @@
 
 
 
-///---------------------------------------------------------------------------
+///---------------------nodes ------------------------------------------------------
 void  CEnOceanESP3::DelNodeInfo(const uint32_t nodeID)
 {
 	// Erase the element pointed by iterator it
@@ -60,6 +60,7 @@ bool  CEnOceanESP3::NodeIsAlreadyTeachedIn(const uint32_t nodeID )
 return GetNodeTeachInStatus(  nodeID ) != 0 ;
 }
 
+///--- db 
 void CEnOceanESP3::GetDbValue(const char * tableName ,  const char * fieldName , const char * whereFieldName , const char * whereFieldValue , uint32_t &Value )
 {
     std::string result;
@@ -446,7 +447,7 @@ namespace http {
 					std::string entry;
 					entry = getLinkEntry(req, entryNb);
 
-                    T_LINK_TABLE* lEntry = pEnocean->Sensors.getLinkEntry(DeviceId,std::stoi(entry,0,0));
+                    T_LINK_TABLE* lEntry = pEnocean->m_nodes.getLinkEntry(DeviceId,std::stoi(entry,0,0));
                     //if entry is equal to chip id , delete the teach in status = teachout
                     if(lEntry->SenderId == pEnocean->m_id_chip)
                         pEnocean->SetTeachInStatus(DeviceId,0);
@@ -457,7 +458,7 @@ namespace http {
 						pEnocean->setLinkEntryTable(DeviceId, std::stoi(entry,0,0),0,0,0 ) ;
                         pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);	
                         if(pEnocean->isCommStatusOk())
-                            pEnocean->Sensors.deleteLinkTableEntry(DeviceId,std::stoi(entry,0,0));
+                            pEnocean->m_nodes.deleteLinkTableEntry(DeviceId,std::stoi(entry,0,0));
 						entryNb++;
 						entry = getLinkEntry(req, entryNb);
 
@@ -496,16 +497,16 @@ namespace http {
 				int deviceId1   = DeviceIdStringToUInt( getDeviceId(req, 0) );
 				int deviceId2   = DeviceIdStringToUInt( getDeviceId(req, 1) );
 
-                if (pEnocean->Sensors.asLinkTable(deviceId1) )
+                if (pEnocean->m_nodes.asLinkTable(deviceId1) )
 					pEnocean->getLinkTable(deviceId1);
                 if (!pEnocean->isCommStatusOk())   {checkComStatus(pEnocean, root);  return;  }
 
-                if (pEnocean->Sensors.asLinkTable(deviceId2) )
+                if (pEnocean->m_nodes.asLinkTable(deviceId2) )
 					pEnocean->getLinkTable(deviceId2);
                 if (!pEnocean->isCommStatusOk())   {checkComStatus(pEnocean, root);  return;  }
 
-                int LinkSize1   = pEnocean->Sensors.getTableLinkMaxSize(deviceId1);
-				int LinkSize2   = pEnocean->Sensors.getTableLinkMaxSize(deviceId2);
+                int LinkSize1   = pEnocean->m_nodes.getTableLinkMaxSize(deviceId1);
+				int LinkSize2   = pEnocean->m_nodes.getTableLinkMaxSize(deviceId2);
 				int deviceIdSender, deviceIdReceiver, receiverChannel, senderChannel;
 				if ((LinkSize1 == 0) && (LinkSize2 != 0))
 				{
@@ -527,18 +528,18 @@ namespace http {
 					root["message"] = "Could not link devices"; return;
 				}
 				//get empty entry in receiver
-				int emptyEntry = pEnocean->Sensors.FindEmptyEntry(deviceIdReceiver);
+				int emptyEntry = pEnocean->m_nodes.FindEmptyEntry(deviceIdReceiver);
 				if (emptyEntry<0)
 				{
 					root["message"] = "Link table full or device not found "; return;
 				}
                 else
                 {
-				    int senderEEP = pEnocean->Sensors.getEEP(deviceIdSender);
+				    int senderEEP = pEnocean->m_nodes.getEEP(deviceIdSender);
                     pEnocean->setLinkEntryTable(deviceIdReceiver, emptyEntry, deviceIdSender, senderEEP , receiverChannel-1);
                     pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);	
                     if(pEnocean->isCommStatusOk()){
-                        pEnocean->Sensors.addLinkTableEntry(deviceIdReceiver,emptyEntry,senderEEP,deviceIdSender,receiverChannel-1);				    
+                        pEnocean->m_nodes.addLinkTableEntry(deviceIdReceiver,emptyEntry,senderEEP,deviceIdSender,receiverChannel-1);				    
                         pEnocean->Log(LOG_NORM, "Link receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
                     }
                     else
@@ -1565,7 +1566,7 @@ void CEnOceanESP3::parse_PACKET_MAN_SPECIFIC_COMMAND( unsigned char data[] , int
 void CEnOceanESP3::DeleteSensor(uint32_t sensorId)
 {
 		m_sql.safe_exec_no_return("DELETE FROM EnOceanNodes WHERE (NodeID == %d )", sensorId );
-        _log.Debug(DEBUG_NORM, "Enocean: Delete Sensors  ID: %s", GetEnOceanIDToString(sensorId).c_str());
+        Debug(DEBUG_NORM, "Enocean: Delete Sensors  ID: %s", GetEnOceanIDToString(sensorId).c_str());
         LoadNodesFromDatabase();
 }
 
@@ -1602,9 +1603,8 @@ uint32_t CEnOceanESP3::sendDataVld(unsigned int srcID, unsigned int destID, enoc
 
 	return DataSize;
 }
-void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manID,
-	const uint8_t RORG, const uint8_t func, const uint8_t type,
-	const TeachinMode teachin_mode)
+
+void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manID,const uint8_t RORG, const uint8_t func, const uint8_t type,const TeachinMode teachin_mode)
 {
     if(GetNodeInfo(nodeID)==nullptr)
     {

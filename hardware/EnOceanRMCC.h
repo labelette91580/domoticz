@@ -110,9 +110,6 @@ class CEnOceanRMCC : public AsyncSerial, public CDomoticzHardwareBase, public CE
 
 public:
 	int m_Seq;
-	//remote management
-	//remote management function reception 
-	int remote_man_answer;
 
 	T_COM_STATUS m_com_status;
 
@@ -121,15 +118,11 @@ public:
 	//Remote Mannagement Control Command reception Queue
 	std::vector<T_RMCC_RESULT> m_RMCC_queue;
 
-	T_NODES Sensors;
-
-
+	T_NODES m_nodes;
 
     void extractEEP(unsigned char eep[], int* Rorg, int* Func, int* Type);
 
     CEnOceanRMCC();
-
-	
 
 	void setRorg(unsigned char * buff, int idx=0);
 
@@ -213,9 +206,9 @@ public:
 
     bool unlockDevice(unsigned int deviceId);
 	
-    	virtual void SendESP3PacketQueued(unsigned char frametype, unsigned char *databuf, unsigned short datalen, unsigned char *optdata, unsigned char optdatalen) { return ; };
-        virtual void TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manID, const uint8_t RORG, const uint8_t func, const uint8_t type, const TeachinMode teachin_mode){};
-        virtual std::string GetDbEnOceanValue(uint32_t DeviceId, const char* fieldName){return "";};
+	virtual void SendESP3PacketQueued(unsigned char frametype, unsigned char *databuf, unsigned short datalen, unsigned char *optdata, unsigned char optdatalen) { return ; };
+	virtual void TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manID, const uint8_t RORG, const uint8_t func, const uint8_t type, const TeachinMode teachin_mode){};
+	virtual std::string GetDbEnOceanValue(uint32_t DeviceId, const char* fieldName){return "";};
 
     virtual void GetDbEnOceanValue(uint32_t DeviceId, const char* fieldName, uint32_t& Value){};
 
