@@ -230,7 +230,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND( unsigned char m_buffer[] , i
 		snprintf(message,sizeof(message), "RMC : Get Link table medatadata Answer SenderId: %08X Size:%d Max:%d ", senderId, currentSize, maxSize);
 		messageStr = message;
         Log(LOG_NORM, message );
-		Sensors.setLinkTableMedadata(senderId, currentSize, maxSize);
+		m_nodes.setLinkTableMedadata(senderId, currentSize, maxSize);
 		//if no link content , delete internal base Adresse
 /*		if (currentSize == 0)
 			if (SensorExist(senderId))
@@ -262,13 +262,13 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND( unsigned char m_buffer[] , i
 			uint32_t entryProfile = DeviceArrayToInt(&m_buffer[10 + i * 9]);
 			int  channel = m_buffer[13 + i * 9];
 			entryProfile /= 256;
-			Sensors.addLinkTableEntry(senderId, offs, entryProfile, entryId, channel);
+			m_nodes.addLinkTableEntry(senderId, offs, entryProfile, entryId, channel);
 			snprintf(message,sizeof(message), "RMC : ADD Link table Entry SenderId: %08X  entry %02d EntryId: %08X Profile %06X Channel:%d", senderId, offs, entryId, entryProfile, channel);
 			messageStr = message;
             Log(LOG_NORM, message );
 
 		}
-		Sensors.printTableLink();
+		m_nodes.printTableLink();
 	}
 	//query function
 	else if (fct == QUERY_FUNCTION_ANSWER)
@@ -875,16 +875,16 @@ void CEnOceanRMCC::getLinkTable( uint32_t DeviceId)
 	getLinkTableMedadata(DeviceId);
     if (!isCommStatusOk())
         return;
-	int TableSize = Sensors.getTableLinkCurrentSize(DeviceId);
+	int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
 	int begin = 0;
 	if (TableSize)
-		while (TableSize > Sensors.getTableLinkValidSensorIdSize(DeviceId))
+		while (TableSize > m_nodes.getTableLinkValidSensorIdSize(DeviceId))
 		{
 			getallLinkTable(DeviceId, begin, begin + 2);
 			begin += 3;
             if (!isCommStatusOk())
                     return;
-            if(begin> Sensors.getTableLinkMaxSize(DeviceId) )
+            if(begin> m_nodes.getTableLinkMaxSize(DeviceId) )
                 return;
 		}
 }
@@ -1215,7 +1215,7 @@ addLinkTableEntry(0x1a65428, 0, 0xD0500, 0xABCDEF, 1);
 	addLinkTableEntry(0x1a65428, 2, 0xD0500, 0x1234567, 1);
 	addLinkTableEntry(0x1a65428, 3, 0xD0500, 0x2345678, 1);
 */
-	NodeInfo* sensors = Sensors.find(DeviceId);
+	NodeInfo* sensors = m_nodes.find(DeviceId);
 
 	if (sensors) {
 		//read link table if not readed
