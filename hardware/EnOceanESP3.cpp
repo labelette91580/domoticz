@@ -725,7 +725,8 @@ void CEnOceanESP3::Do_Work()
 			if (sec_counter % 12 == 0) // Each 12 seconds, m_LastHeartbeat is updated
 				m_LastHeartbeat = mytime(nullptr);
 
-			testParsingData( sec_counter);
+//			void testParsingData( int sec_counter);
+//			testParsingData( sec_counter);
 
 			if ( (sec_counter % 5 == 0) &&  (isOpen() ) )
             {
