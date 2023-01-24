@@ -2,12 +2,6 @@
         uint32_t sendDataVld(unsigned int unitBaseAddr, unsigned int destID, enocean::T_DATAFIELD *OffsetDes, int *values, int NbValues);
 	int getPositionFromCommandLevel(int cmnd, int pos);
 	//new
-    class T_DATAFIELD;
-	void TestData(enocean::ESP3_RORG_TYPE rorg, unsigned int sID, unsigned char status, enocean::T_DATAFIELD * OffsetDes, ...);
-	void TestData(char * sdata, uint8_t pType = 1 , const char * optData="");
-	void testParsingData(int sec_counter);
-
-    void dumpPacket(uint8_t* data, uint16_t datalen);
 
     void parse_PACKET_MAN_SPECIFIC_COMMAND(unsigned char m_buffer[], int m_DataSize, int m_OptionalDataSize);
 
@@ -15,8 +9,6 @@
 
 public : 
     void DeleteSensor(uint32_t sensorId);
-
-    void updateCrc(uint8_t* buffer, int len);
 
 	void setRepeaterLevelOn();
 
