@@ -3999,6 +3999,12 @@ namespace http
 					m_sql.CheckBatteryLow();
 				cntSettings++;
 
+				//update AllowDeviceReplaceOnBatteryChanged
+				std::string AllowDeviceReplaceOnBatteryChanged = request::findValue(&req, "AllowDeviceReplaceOnBatteryChanged");
+				int iAllowDeviceReplaceOnBatteryChanged = (AllowDeviceReplaceOnBatteryChanged == "on" ? 1 : 0);
+				m_sql.UpdatePreferencesVar("AllowDeviceReplaceOnBatteryChanged", iAllowDeviceReplaceOnBatteryChanged);
+				cntSettings++;
+
 				/* Update the Theme */
 
 				std::string SelectedTheme = request::findValue(&req, "Themes");
@@ -6780,6 +6786,10 @@ namespace http
 				else if (Key == "IFTTTEnabled")
 				{
 					root["IFTTTEnabled"] = nValue;
+				}
+				else if (Key == "AllowDeviceReplaceOnBatteryChanged")
+				{
+					root["AllowDeviceReplaceOnBatteryChanged"] = nValue;
 				}
 				else if (Key == "IFTTTAPI")
 				{
