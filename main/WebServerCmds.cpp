@@ -2729,6 +2729,12 @@ namespace http
 				m_pWebEm->SetWebTheme(SelectedTheme);
 				cntSettings++;
 
+				//update AllowDeviceReplaceOnBatteryChanged
+				std::string AllowDeviceReplaceOnBatteryChanged = request::findValue(&req, "AllowDeviceReplaceOnBatteryChanged");
+				int iAllowDeviceReplaceOnBatteryChanged = (AllowDeviceReplaceOnBatteryChanged == "on" ? 1 : 0);
+				m_sql.UpdatePreferencesVar("AllowDeviceReplaceOnBatteryChanged", iAllowDeviceReplaceOnBatteryChanged);
+				cntSettings++;
+
 				//Update the Max kWh value
 				rnvalue = 6000;
 				if (m_sql.GetPreferencesVar("MaxElectricPower", rnvalue))
@@ -4926,6 +4932,11 @@ namespace http
 				{
 					root["IFTTTAPI"] = sValue;
 				}
+				else if (Key == "AllowDeviceReplaceOnBatteryChanged")
+				{
+					root["AllowDeviceReplaceOnBatteryChanged"] = nValue;
+				}
+
 			}
 		}
 
