@@ -241,8 +241,6 @@ namespace http {
         #define WEB_CMD_ARG   WebEmSession &session, const request &req, Json::Value &root, int nbSelectedDevice , int iHardwareID ,CEnOceanESP3 *pEnocean
 	    typedef std::function<void( WEB_CMD_ARG )> EnOcean_web_function;
 
-        std::map < std::string, EnOcean_web_function > EnOcean_webcommands;
-
         typedef struct {
             char*  name ;
             EnOcean_web_function fct ;
@@ -846,7 +844,7 @@ namespace http {
 			}
 //------------------------
 
-        enocean_web_cmd_t enocean_web_cmds[] ={
+        std::map < std::string, EnOcean_web_function > EnOcean_webcommands ={
 {			"GetNodeList"                     ,			GetNodeList                },  
 {			"SendCode"                        ,			SendCode                   },  
 {			"Lock"                            ,			Lock                       },  
@@ -882,27 +880,11 @@ namespace http {
 {			"GetLinkConfig"                   ,			GetLinkConfig              },  
 {			"SetLinkConfig"                   ,			SetLinkConfig              },  
 {			"CreateSensor"                    ,			CreateSensor               },  
-{			"ClearTeachInStatus"              ,			ClearTeachInStatus         },           
-            {0,0}
+{			"ClearTeachInStatus"              ,			ClearTeachInStatus         }
         };
-
-        void EnOceanRegisterCommandFunction(const char *idname, const EnOcean_web_function &ResponseFunction)
-	    {
-		    EnOcean_webcommands.insert(std::pair<std::string, EnOcean_web_function>(std::string(idname), ResponseFunction));
-	    }
-
-        void EnOceanWebInit()
-        {
-            int i=-1;
-            while(enocean_web_cmds[++i].fct != 0 )
-		        EnOceanRegisterCommandFunction(enocean_web_cmds[i].name,enocean_web_cmds[i].fct );
-        }
 
         void CWebServer::RType_OpenEnOcean(WebEmSession & session, const request& req, Json::Value &root)
 		{
-            if(EnOcean_webcommands.size() == 0)
-                EnOceanWebInit();
-
 			root["status"]  = "ERR";
 			root["title"]   = "teachin";
 			root["message"] = "Undefined";
