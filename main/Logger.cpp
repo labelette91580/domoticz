@@ -263,6 +263,8 @@ void CLogger::Log(const _eLogLevel level, const char *logline, ...)
 	va_start(argList, logline);
 	vsnprintf(cbuffer, sizeof(cbuffer), logline, argList);
 	va_end(argList);
+	if (CheckIfMessageIsFiltered(cbuffer))
+		return;
 
 #ifndef WIN32
 	if (g_bUseSyslog)
@@ -516,4 +518,81 @@ std::list<CLogger::_tLogLineStruct> CLogger::GetNotificationLogs()
 bool CLogger::NotificationLogsEnabled()
 {
 	return m_bEnableErrorsToNotificationSystem;
+}
+void CLogger::SetFilter(const std::string  &Filter)
+{
+	std::vector<std::string> FilterList;
+	std::string  pFilter = Filter;
+	FilterStringList.clear();
+	Filter2StringList.clear();
+	KeepStringList.clear();
+	stdreplace(pFilter,"$$"," ");
+	_log.Debug(DEBUG_NORM, "debugfilter:%s", pFilter.c_str());
+	StringSplit(pFilter, ",", FilterList);
+	for (size_t i = 0; i < FilterList.size(); i++)
+	{
+		if (FilterList[i][0] == '+')
+			KeepStringList.push_back(std::regex(FilterList[i].substr(1)));
+		else if (FilterList[i][0] == '-')
+			Filter2StringList.push_back(std::regex(FilterList[i].substr(1)));
+		else
+			FilterStringList.push_back(std::regex(FilterList[i]));
+	}
+}
+
+//return true if the log shall be filtered
+//
+bool CLogger::CheckIfMessageIsFiltered(const char *cbuffer)
+{
+	std::string mlog = std::string(cbuffer);
+	return CheckIfMessageIsFiltered(mlog);
+}
+bool CLogger::CheckIfMessageIsFiltered(const std::string& mlog)
+{
+	bool filtered = false; //default not filtered
+
+	//search if the log shall be filter
+	for (size_t i = 0; i < FilterStringList.size(); i++)
+	{
+		std::smatch m; 
+		std::regex_search(mlog, m, FilterStringList[i]); 
+		//if (strstr(cbuffer, FilterStringList[i].c_str()) != 0)
+		if (m.size())
+		{
+			filtered = true;
+			break;
+		}
+	}
+	//if the log as been filtered , search if it shall be kept
+	if (filtered)
+	{
+		for (size_t i = 0; i < KeepStringList.size(); i++)
+		{
+//			if (strstr(cbuffer, KeepStringList[i].c_str()) != 0)
+			std::smatch m; 
+		    std::regex_search(mlog, m, KeepStringList[i]); 
+			if (m.size())
+			{
+				filtered = false;
+				break;
+			}
+		}
+	}
+	//if not filter after keep
+	if (!filtered)
+	{
+		for (size_t i = 0; i < Filter2StringList.size(); i++)
+		{
+			std::smatch m; 
+			std::regex_search(mlog, m, Filter2StringList[i]); 
+			if (m.size())
+			{
+				filtered = true;
+				break;
+			}
+		}
+	}
+
+
+	return filtered;
 }
