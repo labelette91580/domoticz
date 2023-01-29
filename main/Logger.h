@@ -56,6 +56,7 @@ class CLogger
 	bool SetDebugFlags(const std::string &sFlags);
 	void SetDebugFlags(const uint32_t iFlags);
 	bool IsDebugLevelEnabled(const _eDebugLevel level);
+	bool IsDebugLevelEnabled(const std::string& level);
 
 	void SetACLFlogFlags(const uint8_t iFlags);
 	bool IsACLFlogEnabled();
@@ -76,6 +77,7 @@ class CLogger
 		__attribute__((format(printf, 3, 4)))
 #endif
 		;
+	void Debug(const std::string& level, const char* logline, ...);
 	void ACLFlog(const char *logline, ...)
 #ifdef __GNUC__
 		__attribute__((format(printf, 2, 3)))
@@ -116,5 +118,6 @@ class CLogger
 	bool m_bEnableErrorsToNotificationSystem;
 	time_t m_LastLogNotificationsSend;
 	std::stringstream m_sequencestring;
+	std::string s_debug_flags;
 };
 extern CLogger _log;
