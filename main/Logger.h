@@ -58,6 +58,7 @@ public:
 	bool SetDebugFlags(const std::string& sFlags);
 	void SetDebugFlags(const uint32_t iFlags);
 	bool IsDebugLevelEnabled(const _eDebugLevel level);
+	bool IsDebugLevelEnabled(const std::string& level);
 
 	void SetACLFlogFlags(const uint8_t iFlags);
 	bool IsACLFlogEnabled();
@@ -73,6 +74,7 @@ public:
 
 	void Debug(_eDebugLevel level, const std::string& sLogline);
 	void Debug(_eDebugLevel level, const char* logline, ...)
+	void Debug(const std::string& level, const char* logline, ...);
 #ifdef __GNUC__
 		__attribute__((format(printf, 3, 4)))
 #endif
@@ -104,6 +106,7 @@ private:
 	uint32_t m_debug_flags = 0;
 	uint8_t m_aclf_flags = 0;
 	uint32_t m_aclf_loggedlinescnt = 0;
+	std::string s_debug_flags;
 
 	std::mutex m_mutex;
 	std::ofstream m_outputfile;
