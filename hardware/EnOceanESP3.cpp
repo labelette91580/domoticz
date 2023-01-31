@@ -304,7 +304,17 @@ typedef enum
 	TEACHOUT_ACCEPTED = 2, 	// Request accepted, teach-out successful
 	EEP_NOT_SUPPORTED = 3, 	// Request not accepted, EEP not supported
 } UTE_RESPONSE_CODE;
-
+typedef enum
+{
+	EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED = 0,		
+	NO_EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED = 1,		
+} EEP_TEACH_IN_RESPONSE_MESSAGE;
+typedef enum
+{
+	TEACH_IN_REQUEST = 0,		
+	TEACH_DELETION_REQUEST = 1,		
+	TEACH_IN_OR_DELETION_REQUEST = 2,		
+} TEACH_REQUEST ;
 // UTE Direction response codes
 typedef enum
 {
@@ -3575,8 +3585,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 				// UTE teach-in or teach-out Query (UTE Telegram / CMD 0x0)
 
 				uint8_t ute_direction = bitrange(data[1], 7, 0x01);	// 0 = uni-directional, 1 = bi-directional
-				uint8_t ute_response = bitrange(data[1], 6, 0x01);	// 0 = yes, 1 = no
-				uint8_t ute_request = bitrange(data[1], 4, 0x03); // 0 = teach-in, 1 = teach-out, 2 = teach-in or teach-out
+				EEP_TEACH_IN_RESPONSE_MESSAGE ute_response = (EEP_TEACH_IN_RESPONSE_MESSAGE)bitrange(data[1], 6, 0x01);	// 0 = yes, 1 = no
+				TEACH_REQUEST                 ute_request  = (TEACH_REQUEST)bitrange(data[1], 4, 0x03); // 0 = teach-in, 1 = teach-out, 2 = teach-in or teach-out
 
 				// TODO: is num_channel information reliable ?
 				// EEP 2.6.8 specifies : 0x00..0xFE = individual channel number, 0xFF = all supported channels
@@ -3591,16 +3601,16 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 				uint8_t node_func = data[6];
 				uint8_t node_RORG = data[7];
 
-				Log(LOG_NORM, "UTE %s-directional %s request from Node %08X, %sresponse expected",
+				Log(LOG_NORM, "UTE %s-directional %s request from Node %08X, nb_channels %u, %sresponse expected",
 					(ute_direction == 0) ? "uni" : "bi",
-					(ute_request == 0) ? "teach-in" : ((ute_request == 1) ? "teach-out" : "teach-in or teach-out"),
-					senderID,
-					(ute_response == 0) ? "" : "no ");
+					(ute_request == TEACH_IN_REQUEST) ? "teach-in" : ((ute_request == TEACH_DELETION_REQUEST) ? "teach-out" : "teach-in or teach-out"),
+					senderID, num_channel,
+					(ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED) ? "" : "no ");
 
 				uint8_t buf[13];
 				uint8_t optbuf[7];
 
-				if (ute_response == 0)
+				if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED )
 				{ // Prepare response buffer
 					// The device intended to be taught-in broadcasts a query message
 					// and gets back an addresses response message, containing its own ID as the transmission target address
@@ -3628,11 +3638,11 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 				}
 				if (pNode == nullptr)
 				{ // Node not found
-					if (ute_request == 1)
+					if (ute_request == TEACH_DELETION_REQUEST)
 					{ // Node not found and teach-out request => ignore
 						Log(LOG_NORM, "Unknown Node %08X, teach-out request ignored", senderID);
 
-						if (ute_response == 0)
+						if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 						{ // Build and send response
 							buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
@@ -3645,7 +3655,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					if (!m_sql.m_bAcceptNewHardware)
 					{ // Node not found and learn mode disabled => error
 						Log(LOG_NORM, "Unknown Node %08X, please allow accepting new hardware and proceed to teach-in", senderID);
-						if (ute_response == 0)
+						if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 						{ // Build and send response
 							buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
@@ -3675,7 +3685,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						Log(LOG_ERROR, "UTE teach-in: problem retrieving Node %08X in database?!?!", senderID);
 						return;
 					}
-					if (ute_response == 0)
+					if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 					{ // Build and send response
 						buf[1] |= (TEACHIN_ACCEPTED & 0x03) << 4;
 
@@ -3754,12 +3764,12 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 
 				CheckAndUpdateNodeRORG(pNode, node_RORG);
 
-				if (ute_request == 0)
+				if (ute_request == TEACH_IN_REQUEST)
 				{ // Node found and teach-in request => ignore
 					Log(LOG_NORM, "Node %08X (%s) already known with EEP %02X-%02X-%02X, teach-in request ignored",
 						senderID, pNode->name.c_str(), pNode->RORG, pNode->func, pNode->type);
 
-					if (ute_response == 0)
+					if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 					{ // Build and send response
 						buf[1] |= (TEACHIN_ACCEPTED & 0x03) << 4;
 
@@ -3768,13 +3778,13 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 					}
 				}
-				else if (ute_request == 1 || ute_request == 2)
+				else if (ute_request == TEACH_DELETION_REQUEST || ute_request == TEACH_IN_OR_DELETION_REQUEST)
 				{ // Node found and teach-out request => teach-out
 					// Ignore teach-out request to avoid teach-in/out loop
 					Debug(DEBUG_NORM, "UTE msg: Node %08X (%s), teach-out request not supported",
 						senderID, pNode->name.c_str());
 
-					if (ute_response == 0)
+					if (ute_response == EEP_TEACH_IN_RESPONSE_MESSAGE_EXPECTED)
 					{ // Build and send response
 						buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
