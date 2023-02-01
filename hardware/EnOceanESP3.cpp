@@ -378,20 +378,19 @@ void CEnOceanESP3::LoadNodesFromDatabase()
 
 	for (const auto &sd : result)
 	{
-		NodeInfo node;
-
-		node.idx = static_cast<uint32_t>(std::stoul(sd[0]));
-		node.nodeID = static_cast<uint32_t>(std::stoul(sd[1]));
-		node.name = sd[2];
-		node.manufacturerID = static_cast<uint16_t>(std::stoul(sd[3]));
-		node.RORG = static_cast<uint8_t>(std::stoul(sd[4]));
-		node.func = static_cast<uint8_t>(std::stoul(sd[5]));
-		node.type = static_cast<uint8_t>(std::stoul(sd[6]));
-		node.description = sd[7];
-
 		uint32_t nValue = static_cast<uint32_t>(std::stoul(sd[8]));
 
-		node.teachin_mode = static_cast<TeachinMode>(bitrange(nValue, TEACHIN_MODE_SHIFT, TEACHIN_MODE_MASK));
+		m_nodes.add(
+		static_cast<uint32_t>(std::stoul(sd[0])),
+		static_cast<uint32_t>(std::stoul(sd[1])),
+																		 sd[2]  , 
+		static_cast<uint16_t>(std::stoul(sd[3])),
+		static_cast<uint8_t>(std::stoul(sd[4])) ,
+		static_cast<uint8_t>(std::stoul(sd[5])),
+		static_cast<uint8_t>(std::stoul(sd[6])),
+																		sd[7],
+		static_cast<TeachinMode>(bitrange(nValue, TEACHIN_MODE_SHIFT, TEACHIN_MODE_MASK))
+		);
 /*
 		Debug(DEBUG_NORM, "LoadNodesFromDatabase: Idx %u Node %08X Name '%s'",
 			node.idx, node.nodeID, node.name.c_str());
@@ -401,19 +400,40 @@ void CEnOceanESP3::LoadNodesFromDatabase()
 		Debug(DEBUG_NORM, "LoadNodesFromDatabase: Manufacturer %03X (%s) Description '%s'",
 			node.manufacturerID, GetManufacturerName(node.manufacturerID), node.description.c_str());
 */
-		m_nodes[node.nodeID] = node;
 	}
 }
 
-CEnOceanESP3::NodeInfo* CEnOceanESP3::GetNodeInfo(const uint32_t nodeID)
+enocean::NodeInfo* CEnOceanESP3::GetNodeInfo(const uint32_t nodeID)
 {
-	auto node = m_nodes.find(nodeID);
-
-	if (node == m_nodes.end())
-		return nullptr;
-
-	return &(node->second);
+	return  m_nodes.find(nodeID);
 }
+///---------------------nodes ------------------------------------------------------
+void  CEnOceanESP3::DelNodeInfo(const uint32_t nodeID)
+{
+	// Erase the element pointed by iterator it
+        m_nodes.erase(nodeID);
+}
+void  CEnOceanESP3::SetNodeTeachInStatus(const uint32_t nodeID, TeachinMode TeachInStatus )
+{
+    auto node = GetNodeInfo(nodeID);
+
+	if (node != nullptr)    
+        node->teachin_mode = (TeachinMode)TeachInStatus ;
+}
+TeachinMode  CEnOceanESP3::GetNodeTeachInStatus(const uint32_t nodeID )
+{
+	auto node = GetNodeInfo(nodeID);
+
+	if (node != nullptr)
+	    return node->teachin_mode ;
+    else
+        return GENERIC_NODE ;
+}
+bool  CEnOceanESP3::NodeIsAlreadyTeachedIn(const uint32_t nodeID )
+{
+return GetNodeTeachInStatus(  nodeID ) != 0 ;
+}
+
 
 void CEnOceanESP3::GetNodesJSON(Json::Value &root)
 {
@@ -573,19 +593,17 @@ void CEnOceanESP3::TeachInNode(const uint32_t nodeID, const uint16_t manID,
 		Log(LOG_ERROR, "Teach-in Node: problem creating Node %08X in database?!?!", nodeID);
 		return;
 	}
-	NodeInfo node;
+    m_nodes.add(
+		static_cast<uint32_t>(std::stoul(result[0][0])), 
+		nodeID,  
+		result[0][1],  
+		manID,   
+		RORG,   
+		func,   
+		type,   
+		result[0][2], 
+		teachin_mode  );
 
-	node.idx = static_cast<uint32_t>(std::stoul(result[0][0]));
-	node.nodeID = nodeID;
-	node.name = result[0][1];
-	node.manufacturerID = manID;
-	node.RORG = RORG;
-	node.func = func;
-	node.type = type;
-	node.description = result[0][2];
-	node.teachin_mode = teachin_mode;
-
-	m_nodes[nodeID] = node;
 
 	if (teachin_mode != VIRTUAL_NODE)
 		m_last_teachedin_nodeID = nodeID;
@@ -3636,7 +3654,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					optbuf[5] = 0xFF; // RSSI : Send = 0xFF
 					optbuf[6] = 0x00; // Seurity Level : Send = ignored
 				}
-				if (pNode == nullptr)
+//				if (pNode == nullptr)
+                if(!NodeIsAlreadyTeachedIn(senderID))
 				{ // Node not found
 					if (ute_request == TEACH_DELETION_REQUEST)
 					{ // Node not found and teach-out request => ignore
@@ -3798,7 +3817,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 
 		case RORG_VLD:
 			{ // VLD telegram, D2-XX-XX, Variable Length Data
-				if (pNode == nullptr)
+                if(!NodeIsAlreadyTeachedIn(senderID))
+//				if (pNode == nullptr)
 				{
 					Log(LOG_NORM, "VLD msg: Unknown Node %08X, please proceed to teach-in", senderID);
 					return;
