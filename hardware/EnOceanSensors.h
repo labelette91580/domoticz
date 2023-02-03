@@ -10,21 +10,18 @@ typedef struct {
 	unsigned int	SenderId;
 	int		Channel;
 }T_LINK_TABLE;
-
 enum TeachinMode : uint8_t
 {
 	GENERIC_NODE = 0,
 	TEACHEDIN_NODE = 1,
 	VIRTUAL_NODE = 2
 };
-
 namespace enocean {
 
 #define SIZE_LINK_TABLE 24 
 
 	constexpr int EMPTY_PROFILE = 0xFFFFFF;
 	constexpr unsigned int EMPTY_ID = 0;
-
 	constexpr unsigned int UnlockTimeOutInMs = 5 * 60 * 1000; //5 min
 
 	class NodeInfo : public enocean::CEnOceanEEP
@@ -72,7 +69,7 @@ namespace enocean {
 		void clear();
 		auto T_NODES::begin() { return m_sensors.begin(); };
 		auto T_NODES::end() { return m_sensors.end(); };
-		void add(uint32_t idx,uint32_t nodeID,std::string Name,uint16_t manufacturerID,uint8_t  RORG,uint8_t  func,uint8_t  type,std::string description,TeachinMode teachin_mode);
+		void add(uint32_t idx, uint32_t nodeID, std::string Name, uint16_t manufacturerID, uint8_t  RORG, uint8_t  func, uint8_t  type, std::string description, TeachinMode teachin_mode);
 		void setSensorManuf(uint32_t SensorId, uint16_t Manuf);
 		void setSensorReference(uint32_t SensorId, uint32_t ref);
 		void setTeachInStatus(uint32_t SensorId, uint32_t pTeachInStatus);
@@ -96,6 +93,4 @@ namespace enocean {
 		T_LINK_TABLE* getLinkEntry(unsigned int  DeviceId, unsigned int  entry);
 		void  erase(const uint32_t nodeID);
 	};
-
 };
-
