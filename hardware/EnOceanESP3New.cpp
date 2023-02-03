@@ -367,7 +367,7 @@ namespace http {
 				do
 				{
                     int timeout = RMCC_ACK_TIMEOUT ;
-                    if(nbDeviceDiscovered==0) timeout*=2;
+//                    if(nbDeviceDiscovered==0) timeout*=2;
                     
 					answ =  pEnocean->waitRemote_man_answer(RC_GET_PRODUCT_RESPONSE, timeout );
                     if (answ.function != 0){
@@ -921,7 +921,7 @@ namespace http {
 			if (pfunction != EnOcean_webcommands.end())
 			{
 		        pEnocean->setCommStatus(COM_OK);
-s				pfunction->second(session, req, root,  nbSelectedDevice ,  iHardwareID, pEnocean);
+				pfunction->second(session, req, root,  nbSelectedDevice ,  iHardwareID, pEnocean);
 //		        pEnocean->setCommStatus(COM_OK);
 			}
             return;
@@ -1134,7 +1134,7 @@ void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manI
 		        RORG, func, type, GetEEPLabel(RORG, func, type));
 
         }
-        else if ( manID != 0 ) 
+        if ( manID != 0 ) 
         {
             SetDbEnOceanValue(nodeID,"ManufacturerId"   ,manID);
             m_nodes.setSensorManuf(nodeID , manID  );
@@ -1143,6 +1143,8 @@ void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manI
 		        (teachin_mode == GENERIC_NODE) ? "Generic " : ((teachin_mode == VIRTUAL_NODE) ? "Virtual " : ""),
 		        RORG, func, type, GetEEPLabel(RORG, func, type));
         }
+		if(teachin_mode>GENERIC_NODE)
+			SetTeachInStatus((nodeID) , teachin_mode  );
     }
 }
 

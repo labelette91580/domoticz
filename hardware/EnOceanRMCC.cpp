@@ -872,21 +872,29 @@ void CEnOceanRMCC::getLinkTable( uint32_t DeviceId)
 	unlockDevice(DeviceId);
     if (!isCommStatusOk())
         return;
+	int PreviousTableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
 	getLinkTableMedadata(DeviceId);
+
+    if (isCommStatusOk())
+	{
+		int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
+		int begin = 0;
+		if (TableSize != PreviousTableSize )
+			while (TableSize > m_nodes.getTableLinkValidSensorIdSize(DeviceId))
+			{
+				getallLinkTable(DeviceId, begin, begin + 2);
+				begin += 3;
+				if (!isCommStatusOk())
+						break;
+				if(begin> m_nodes.getTableLinkMaxSize(DeviceId) )
+					break;
+			}
+	}
     if (!isCommStatusOk())
-        return;
-	int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
-	int begin = 0;
-	if (TableSize)
-		while (TableSize > m_nodes.getTableLinkValidSensorIdSize(DeviceId))
-		{
-			getallLinkTable(DeviceId, begin, begin + 2);
-			begin += 3;
-            if (!isCommStatusOk())
-                    return;
-            if(begin> m_nodes.getTableLinkMaxSize(DeviceId) )
-                return;
-		}
+	{
+		//clear entry table on error
+		m_nodes.setLinkTableMedadata(DeviceId,0,0);
+	}
 }
 void CEnOceanRMCC::setLinkEntryTable(uint32_t SensorId, int begin , uint32_t ID , int EEP , int channel )
 {
@@ -1457,8 +1465,10 @@ bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBef
 				//answer received : some device need time after unlock ??
 				sleep_milliseconds(1000);
 		}
-		else
+		else{
 			res.function = RC_ACK;
+			Log(LOG_NORM,"unlock device %08X timeout:%d sec ",deviceId, (GetClockTicks() - sensors->TimeLastUnlockInMs ) / 1000  );
+		}
 	}
 	if (res.function != 0)
 		return true;
