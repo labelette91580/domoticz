@@ -450,6 +450,26 @@ void CEnOceanRMCC::setcode(unsigned int destID, unsigned int code)
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 
 }
+
+/*
+ always as broadcast telegram
+Query ID Command
+Query ID is sent always as broadcast telegram. All unlocked devices respond to the Query 
+ID with their ID and their EEP. 
+The EEP is a 21 bit and it is defined as following: ORG-FUNC-TYPE. For more information 
+about the EEP be sure to read EEP2.1 specification.
+The Query ID command contains an EEP definition and mask bits. When the mask bits are 
+set to 0x01 only Remote Devices with the matching EEP will process the remote command. If 
+the query ID with mask bit 0x00 is transmitted, the EEP bytes in this command will be 
+ignored and every Remote Device will answer to this command. If a Remote Device has no 
+EEP, then it will only respond to the Query ID command where the mask bits are set to 0x00. 
+The mask bits in the Query ID answer telegrams are set to 0x00. 
+Query ID Answer Extended (0x704) was defined in later reviews and should replace the 
+original Query ID Answer (0x604). The usage of Query ID Answer (0x604) is depreciated. 
+Query ID Answer Extended contains the information about the device being managed by 
+other manager. Locked by other manager (0 – false, 1 - true).
+
+*/
 void CEnOceanRMCC::queryid(unsigned int EEP, unsigned int mask )
 {
 	unsigned char buff[16];
@@ -517,6 +537,26 @@ void CEnOceanRMCC::action(unsigned int destID)
 	Log(LOG_NORM, "SEND: action cmd %08X ", destID);
 
 }
+/*
+broadcast oe unicast
+Get Product ID Query & Response
+The Product ID Query returns the Product ID of a device. This manufacture and device specific 
+ID can be used as a key to lookup additional information about an EnOcean device via the Device 
+Description file.
+The Product ID is the combination of the Manufacturer ID and a 4 byte Product Reference that 
+is unique per a device’s firmware and is managed by the manufacturer. The Product ID is 6 bytes 
+in length.
+The Get Product ID Response is transmitted from the target device in a beaconing mode, when 
+the Get Product ID Request is transmitted broadcast. Beaconing mode represents the repeated 
+transmission of a response until the device is acknowledged by the commissioning device with 
+any addressed  Remote  Management message  to  the  target  device.  After  receiving  any 
+addressed Remote Management message the beaconing stops.
+The period to repeat the beacon is semirandom specific 1..5 sec  for every end device 10 times within 
+one minute. At every retransmission of the beacon the period is randomly determined again.
+The Get Product ID and Get Product ID Selective may be processed only in locked state if the 
+default factory code is set or not set. Get Product ID Selective shall not be processed in locked
+status of the managed devices with specific code set [1]
+*/
 void CEnOceanRMCC::getProductId(unsigned int destination )
 {
 	unsigned char buff[16];

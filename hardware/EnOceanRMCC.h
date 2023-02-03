@@ -9,7 +9,8 @@
 
 #include <string>
 
-#define RMCC_ACK_TIMEOUT 5
+#define RMCC_ACK_TIMEOUT			5
+#define RMCC_GETPRODUCTID_TIMEOUT	10
 #define RC_PACKET_RESPONSE 255
 
 #define ResetConfigurationParameters   (1<<7)

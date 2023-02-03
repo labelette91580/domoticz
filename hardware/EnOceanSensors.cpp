@@ -82,6 +82,10 @@ NodeInfo::NodeInfo()
 	{
 		TimeLastUnlockInMs = GetClockTicks() ;
 	}
+	std::string NodeInfo::Description()
+	{
+		return std_format("SenderId: %08X Profile:%06X : %s : %s", nodeID, Profile , GetEEPLabel(RORG,func,type), GetEEPDescription(RORG,func,type)  );
+	}
 
 
 //    NodeInfo& T_NODES::operator[](std::size_t idx)       { return m_sensors[idx]; }
