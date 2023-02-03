@@ -204,7 +204,7 @@ public:
 
 	bool isCommStatusOk();
 
-    bool unlockDevice(unsigned int deviceId);
+    bool unlockDevice(unsigned int deviceId , bool testUnLockTimeoutBeforeSend = true );
 	
 	virtual void SendESP3PacketQueued(unsigned char frametype, unsigned char *databuf, unsigned short datalen, unsigned char *optdata, unsigned char optdatalen) { return ; };
 	virtual void TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manID, const uint8_t RORG, const uint8_t func, const uint8_t type, const TeachinMode teachin_mode){};

@@ -25,6 +25,8 @@ namespace enocean {
 constexpr int EMPTY_PROFILE = 0xFFFFFF ;
 constexpr unsigned int EMPTY_ID      = 0;
 
+constexpr unsigned int UnlockTimeOutInMs    = 5 * 60 * 1000 ; //5 min
+
 class NodeInfo : public enocean::CEnOceanEEP
 {
 public:
@@ -45,6 +47,7 @@ public:
 	int		 NbValidId ;
 	int		 MaxSize;
 	T_LINK_TABLE	LinkTable[SIZE_LINK_TABLE];
+	time_t	TimeLastUnlockInMs ;
 
 public:
 	NodeInfo();
@@ -56,6 +59,9 @@ public:
     static bool asLinkTable(unsigned int	pProfile);
 	bool asLinkTable();
 	int  getTableLinkMaxSize();
+	//return true if lock timeout is achived
+	bool UnLockTimeout();
+	void SetUnLockTimeout();
 };
 
 typedef 	std::map<unsigned int, NodeInfo > T_SENSOR_MAP;

@@ -295,11 +295,11 @@ namespace http {
 			    std::string deviceId;
 
 				if (nbSelectedDevice == 0){
-					pEnocean->unlockDevice (BROADCAST_ID);
+					pEnocean->unlockDevice (BROADCAST_ID,false);
                 }
 				for (int i = 0; i < nbSelectedDevice; i++) {
 					deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-					pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+					pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId),false);
 				}
 				checkComStatus(pEnocean, root);
 
@@ -920,7 +920,8 @@ namespace http {
 			auto pfunction = EnOcean_webcommands.find(cmd);
 			if (pfunction != EnOcean_webcommands.end())
 			{
-				pfunction->second(session, req, root,  nbSelectedDevice ,  iHardwareID, pEnocean);
+		        pEnocean->setCommStatus(COM_OK);
+s				pfunction->second(session, req, root,  nbSelectedDevice ,  iHardwareID, pEnocean);
 //		        pEnocean->setCommStatus(COM_OK);
 			}
             return;
