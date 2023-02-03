@@ -1434,23 +1434,35 @@ const char *RMCC_Cmd_Desc(const int tType)
 }
 
 
-//retur true if ok 
-bool CEnOceanRMCC::unlockDevice(unsigned int deviceId  )
+//return true if ok 
+bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBeforeSend)
 {
-    T_RMCC_RESULT res;
-        unsigned int code = GetLockCode();
-        if(deviceId==BROADCAST_ID){
-            unlock(BROADCAST_ID, code);
-            res = waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);		
-        }
-		else  {
+	T_RMCC_RESULT res;
+	res.function = 0;
+	unsigned int code = GetLockCode();
+	if (deviceId == BROADCAST_ID) {
+		unlock(BROADCAST_ID, code);
+		res = waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
+	}
+	else {
+		NodeInfo* sensors = m_nodes.find(deviceId);
+		if ((testUnLockTimeoutBeforeSend && sensors->UnLockTimeout())
+			|| (!testUnLockTimeoutBeforeSend)
+			)
+		{
 			unlock((deviceId), code);
-            res = waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);	
+			sensors->SetUnLockTimeout();
+			res = waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+			if (res.function != 0)
+				//answer received : some device need time after unlock ??
+				sleep_milliseconds(1000);
 		}
-        //some device need time after unlock ??
-        sleep_milliseconds(1000);
-        if (res.function != 0 )
-            return true;
-        else
-            return false;
+		else
+			res.function = RC_ACK;
+	}
+	if (res.function != 0)
+		return true;
+	else
+		//timeout
+		return false;
 }

@@ -5,6 +5,7 @@
 
 #include "EnOceanEEP.h"
 #include "EnOceanSensors.h"
+#include "../main/Helper.h"
 
 using namespace enocean;
 
@@ -22,8 +23,9 @@ NodeInfo::NodeInfo()
     CurrentSize=0;
 	NbValidId =0;
 	MaxSize=0;
+	TimeLastUnlockInMs=0;
 
-		initEntry(0,SIZE_LINK_TABLE);
+	initEntry(0,SIZE_LINK_TABLE);
 	}
 	void NodeInfo::initEntry(int deb,int fin )
 	{
@@ -64,6 +66,21 @@ NodeInfo::NodeInfo()
 	int  NodeInfo::getTableLinkMaxSize()
 	{
 		return  MaxSize;
+	}
+
+	//return true if lock timeout is achived
+	bool NodeInfo::UnLockTimeout()
+	{
+		time_t timeInMs = GetClockTicks() ;
+		bool timeout = (timeInMs-TimeLastUnlockInMs) > UnlockTimeOutInMs;
+		//unlock cmd shall be send
+		if(timeout)
+			TimeLastUnlockInMs = timeInMs ;
+		return (timeout);
+	}
+	void NodeInfo::SetUnLockTimeout()
+	{
+		TimeLastUnlockInMs = GetClockTicks() ;
 	}
 
 
