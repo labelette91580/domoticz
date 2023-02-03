@@ -62,6 +62,8 @@ public:
 	//return true if lock timeout is achived
 	bool UnLockTimeout();
 	void SetUnLockTimeout();
+	std::string NodeInfo::Description();
+
 };
 
 typedef 	std::map<unsigned int, NodeInfo > T_SENSOR_MAP;
@@ -86,7 +88,6 @@ public:
     std::string description,
     TeachinMode teachin_mode
     );
-
 	void setSensorManuf(uint32_t SensorId, uint16_t Manuf );
 	void setSensorReference(uint32_t SensorId,  uint32_t ref);
     void setTeachInStatus(uint32_t SensorId, uint32_t pTeachInStatus);
