@@ -3675,8 +3675,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 							buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
 							Debug(DEBUG_NORM, "Send UTE teach-out refused response");
-							//not work with nodon switch : wait learn timeout from equipement
-							//SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+
+							SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 						}
 						return;
 					}
@@ -3688,8 +3688,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 							buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
 							Debug(DEBUG_NORM, "Send UTE teach-in refused response");
-							//not work with nodon switch : wait learn timeout from equipement
-							//SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+
+							SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 						}
 						return;
 					}
@@ -3817,9 +3817,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
 						Debug(DEBUG_NORM, "Send UTE teach-out refused response");
-							//not work with nodon switch : wait learn timeout from equipement
 
-						//SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+						SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 					}
 				}
 			}
