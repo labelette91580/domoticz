@@ -364,24 +364,31 @@ namespace http {
 				//wait response 
 				int nbDeviceDiscovered = 0;
 				T_RMCC_RESULT answ;
+				std::map<uint32_t,uint32_t> devicesId;
 				do
 				{
-                    int timeout = RMCC_ACK_TIMEOUT ;
-//                    if(nbDeviceDiscovered==0) timeout*=2;
+                    int timeout = RMCC_GETPRODUCTID_TIMEOUT ;
+                    //if(nbDeviceDiscovered==0) timeout*=2;
                     
 					answ =  pEnocean->waitRemote_man_answer(RC_GET_PRODUCT_RESPONSE, timeout );
                     if (answ.function != 0){
 						nbDeviceDiscovered++;
                         pEnocean->ping(answ.senderId);
+						devicesId[answ.senderId] = answ.senderId;
 //					    answ =  pEnocean->waitRemote_man_answer(PING_ANSWER, timeout );
                     }
 				} while (answ.function != 0);
 
-				char mess[128];
-				snprintf(mess, sizeof(mess), "%d devices discovered", nbDeviceDiscovered );
-				pEnocean->Log(LOG_NORM, mess);
+				std::string discoveredDevice = std_format("%d devices discovered ", nbDeviceDiscovered ) ;
+				for (const auto &deviceId : devicesId)
+				{
+					auto node = pEnocean->GetNodeInfo(deviceId.second);
+					discoveredDevice += "<BR>"+  node->Description();
+				}
+
+				pEnocean->Log(LOG_NORM, discoveredDevice.c_str() );
 				root["status"] = "OK";
-				root["message"] = mess;
+				root["message"] = discoveredDevice;
 			}
 			static void QueryId(WEB_CMD_ARG)
 			{
@@ -429,11 +436,12 @@ namespace http {
 			    std::string deviceId;
 				for (int i = 0; i < nbSelectedDevice; i++) {
 					deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-					
-                    
-                    pEnocean->queryFunction(DeviceIdStringToUInt(deviceId) );
-                    root["message"] = pEnocean->waitRemote_man_answer(QUERY_FUNCTION_ANSWER, RMCC_ACK_TIMEOUT).message;
-                    
+					pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+					if (pEnocean->isCommStatusOk())
+					{
+	                    pEnocean->queryFunction(DeviceIdStringToUInt(deviceId) );
+		                root["message"] = pEnocean->waitRemote_man_answer(QUERY_FUNCTION_ANSWER, RMCC_ACK_TIMEOUT).message;
+					}
 				}
 				checkComStatus(pEnocean, root);
 			}
