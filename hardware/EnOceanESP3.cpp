@@ -3705,7 +3705,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 							senderID, node_manID, GetManufacturerName(node_manID),
 							node_RORG, node_func, node_type, GetEEPLabel(node_RORG, node_func, node_type));
 
-					TeachInNode(senderID, node_manID, node_RORG, node_func, node_type, TEACHEDIN_NODE);
+					TeachInNodeIfExist(senderID, node_manID, node_RORG, node_func, node_type, TEACHEDIN_NODE);
 
 					NodeInfo* pNode = GetNodeInfo(senderID);
 					if (pNode == nullptr)
