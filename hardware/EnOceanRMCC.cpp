@@ -1206,7 +1206,7 @@ void CEnOceanRMCC::GetNodeList(std::string & HardwareID, Json::Value &root)
 				if (man[0] == '>') man = "Unkown";
 				root["result"][ii]["Manufacturer_name"] = man ;
 				
-				root["result"][ii]["TeachInStatus"] = sd[5] ;
+				root["result"][ii]["TeachInStatus"] = NodeInfo::teachin_mode_string((TeachinMode) std::stoi( sd[5]) );
 				std::string typ = GetEEPLabel(rorg, func, type);
 				if (typ[0] == '>') typ = "Unkown";
 
