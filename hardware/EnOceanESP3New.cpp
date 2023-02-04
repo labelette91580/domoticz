@@ -13,6 +13,7 @@
 #include "../main/Helper.h"
 #include "../main/RFXtrx.h"
 #include "../main/SQLHelper.h"
+#include "../main/WebServerHelper.h"
 #include "../main/WebServer.h"
 #include "../main/HTMLSanitizer.h"
 #include "../main/mainworker.h"
@@ -168,9 +169,9 @@ int StrToInt(std::string value)
 	return std::stoi(value, 0, 10);
 }
 //Webserver helpers
-namespace http {
-	namespace server {
-		std::string getDeviceId(const request& req, unsigned int argNb)
+//namespace http {
+//	namespace server {
+		std::string getDeviceId(const http::server::request& req, unsigned int argNb)
 		{
 			std::string cmd = http::server::request::findValue(&req, std::to_string(argNb).c_str());
 			std::vector<std::string> splitresults;
@@ -180,7 +181,7 @@ namespace http {
 			else
 				return "";
 		}
-		std::string getDeviceUnit(const request& req, unsigned int argNb)
+		std::string getDeviceUnit(const http::server::request& req, unsigned int argNb)
 		{
 			std::string cmd = http::server::request::findValue(&req, std::to_string(argNb).c_str());
 			std::vector<std::string> splitresults;
@@ -190,7 +191,7 @@ namespace http {
 			else
 				return "1";
 		}
-		std::string getLinkEntry(const request& req, unsigned int argNb)
+		std::string getLinkEntry(const http::server::request& req, unsigned int argNb)
 		{
 			std::string cmd = http::server::request::findValue(&req, "entry");
 			std::vector<std::string> splitresults;
@@ -211,7 +212,7 @@ namespace http {
 				//			pEnocean->setCommStatus(COM_OK);
 			}
 		}
-#define WEB_CMD_ARG   WebEmSession &session, const request &req, Json::Value &root, int nbSelectedDevice , int iHardwareID ,CEnOceanESP3 *pEnocean
+#define WEB_CMD_ARG   http::server::WebEmSession &session, const http::server::request &req, Json::Value &root, int nbSelectedDevice , int iHardwareID ,CEnOceanESP3 *pEnocean
 		typedef std::function<void(WEB_CMD_ARG)> EnOcean_web_function;
 		typedef struct {
 			char* name;
@@ -269,7 +270,7 @@ namespace http {
 		static void SetCode(WEB_CMD_ARG)
 		{
 			//
-			std::string code = request::findValue(&req, "code");
+			std::string code = http::server::request::findValue(&req, "code");
 			if (code.empty())
 				return;
 			pEnocean->SetLockCode(code);
@@ -505,7 +506,7 @@ namespace http {
 		static void getCases(WEB_CMD_ARG)
 		{
 			//return the list of eep cases for the profil 
-			std::string sprofil = request::findValue(&req, "profil"); if (sprofil.empty())return;
+			std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())return;
 #ifdef USE_PROFIL
 			Profils.LoadXml();
 			T_PROFIL_EEP* prof = Profils.getProfil(DeviceIdStringToUInt(sprofil));
@@ -535,8 +536,8 @@ namespace http {
 		static void getCaseShortCut(WEB_CMD_ARG)
 		{
 			//return the list of shorcuts for the  case for the profil 
-			std::string sprofil = request::findValue(&req, "profil"); if (sprofil.empty())	return;
-			std::string scaseNb = request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
+			std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
+			std::string scaseNb = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
 #ifdef USE_PROFIL
 			Profils.LoadXml();
 			T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
@@ -552,8 +553,8 @@ namespace http {
 		static void getCaseShortCut2(WEB_CMD_ARG)
 		{
 			//return the list of shorcuts for the  case for the profil 
-			std::string sprofil = request::findValue(&req, "profil"); if (sprofil.empty())	return;
-			std::string scaseNb = request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
+			std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
+			std::string scaseNb = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
 			//T_EEP_CASE_ * Case = getProfilCase (DeviceIdStringToUInt(sprofil),  std::stoi(scaseNb, nullptr, 0)   );
 			//if(Case)
 			//	for (unsigned int i = 0; i < 50 ; i++)
@@ -569,10 +570,10 @@ namespace http {
 		static void sendvld(WEB_CMD_ARG)
 		{
 			//return the list of shorcuts for the  case for the profil 
-			std::string sprofil = request::findValue(&req, "profil"); if (sprofil.empty())	return;
-			std::string scaseNb = request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
-			std::string sdevidx = request::findValue(&req, "devidx"); if (sdevidx.empty())	return;
-			std::string sdevicebaseAddr = request::findValue(&req, "baseAddr"); if (sdevidx.empty())	return;
+			std::string sprofil         = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
+			std::string scaseNb         = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
+			std::string sdevidx         = http::server::request::findValue(&req, "devidx"); if (sdevidx.empty())	return;
+			std::string sdevicebaseAddr = http::server::request::findValue(&req, "baseAddr"); if (sdevidx.empty())	return;
 			int NbValues = req.parameters.size() - 7;
 			int values[256];
 			for (int i = 0; i < NbValues; i++) {
@@ -745,10 +746,10 @@ namespace http {
 		static void CreateSensor(WEB_CMD_ARG)
 		{
 			//
-			std::string id = request::findValue(&req, "id");
+			std::string id = http::server::request::findValue(&req, "id");
 			if (id.empty())
 				return;
-			std::string eep = request::findValue(&req, "eep");
+			std::string eep = http::server::request::findValue(&req, "eep");
 			if (eep.empty())
 				return;
 			uint32_t senderID = DeviceIdStringToUInt(id);
@@ -810,45 +811,46 @@ namespace http {
 {			"CreateSensor"                    ,			CreateSensor               },
 {			"ClearTeachInStatus"              ,			ClearTeachInStatus         }
 		};
-		void CWebServer::RType_OpenEnOcean(WebEmSession& session, const request& req, Json::Value& root)
-		{
-			root["status"] = "ERR";
-			root["title"] = "teachin";
-			root["message"] = "Undefined";
-			std::string hwid = request::findValue(&req, "hwid");
-			if (hwid.empty())
-				return;
-			std::string cmd = request::findValue(&req, "cmd");
-			if (cmd.empty())
-				return;
-			root["cmd"] = cmd;
-			int iHardwareID = atoi(hwid.c_str());
-			CEnOceanESP3* pEnocean = dynamic_cast <CEnOceanESP3*>(m_mainworker.GetHardware(iHardwareID));
-			if (pEnocean == NULL)
-				return;
-			if (pEnocean->HwdType != HTYPE_EnOceanESP3)
-				return;
-			int nbSelectedDevice = req.parameters.size() - 4;
-			//log arguments
-			{
-				std::string arg;
-				for (int i = 0; i < nbSelectedDevice; i++) {
-					arg += http::server::request::findValue(&req, std::to_string(i).c_str()) + "-";
-				}
-				pEnocean->Log(LOG_NORM, "WEBS: Server received cmd:%s Hwid:%s arg:%s Entry=%s ", cmd.c_str(), hwid.c_str(), arg.c_str(), request::findValue(&req, "entry").c_str());
-			}
-			//handle command if registered
-			auto pfunction = EnOcean_webcommands.find(cmd);
-			if (pfunction != EnOcean_webcommands.end())
-			{
-				pEnocean->setCommStatus(COM_OK);
-				pfunction->second(session, req, root, nbSelectedDevice, iHardwareID, pEnocean);
-				//		        pEnocean->setCommStatus(COM_OK);
-			}
-			return;
+//	}
+//}
+void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::request& req, Json::Value& root)
+{
+	root["status"] = "ERR";
+	root["title"] = "teachin";
+	root["message"] = "Undefined";
+	std::string hwid = http::server::request::findValue(&req, "hwid");
+	if (hwid.empty())
+		return;
+	std::string cmd = http::server::request::findValue(&req, "cmd");
+	if (cmd.empty())
+		return;
+	root["cmd"] = cmd;
+	int iHardwareID = atoi(hwid.c_str());
+	CEnOceanESP3* pEnocean = dynamic_cast <CEnOceanESP3*>(m_mainworker.GetHardware(iHardwareID));
+	if (pEnocean == NULL)
+		return;
+	if (pEnocean->HwdType != HTYPE_EnOceanESP3)
+		return;
+	int nbSelectedDevice = req.parameters.size() - 4;
+	//log arguments
+	{
+		std::string arg;
+		for (int i = 0; i < nbSelectedDevice; i++) {
+			arg += http::server::request::findValue(&req, std::to_string(i).c_str()) + "-";
 		}
+		pEnocean->Log(LOG_NORM, "WEBS: Server received cmd:%s Hwid:%s arg:%s Entry=%s ", cmd.c_str(), hwid.c_str(), arg.c_str(), http::server::request::findValue(&req, "entry").c_str());
 	}
+	//handle command if registered
+	auto pfunction = EnOcean_webcommands.find(cmd);
+	if (pfunction != EnOcean_webcommands.end())
+	{
+		pEnocean->setCommStatus(COM_OK);
+		pfunction->second(session, req, root, nbSelectedDevice, iHardwareID, pEnocean);
+		//		        pEnocean->setCommStatus(COM_OK);
+	}
+	return;
 }
+
 uint32_t enoceanGetSensorIdFromDevice(std::string& strDeviceId, uint32_t unit, uint8_t devType, uint8_t subType)
 {
 	uint32_t sensorId = 0;
@@ -1036,4 +1038,9 @@ void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manI
 		if (teachin_mode > GENERIC_NODE)
 			SetTeachInStatus((nodeID), teachin_mode);
 	}
+}
+extern http::server::CWebServerHelper m_webservers;
+void CEnOceanESP3::registerWebServerEntry(void)
+{
+	m_webservers.RegisterRType("enocean", RType_OpenEnOcean );
 }

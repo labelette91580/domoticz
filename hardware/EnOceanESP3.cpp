@@ -329,6 +329,7 @@ CEnOceanESP3::CEnOceanESP3(const int ID, const std::string &devname, const int t
 	m_Type = type;
 	m_id_base = 0;
 	m_id_chip = 0;
+
 }
 
 bool CEnOceanESP3::StartHardware()
@@ -336,6 +337,8 @@ bool CEnOceanESP3::StartHardware()
 	RequestStart();
 
 	LoadNodesFromDatabase();
+
+	registerWebServerEntry();
 
 	// Will force reconnect first thing
 	m_retrycntr = ESP3_CONTROLLER_RETRY_DELAY * 5;
