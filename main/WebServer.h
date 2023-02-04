@@ -20,7 +20,7 @@ namespace http {
 		struct _tWebUserPassword;
 class CWebServer : public session_store, public std::enable_shared_from_this<CWebServer>
 {
-	typedef std::function<void(WebEmSession &session, const request &req, Json::Value &root)> webserver_response_function;
+	public: typedef std::function<void(WebEmSession &session, const request &req, Json::Value &root)> webserver_response_function;
 
       public:
 	struct _tCustomIcon
@@ -345,8 +345,6 @@ private:
 	void RType_CreateEvohomeSensor(WebEmSession & session, const request& req, Json::Value &root);
 	void RType_BindEvohome(WebEmSession & session, const request& req, Json::Value &root);
 	void RType_CreateRFLinkDevice(WebEmSession & session, const request& req, Json::Value &root);
-	//enocean
-	void RType_OpenEnOcean(WebEmSession & session, const request& req, Json::Value &root);
 #ifdef WITH_OPENZWAVE
 	//ZWave
 	void Cmd_ZWaveUpdateNode(WebEmSession & session, const request& req, Json::Value &root);
