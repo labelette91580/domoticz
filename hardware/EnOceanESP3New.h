@@ -25,3 +25,4 @@ public:
 	const char* getPACKET_TYPE_name(int ptype);
 	uint32_t enoceanGetSensorIdFromDevice(std::string& DeviceId, uint32_t unit, uint8_t devType, uint8_t subType);
 	void EnOceanDeleteSensorAssociatedWithDevice(const std::string& ID);
+	void registerWebServerEntry(void);
