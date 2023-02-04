@@ -1015,7 +1015,7 @@ void CEnOceanRMCC::GetLinkTableList(Json::Value& root, std::string& DeviceIds, u
 		addLinkTableEntry(0x1a65428, 2, 0xD0500, 0x1234567, 1);
 		addLinkTableEntry(0x1a65428, 3, 0xD0500, 0x2345678, 1);
 	*/
-	NodeInfo* sensors = m_nodes.find(DeviceId);
+	NodeInfo* sensors = m_nodes.search(DeviceId);
 	if (sensors) {
 		//read link table if not readed
 		if ((sensors->asLinkTable()) && (sensors->getTableLinkMaxSize() == 0))
@@ -1223,7 +1223,7 @@ bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBef
 		res = waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
 	}
 	else {
-		NodeInfo* sensors = m_nodes.find(deviceId);
+		NodeInfo* sensors = m_nodes.search(deviceId);
 		if ((testUnLockTimeoutBeforeSend && sensors->UnLockTimeout())
 			|| (!testUnLockTimeoutBeforeSend)
 			)

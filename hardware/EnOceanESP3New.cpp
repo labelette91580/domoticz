@@ -39,11 +39,6 @@ constexpr int PACKET_COMMON_COMMAND = 0x05;	// Common command
 
 
 ///---------------------nodes ------------------------------------------------------
-void  CEnOceanESP3::DelNodeInfo(const uint32_t nodeID)
-{
-	// Erase the element pointed by iterator it
-	m_nodes.erase(nodeID);
-}
 void  CEnOceanESP3::SetNodeTeachInStatus(const uint32_t nodeID, uint32_t TeachInStatus)
 {
 	auto node = GetNodeInfo(nodeID);

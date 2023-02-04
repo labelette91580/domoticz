@@ -61,14 +61,9 @@ namespace enocean {
 	};
 	typedef 	std::map<unsigned int, NodeInfo > T_SENSOR_MAP;
 
-	class T_NODES {
+	class T_NODES : public T_SENSOR_MAP {
 	public:
-		T_SENSOR_MAP m_sensors;
 
-		NodeInfo& operator[](std::size_t idx) { return m_sensors[idx]; }
-		void clear();
-		auto T_NODES::begin() { return m_sensors.begin(); };
-		auto T_NODES::end() { return m_sensors.end(); };
 		void add(uint32_t idx, uint32_t nodeID, std::string Name, uint16_t manufacturerID, uint8_t  RORG, uint8_t  func, uint8_t  type, std::string description, TeachinMode teachin_mode);
 		void setSensorManuf(uint32_t SensorId, uint16_t Manuf);
 		void setSensorReference(uint32_t SensorId, uint32_t ref);
@@ -82,7 +77,7 @@ namespace enocean {
 		int  getTableLinkMaxSize(unsigned int DeviceId);
 		int  getTableLinkCurrentSize(unsigned int DeviceId);
 		int  getTableLinkValidSensorIdSize(unsigned int DeviceId);
-		NodeInfo* find(unsigned int  DeviceId);
+		NodeInfo* search(unsigned int  DeviceId);
 		int  getEEP(unsigned int DeviceId);
 		int  getSensorRorg(unsigned int DeviceId);
 		int  getSensorFunc(unsigned int DeviceId);
@@ -91,6 +86,5 @@ namespace enocean {
 		//return true if sensor as a link table 
 		bool asLinkTable(unsigned int  DeviceId);
 		T_LINK_TABLE* getLinkEntry(unsigned int  DeviceId, unsigned int  entry);
-		void  erase(const uint32_t nodeID);
 	};
 };

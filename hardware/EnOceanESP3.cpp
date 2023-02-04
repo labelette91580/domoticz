@@ -383,7 +383,7 @@ void CEnOceanESP3::LoadNodesFromDatabase()
 		m_nodes.add(
 		static_cast<uint32_t>(std::stoul(sd[0])),
 		static_cast<uint32_t>(std::stoul(sd[1])),
-																		 sd[2]  , 
+										 sd[2]  , 
 		static_cast<uint16_t>(std::stoul(sd[3])),
 		static_cast<uint8_t>(std::stoul(sd[4])) ,
 		static_cast<uint8_t>(std::stoul(sd[5])),
@@ -405,7 +405,12 @@ void CEnOceanESP3::LoadNodesFromDatabase()
 
 enocean::NodeInfo* CEnOceanESP3::GetNodeInfo(const uint32_t nodeID)
 {
-	return  m_nodes.find(nodeID);
+	auto node = m_nodes.find(nodeID);
+
+	if (node == m_nodes.end())
+		return nullptr;
+
+	return &(node->second);
 }
 
 
