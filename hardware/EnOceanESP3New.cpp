@@ -311,8 +311,10 @@ namespace http {
 			//pEnocean->unlock(BROADCAST_ID, pEnocean->GetLockCode());
 			std::string deviceId;
 			//assume all new device is power on
-			if (nbSelectedDevice == 0)
+			if (nbSelectedDevice == 0){
 				pEnocean->getProductId(BROADCAST_ID);
+				nbSelectedDevice = 0x7ff;
+			}
 			else
 				for (int i = 0; i < nbSelectedDevice; i++) {
 					deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
@@ -333,7 +335,7 @@ namespace http {
 					devicesId[answ.senderId] = answ.senderId;
 					//					    answ =  pEnocean->waitRemote_man_answer(PING_ANSWER, timeout );
 				}
-			} while (answ.function != 0);
+			} while ( (answ.function != 0) && (nbDeviceDiscovered< nbSelectedDevice) );
 			std::string discoveredDevice = std_format("%d devices discovered ", nbDeviceDiscovered);
 			for (const auto& deviceId : devicesId)
 			{
