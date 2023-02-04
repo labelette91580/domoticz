@@ -914,7 +914,7 @@ static void CopyLine(Json::Value& root, int ii)
 }
 static int addNodeToList(Json::Value& root, std::string& Name, std::string& Type, std::string& SubType, std::string& SwitchType, int ii)
 {
-	if (!Name.empty())
+//	if (!Name.empty())
 	{
 		root["result"][ii]["Name"] = Name;
 		root["result"][ii]["Type"] = Type;
@@ -956,6 +956,7 @@ void CEnOceanRMCC::GetNodeList(std::string& HardwareID, Json::Value& root)
 		{
 			std::vector<std::string> sd = *itt;
 			{
+				int lastii = ii ;
 				root["result"][ii]["DeviceID"] = sd[0];
 				int rorg = atoi(sd[1].c_str());
 				int func = atoi(sd[2].c_str());
@@ -1000,6 +1001,10 @@ void CEnOceanRMCC::GetNodeList(std::string& HardwareID, Json::Value& root)
 				ii = addMayBeaNode((NodeId >> 8) & 0xFFFF, 0, pTypeRFXMeter, ii, HardwareID, root, "%d");
 				//pTypeAirQuality device = ID2 unit=id1
 				ii = addMayBeaNode(ID2, ID1, pTypeAirQuality, ii, HardwareID, root, "%d");
+				//no device found
+				if(ii == lastii)
+					ii = addNodeToList(root, sd[6], sd[7], sd[8], sd[9], ii);
+
 			}
 		}
 	}
