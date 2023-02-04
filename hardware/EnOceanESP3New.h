@@ -9,7 +9,6 @@ public:
 	void setRepeaterLevelOn();
 	void getRepeaterLevel();
 	void parsePACKET_RESPONSE(uint8_t* data, uint16_t datalen);
-	void DelNodeInfo(const uint32_t nodeID);
 	void SetNodeTeachInStatus(const uint32_t nodeID, uint32_t TeachInStatus);
 	uint32_t GetNodeTeachInStatus(const uint32_t nodeID);
 	bool NodeIsAlreadyTeachedIn(const uint32_t nodeID);
