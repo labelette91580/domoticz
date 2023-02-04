@@ -1144,22 +1144,9 @@ bool  CEnOceanRMCC::isCommStatusOk()
 {
 	return (m_com_status == COM_OK);
 }
-typedef struct _STR_TABLE {
-	unsigned long    id;
-	const char* str1;
-} STR_TABLE;
-const char* findTableIDSingle(const STR_TABLE* t, const unsigned long id)
+const char* RMCC_Cmd_Desc(const uint32_t tType)
 {
-	while (t->str1) {
-		if (t->id == id)
-			return t->str1;
-		t++;
-	}
-	return "Unknown";
-}
-const char* RMCC_Cmd_Desc(const int tType)
-{
-	static const STR_TABLE	Table[] =
+	static  std::map < uint32_t , std::string > 	Table  =
 	{
 		{ UNLOCK                               ,"Unlock                                " },
 		{ LOCK                                 ,"Lock                                  " },
@@ -1208,9 +1195,8 @@ const char* RMCC_Cmd_Desc(const int tType)
 		{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,"Get Repeater Functions Response       " },
 		{ RC_SET_REPEATER_FUNCTIONS            ,"Set Repeater Functions Query          " },
 		{ RC_SET_REPEATER_FILTER               ,"Set Repeater Filter Query             " },
-		{ 0, NULL  }
 	};
-	return findTableIDSingle(Table, tType);
+	return Table[tType].c_str();
 }
 //return true if ok 
 bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBeforeSend)

@@ -217,6 +217,6 @@ public:
 
 };
 }
-const char *RMCC_Cmd_Desc(const int tType);
+const char *RMCC_Cmd_Desc(const uint32_t tType);
 
 #endif
