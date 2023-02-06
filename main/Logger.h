@@ -105,6 +105,7 @@ class CLogger
 	uint32_t m_debug_flags;
 	uint8_t m_aclf_flags;
 	uint32_t m_aclf_loggedlinescnt;
+	std::string s_debug_flags;
 
 	std::mutex m_mutex;
 	std::ofstream m_outputfile;
@@ -118,6 +119,5 @@ class CLogger
 	bool m_bEnableErrorsToNotificationSystem;
 	time_t m_LastLogNotificationsSend;
 	std::stringstream m_sequencestring;
-	std::string s_debug_flags;
 };
 extern CLogger _log;
