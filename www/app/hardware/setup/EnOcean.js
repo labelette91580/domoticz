@@ -1,6 +1,6 @@
 define(['app'], function (app) {
 
-    app.component('enoceanHardware', {
+    app.component('esp3Hardware', {
 		bindings: {
 			hardware: '<'
 		},
