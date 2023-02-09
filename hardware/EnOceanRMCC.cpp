@@ -44,6 +44,67 @@ const char* Query_Status_return_codes[] =
 	"Code data size exceeded       ",
 	"Wrong data                    "
 };
+
+static  std::map < uint32_t , uint32_t > 	RC_timeout_sec  =
+{
+	{ UNLOCK                               ,5 },
+	{ LOCK                                 ,5 },
+	{ SETCODE                              ,5 },
+	{ QUERYID                              ,5 },
+	{ QUERYID_ANSWER                       ,5 },
+	{ QUERYID_ANSWER_EXT                   ,5 },
+	{ ACTION                               ,5 },
+	{ PING                                 ,5 },
+	{ PING_ANSWER                          ,5 },
+	{ QUERY_FUNCTION                       ,5 },
+	{ QUERY_FUNCTION_ANSWER                ,5 },
+	{ QUERY_STATUS                         ,5 },
+	{ QUERY_STATUS_ANSWER                  ,5 },
+	{ REMOTE_LEARNIN                       ,5 },
+	{ REMOTE_FLASH_WRITE                   ,5 },
+	{ REMOTE_FLASH_READ                    ,5 },
+	{ REMOTE_FLASH_READ_ANSWER             ,5 },
+	{ SMARTACK_READ                        ,5 },
+	{ SMARTACK_READ_MAILBOX_ANSWER         ,5 },
+	{ SMARTACK_READ_LEARNED_SENSOR_ANSWER  ,5 },
+	{ SMARTACK_WRITE                       ,5 },
+	{ RC_ACK                               ,5 },
+	{ RC_GET_METADATA                      ,5 },
+	{ RC_GET_METADATA_RESPONSE             ,5 },
+	{ RC_GET_TABLE                         ,5 },
+	{ RC_GET_TABLE_RESPONSE                ,5 },
+	{ RC_SET_TABLE                         ,5 },
+	{ RC_GET_GP_TABLE                      ,5 },
+	{ RC_GET_GP_TABLE_RESPONSE             ,5 },
+	{ RC_SET_GP_TABLE                      ,5 },
+	{ RC_SET_LEARN_MODE                    ,5 },
+	{ RC_TRIG_OUTBOUND_TEACH_REQ           ,5 },
+	{ RC_GET_DEVICE_CONFIG                 ,5 },
+	{ RC_GET_DEVICE_CONFIG_RESPONSE        ,5 },
+	{ RC_SET_DEVICE_CONFIG                 ,5 },
+	{ RC_GET_LINK_BASED_CONFIG             ,5 },
+	{ RC_GET_LINK_BASED_CONFIG_RESPONSE    ,5 },
+	{ RC_SET_LINK_BASED_CONFIG             ,5 },
+	{ RC_APPLY_CHANGES                     ,5 },
+	{ RC_RESET_TO_DEFAULTS                 ,5 },
+	{ RC_RADIO_LINK_TEST_CONTROL           ,5 },
+	{ RC_GET_PRODUCT_ID                    ,5 },
+	{ RC_GET_PRODUCT_RESPONSE              ,5 },
+	{ RC_GET_REPEATER_FUNCTIONS            ,5 },
+	{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,5 },
+	{ RC_SET_REPEATER_FUNCTIONS            ,5 },
+	{ RC_SET_REPEATER_FILTER               ,5 },
+	{ RC_PACKET_RESPONSE                   ,5 },
+
+};
+uint32_t getRCtimeoutSec(int fct)
+{
+	int timeout = RC_timeout_sec[fct];
+	if (timeout<1)
+		timeout=1;
+	return timeout;
+
+};
 std::string  GetDeviceNameFromId(unsigned int ID)
 {
 	char szDeviceID[20];
@@ -303,7 +364,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		index += *ptb++;
 		int   Length = *ptb++;
 		char data[16];
-		int value = 0;
+		uint32_t value = 0;
 		for (int i = 0; i < Length; i++)
 		{
 			value <<= 8;
@@ -311,6 +372,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 			sprintf(&data[i * 2], "%02X ", *ptb++);
 		}
 		snprintf(message, sizeof(message), "RMC : GET_LINK_BASED_CONFIG_RESPONSE SenderId:%08X dir:%d Entry:%d Index:%d Len:%d data:%s : %d ", senderId, direction, LinkTableindex, index, Length, data, value);
+		m_nodes.updateLinkConfig (senderId , LinkTableindex ,  value );
 		messageStr = message;
 		Log(LOG_NORM, message);
 	}
@@ -1031,6 +1093,7 @@ void CEnOceanRMCC::GetLinkTableList(Json::Value& root, std::string& DeviceIds, u
 			uint32_t SenderId = sensors->LinkTable[entry].SenderId;
 			root["result"][entry]["SenderId"] = string_format("%08X", SenderId);
 			root["result"][entry]["Channel"] = string_format("%d", sensors->LinkTable[entry].Channel);
+			root["result"][entry]["Config"] = string_format("%d", sensors->LinkTable[entry].Config);
 			/*if (CheckIsGatewayAdress(SenderId))
 			{
 				int unitCode = GetOffsetAdress(SenderId);
@@ -1101,6 +1164,7 @@ void CEnOceanRMCC::clearRemote_man_answer()
 T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int timeout)
 {
 	//	clearRemote_man_answer();
+	timeout= getRCtimeoutSec(premote_man_answer);
 	std::string logStr;
 	T_RMCC_RESULT remote_man_answer;
 	//    Log(LOG_NORM, "Wait: Waiting ,%02X:%s ",premote_man_answer, RMCC_Cmd_Desc(premote_man_answer) );

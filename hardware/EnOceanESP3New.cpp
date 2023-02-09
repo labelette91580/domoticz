@@ -714,7 +714,7 @@ int StrToInt(std::string value)
 				int entry = std::stoi(sentry, 0, 0);
 				//for (int entry = 0; entry < 1 ; entry++ )
 				int begin = 0;
-				int end = 1;
+				int end = 0;
 				for (begin = 0; begin <= end; begin++)
 				{
 					int length = 1;

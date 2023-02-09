@@ -9,6 +9,7 @@ typedef struct {
 	int		Profile;
 	unsigned int	SenderId;
 	int		Channel;
+	uint32_t Config ;
 }T_LINK_TABLE;
 enum TeachinMode : uint8_t
 {
@@ -71,6 +72,7 @@ namespace enocean {
 		void setSensorProfile(uint32_t SensorId, uint32_t pProfile);
 		void setSensorProfile(uint32_t SensorId, uint8_t  RORG, uint8_t  func, uint8_t  type);
 		void setLinkTableMedadata(uint32_t SensorId, int csize, int MaxSize);
+		void updateLinkConfig(uint32_t DeviceId, int entry, uint32_t pConfig);
 		void addLinkTableEntry(uint32_t DeviceId, int entry, int profile, uint32_t sensorId, int channel);
 		void deleteLinkTableEntry(uint32_t DeviceId, int entry);
 		void printTableLink();

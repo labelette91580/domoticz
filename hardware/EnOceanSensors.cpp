@@ -96,6 +96,7 @@ std::string NodeInfo::teachin_mode_string()
 void T_NODES::add(uint32_t idx, uint32_t nodeID, std::string Name, uint16_t manufacturerID, uint8_t  RORG, uint8_t  func, uint8_t  type, std::string description, TeachinMode teachin_mode)
 {
 	NodeInfo node;
+	memset(&node,0,sizeof(NodeInfo));
 	node.idx = idx;
 	node.nodeID = nodeID;
 	node.name = Name,
@@ -139,6 +140,12 @@ void T_NODES::setLinkTableMedadata(uint32_t SensorId, int csize, int MaxSize)
 	(*this)[SensorId].CurrentSize = csize;
 	(*this)[SensorId].MaxSize = MaxSize;
 	(*this)[SensorId].initEntry(csize);
+}
+void T_NODES::updateLinkConfig (uint32_t DeviceId,  int entry,  uint32_t pConfig )
+{
+	if (entry < SIZE_LINK_TABLE) {
+		(*this)[DeviceId].LinkTable[entry].Config = pConfig;
+	}
 }
 void T_NODES::addLinkTableEntry(uint32_t DeviceId, int entry, int profile, uint32_t sensorId, int channel)
 {
