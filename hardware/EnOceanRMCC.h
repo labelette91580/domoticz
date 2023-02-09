@@ -12,6 +12,7 @@
 #define RMCC_ACK_TIMEOUT			5
 #define RMCC_GETPRODUCTID_TIMEOUT	10
 #define RC_PACKET_RESPONSE 255
+#define RMCC_NB_RETRY				2
 
 #define ResetConfigurationParameters   (1<<7)
 #define ResetSetIinboundLinkTable      (1<<6)
@@ -171,11 +172,11 @@ public:
 
 	void resetToDefaults(uint32_t destID, int resetAction);
 
-	void GetRepeaterQuery(unsigned int destination);
+	void getRepeaterQuery(unsigned int destination);
 
-	void SetRepeaterQuery(unsigned int destination, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter);
+	void setRepeaterQuery(unsigned int destination, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter);
 
-    void SetNodonRepeaterLevel(unsigned int source, unsigned int destination, int Repeaterlevel);
+    void setNodonRepeaterLevel(unsigned int source, unsigned int destination, int Repeaterlevel);
 
 	void TeachIn(std::string & sidx ,  T_LEARN_MODE Device_LRN_Mode);
 

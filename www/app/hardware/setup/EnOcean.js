@@ -12,7 +12,7 @@ define(['app'], function (app) {
 		var $ctrl = this;
 		
 		const confirmAction          = ['Delete', 'DeleteEntrys'];
-		const refreshLinkTableAction = ['GetLinkTable', 'Link','DeleteEntrys'];
+		const refreshLinkTableAction = ['GetLinkTable', 'Link','DeleteEntrys','GetLinkConfig'];
 		const refreshNodeTableAction = ['Delete', 'GetProductId', 'LearnIn', 'ClearTeachInStatus'];
 
 		getNodeName = function (node) {

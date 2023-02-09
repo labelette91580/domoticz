@@ -68,9 +68,9 @@ static  std::map < uint32_t , uint32_t > 	RC_timeout_sec  =
 	{ SMARTACK_READ_MAILBOX_ANSWER         ,5 },
 	{ SMARTACK_READ_LEARNED_SENSOR_ANSWER  ,5 },
 	{ SMARTACK_WRITE                       ,5 },
-	{ RC_ACK                               ,5 },
+	{ RC_ACK                               ,1 },
 	{ RC_GET_METADATA                      ,5 },
-	{ RC_GET_METADATA_RESPONSE             ,5 },
+	{ RC_GET_METADATA_RESPONSE             ,1 },
 	{ RC_GET_TABLE                         ,5 },
 	{ RC_GET_TABLE_RESPONSE                ,5 },
 	{ RC_SET_TABLE                         ,5 },
@@ -94,7 +94,7 @@ static  std::map < uint32_t , uint32_t > 	RC_timeout_sec  =
 	{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,5 },
 	{ RC_SET_REPEATER_FUNCTIONS            ,5 },
 	{ RC_SET_REPEATER_FILTER               ,5 },
-	{ RC_PACKET_RESPONSE                   ,5 },
+	{ RC_PACKET_RESPONSE                   ,1 },
 
 };
 uint32_t getRCtimeoutSec(int fct)
@@ -183,16 +183,13 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 	std::string  messageStr = ""; //IHM message
 	//get function
 	int fct = m_buffer[0] * 256 + m_buffer[1];
-	if (m_OptionalDataSize < 8)
-		Log(LOG_NORM, "Func: Received RMC :%03X :%s", fct, RMCC_Cmd_Desc(fct));
-	else
-		Log(LOG_NORM, "Func: Received RMC :%03X :%s from %02X%02X%02X%02X", fct, RMCC_Cmd_Desc(fct), m_buffer[m_DataSize + 4], m_buffer[m_DataSize + 5], m_buffer[m_DataSize + 6], m_buffer[m_DataSize + 7]);
+
 	unsigned int senderId = 0;
 	if (fct == RC_ACK)
 	{
 		snprintf(message, sizeof(message), "RMC :  function :%03X :%s", fct, RMCC_Cmd_Desc(fct));
 		messageStr = message;
-		//        Log(LOG_NORM, message );
+		Log(LOG_NORM, message );
 	}
 	//ping response
 	else if (fct == PING_ANSWER)
@@ -376,6 +373,14 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		messageStr = message;
 		Log(LOG_NORM, message);
 	}
+	else
+	{
+		if (m_OptionalDataSize < 8)
+			Log(LOG_NORM, "Func: Received RMC :%03X :%s", fct, RMCC_Cmd_Desc(fct));
+		else
+			Log(LOG_NORM, "Func: Received RMC :%03X :%s from %02X%02X%02X%02X", fct, RMCC_Cmd_Desc(fct), m_buffer[m_DataSize + 4], m_buffer[m_DataSize + 5], m_buffer[m_DataSize + 6], m_buffer[m_DataSize + 7]);
+	}
+
 	setRemote_man_answer(fct, (char*)messageStr.c_str(), senderId);
 }
 void CEnOceanRMCC::remoteLearning(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode)
@@ -568,7 +573,6 @@ void CEnOceanRMCC::getLinkTableMedadata(uint32_t destID)
 	setDestination(opt, destID);
 	Log(LOG_NORM, "SEND: getLinkTableMedadata %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
-	waitRemote_man_answer(RC_GET_METADATA_RESPONSE, RMCC_ACK_TIMEOUT);
 }
 void CEnOceanRMCC::queryFunction(uint32_t destID)
 {
@@ -793,9 +797,15 @@ void CEnOceanRMCC::getLinkTable(uint32_t DeviceId)
 	if (!isCommStatusOk())
 		return;
 	int PreviousTableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
-	getLinkTableMedadata(DeviceId);
+	T_RMCC_RESULT res = { 0 };
+	for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)   ; retry ++ )
+	{
+		getLinkTableMedadata(DeviceId);
+		res = waitRemote_man_answer(RC_GET_METADATA_RESPONSE, RMCC_ACK_TIMEOUT);
+	}
 	if (isCommStatusOk())
 	{
+		sleep_milliseconds(1000);
 		int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
 		int begin = 0;
 		if (TableSize != PreviousTableSize)
@@ -870,7 +880,7 @@ void CEnOceanRMCC::resetToDefaults(uint32_t destID, int resetAction)
 	Log(LOG_NORM, "SEND: resetToDefaults %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
-void CEnOceanRMCC::GetRepeaterQuery(unsigned int destination)
+void CEnOceanRMCC::getRepeaterQuery(unsigned int destination)
 {
 	unsigned char buff[16];
 	unsigned char opt[16];
@@ -886,7 +896,7 @@ void CEnOceanRMCC::GetRepeaterQuery(unsigned int destination)
 	Log(LOG_NORM, "SEND: geRepeaterFunctionsQuery cmd send to %08X", destination);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
-void CEnOceanRMCC::SetRepeaterQuery(unsigned int destination, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter)
+void CEnOceanRMCC::setRepeaterQuery(unsigned int destination, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter)
 {
 	unsigned char buff[16];
 	unsigned char opt[16];
@@ -911,7 +921,7 @@ void CEnOceanRMCC::SetRepeaterQuery(unsigned int destination, int Repeaterfuncti
 	Log(LOG_NORM, "SEND: seRepeaterFunctionsQuery cmd send to %08X  Repeaterfunction:%d  Repeaterlevel:%d  RepeaterFilter:%d ", destination, Repeaterfunction, Repeaterlevel, RepeaterFilter);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
-void CEnOceanRMCC::SetNodonRepeaterLevel(unsigned int source, unsigned int destination, int Repeaterlevel)
+void CEnOceanRMCC::setNodonRepeaterLevel(unsigned int source, unsigned int destination, int Repeaterlevel)
 {
 	unsigned char buff[16];
 	unsigned char opt[16];
@@ -1192,11 +1202,12 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int ti
 	if ((remote_man_answer.function == 0) || (timeout == 0)) {
 		setCommStatus(COM_TIMEOUT);
 		//		Log(LOG_NORM, "Wait: TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
-		logStr += std_format(": TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
+//		logStr += std_format(": TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
+		logStr += std_format(": TIMEOUT");
 	}
 	else
 		//        Log(LOG_NORM, "Wait: Recving OK " );
-		logStr += std_format(": Recving OK ");
+		logStr += std_format(": OK ");
 	Log(LOG_NORM, logStr.c_str());
 	return remote_man_answer;
 }
@@ -1283,9 +1294,12 @@ bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBef
 			|| (!testUnLockTimeoutBeforeSend)
 			)
 		{
-			unlock((deviceId), code);
-			sensors->SetUnLockTimeout();
-			res = waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+			for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)  ; retry ++ )
+			{
+				unlock((deviceId), code);
+				sensors->SetUnLockTimeout();
+				res = waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+			}
 			if (res.function != 0)
 				//answer received : some device need time after unlock ??
 				sleep_milliseconds(1000);
