@@ -218,10 +218,11 @@ define(['app'], function (app) {
 		                        "1": item.Profile,
 		                        "2": item.Name,
 		                        "3": item.SenderId,
-		                        "4": item.Channel,
+		                        "4": item.Config,
+		                        "5": item.Channel,
 		                        //		                                    "4": statusImg + '&nbsp;&nbsp;' + healButton,
 								// "5": itemChecker,
-		                        "5": healButton,
+		                        "6": healButton,
 
 		                    });
 		                });
