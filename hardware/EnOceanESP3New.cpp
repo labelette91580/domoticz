@@ -601,7 +601,7 @@ int StrToInt(std::string value)
 			std::string deviceId;
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->SetNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 0);
+				pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 0);
 				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
@@ -611,7 +611,7 @@ int StrToInt(std::string value)
 			std::string deviceId;
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->SetNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 1);
+				pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 1);
 				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
@@ -621,18 +621,18 @@ int StrToInt(std::string value)
 			std::string deviceId;
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->SetNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 2);
+				pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 2);
 				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
 		}
-		static void GetRepeaterQuery(WEB_CMD_ARG)
+		static void getRepeaterQuery(WEB_CMD_ARG)
 		{
 			std::string deviceId;
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->GetRepeaterQuery(DeviceIdStringToUInt(deviceId));
+				pEnocean->getRepeaterQuery(DeviceIdStringToUInt(deviceId));
 				root["message"] = pEnocean->waitRemote_man_answer(RC_GET_REPEATER_FUNCTIONS_RESPONSE, RMCC_ACK_TIMEOUT).message;
 			}
 			checkComStatus(pEnocean, root);
@@ -643,7 +643,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 0, 1, 0);
+				pEnocean->setRepeaterQuery(DeviceIdStringToUInt(deviceId), 0, 1, 0);
 				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
@@ -654,7 +654,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 1, 0);
+				pEnocean->setRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 1, 0);
 				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
@@ -665,7 +665,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 2, 0);
+				pEnocean->setRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 2, 0);
 				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
@@ -717,9 +717,15 @@ int StrToInt(std::string value)
 				int end = 0;
 				for (begin = 0; begin <= end; begin++)
 				{
-					int length = 1;
-					pEnocean->getDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
-					root["message"] = pEnocean->waitRemote_man_answer(RC_GET_LINK_BASED_CONFIG_RESPONSE, RMCC_ACK_TIMEOUT).message;
+					T_RMCC_RESULT res =  {0};
+					for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)  ; retry ++ )
+					{
+						int length = 1;
+						pEnocean->getDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
+						res = pEnocean->waitRemote_man_answer(RC_GET_LINK_BASED_CONFIG_RESPONSE, RMCC_ACK_TIMEOUT) ;
+					}
+
+					//root["message"] = res.message;
 				}
 			}
 			checkComStatus(pEnocean, root);
@@ -800,7 +806,7 @@ int StrToInt(std::string value)
 {			"SetRepeaterNodonLevelOff"        ,			SetRepeaterNodonLevelOff   },
 {			"SetRepeaterNodonLevel1"          ,			SetRepeaterNodonLevel1     },
 {			"SetRepeaterNodonLevel2"          ,			SetRepeaterNodonLevel2     },
-{           "GetRepeaterQuery"                ,         GetRepeaterQuery          },
+{           "GetRepeaterQuery"                ,         getRepeaterQuery          },
 {			"SetRepeaterQueryLevelOff"        ,			SetRepeaterQueryLevelOff   },
 {			"SetRepeaterQueryLevel1"          ,			SetRepeaterQueryLevel1     },
 {			"SetRepeaterQueryLevel2"          ,			SetRepeaterQueryLevel2     },
