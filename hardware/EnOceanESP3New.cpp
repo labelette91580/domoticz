@@ -399,8 +399,7 @@ int StrToInt(std::string value)
 				pEnocean->unlockDevice((DeviceId));
 				while ((pEnocean->isCommStatusOk()) && (!entry.empty()))
 				{
-					pEnocean->setLinkEntryTable(DeviceId, std::stoi(entry, 0, 0), 0, 0, 0);
-					pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+					pEnocean->SetLinkEntryTable(DeviceId, std::stoi(entry, 0, 0), 0, 0, 0);
 					if (pEnocean->isCommStatusOk())
 						pEnocean->m_nodes.deleteLinkTableEntry(DeviceId, std::stoi(entry, 0, 0));
 					entryNb++;
