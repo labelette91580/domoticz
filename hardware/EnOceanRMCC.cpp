@@ -18,6 +18,13 @@ using namespace enocean;
 
 #define SET_CMD_SIZE(ptc,SIZE) *ptc++  = SIZE>>1 ; *ptc++  =  (SIZE)<<7 | 0x7F;
 #define SET_CMD(ptc,CMD)       *ptc++  = 0xF0 | (CMD>>8) ; *ptc++  = CMD & 0xFF  ;
+
+typedef struct {
+	uint16_t   index;
+	uint8_t    length;
+	uint8_t    data[06];
+}T_PAYLOD;
+
 // ESP3 Packet types
 enum ESP3_PACKET_TYPE : uint8_t
 {
@@ -105,8 +112,8 @@ static  std::map < uint32_t , T_RMCC_COMMAND_CODE > 	RC_commande_code   =
 	{ RC_RADIO_LINK_TEST_CONTROL           ,{ 5 , 0                                   ,    "Radio Link Test Control               "} },
 	{ RC_GET_PRODUCT_ID                    ,{ 5 , RC_GET_PRODUCT_RESPONSE             ,    "Get Product ID Query                  "} },
 	{ RC_GET_PRODUCT_RESPONSE              ,{ 5 , 0                                   ,    "Get Product ID Response               "} },
-	{ RC_GET_REPEATER_FUNCTIONS            ,{ 5 , 0                                   ,    "Get Repeater Functions Query          "} },
-	{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,{ 5 , RC_GET_REPEATER_FUNCTIONS_RESPONSE  ,    "Get Repeater Functions Response       "} },
+	{ RC_GET_REPEATER_FUNCTIONS            ,{ 1 , RC_GET_REPEATER_FUNCTIONS_RESPONSE  ,    "Get Repeater Functions Query          "} },
+	{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,{ 1 , 0                                   ,    "Get Repeater Functions Response       "} },
 	{ RC_SET_REPEATER_FUNCTIONS            ,{ 5 , RC_ACK                              ,    "Set Repeater Functions Query          "} },
 	{ RC_SET_REPEATER_FILTER               ,{ 5 , RC_ACK                              ,    "Set Repeater Filter Query             "} },
 	{ RC_PACKET_RESPONSE                   ,{ 1 , 0                                   ,    "PACKET RESPONSE                       "} },
@@ -435,7 +442,6 @@ void CEnOceanRMCC::remoteSetLearnMode(unsigned int destID, int channel, T_LEARN_
 	Log(LOG_NORM, "send remoteLearning to %08X channel %d Mode:%d", destID, channel, Device_LRN_Mode);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
-
 void CEnOceanRMCC::Unlock(unsigned int destID, unsigned int code)
 {
 	RMCC_call_with_retry(unlock(destID,code),getRCresponseCode(UNLOCK));
@@ -482,7 +488,6 @@ void CEnOceanRMCC::Setcode(unsigned int destID, unsigned int code)
 {
 	RMCC_call_with_retry(setcode(destID,code),getRCresponseCode(SETCODE));
 }
-
 void CEnOceanRMCC::setcode(unsigned int destID, unsigned int code)
 {
 	unsigned char buff[16];
@@ -561,7 +566,6 @@ void CEnOceanRMCC::ping(unsigned int destID)
 void CEnOceanRMCC::Action(unsigned int destID)
 {
 	RMCC_call_with_retry(action(destID),getRCresponseCode(ACTION));
-
 }
 void CEnOceanRMCC::action(unsigned int destID)
 {
@@ -631,7 +635,6 @@ void CEnOceanRMCC::getLinkTableMedadata(uint32_t destID)
 	Log(LOG_NORM, "SEND: getLinkTableMedadata %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
-
 void CEnOceanRMCC::GetLinkTableMedadata(uint32_t destID)
 {
 	RMCC_call_with_retry(getLinkTableMedadata(destID),getRCresponseCode(RC_GET_METADATA));
@@ -739,11 +742,6 @@ void CEnOceanRMCC::GetDeviceLinkBaseConfiguration(uint32_t destID, int Linkindex
 {
 	RMCC_call_with_retry(getDeviceLinkBaseConfiguration(destID,Linkindex,begin,end,length) , getRCresponseCode(RC_GET_LINK_BASED_CONFIG));
 }
-typedef struct {
-	uint16_t   index;
-	uint8_t    length;
-	uint8_t    data[06];
-}T_PAYLOD;
 void CEnOceanRMCC::sendSysExMessage(uint32_t destSensorId, uint8_t data[], uint8_t len)
 {
 	unsigned char buff[16];
@@ -951,6 +949,11 @@ void CEnOceanRMCC::resetToDefaults(uint32_t destID, int resetAction)
 	Log(LOG_NORM, "SEND: resetToDefaults %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
+T_RMCC_RESULT CEnOceanRMCC::GetRepeaterQuery(unsigned int destID)
+{
+	RMCC_call_with_retry(getRepeaterQuery(destID),getRCresponseCode(RC_GET_REPEATER_FUNCTIONS));
+	return res;
+}
 void CEnOceanRMCC::getRepeaterQuery(unsigned int destination)
 {
 	unsigned char buff[16];
@@ -966,6 +969,10 @@ void CEnOceanRMCC::getRepeaterQuery(unsigned int destination)
 	setDestination(opt, destination);
 	Log(LOG_NORM, "SEND: geRepeaterFunctionsQuery cmd send to %08X", destination);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
+}
+void CEnOceanRMCC::SetRepeaterQuery(unsigned int destID, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter)
+{
+	RMCC_call_with_retry(setRepeaterQuery(destID,Repeaterfunction,Repeaterlevel,RepeaterFilter),getRCresponseCode(RC_SET_REPEATER_FUNCTIONS));
 }
 void CEnOceanRMCC::setRepeaterQuery(unsigned int destination, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter)
 {
@@ -989,7 +996,7 @@ void CEnOceanRMCC::setRepeaterQuery(unsigned int destination, int Repeaterfuncti
 	buff[6] = (Repeaterfunction << 6) & (Repeaterlevel << 4) & (RepeaterFilter << 3);
 	//optionnal data
 	setDestination(opt, destination);
-	Log(LOG_NORM, "SEND: seRepeaterFunctionsQuery cmd send to %08X  Repeaterfunction:%d  Repeaterlevel:%d  RepeaterFilter:%d ", destination, Repeaterfunction, Repeaterlevel, RepeaterFilter);
+	Log(LOG_NORM, "SEND: setRepeaterFunctionsQuery cmd send to %08X  Repeaterfunction:%d  Repeaterlevel:%d  RepeaterFilter:%d ", destination, Repeaterfunction, Repeaterlevel, RepeaterFilter);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::setNodonRepeaterLevel(unsigned int source, unsigned int destination, int Repeaterlevel)
@@ -1241,8 +1248,7 @@ void CEnOceanRMCC::clearRemote_man_answer()
 		m_RMCC_queue.clear();
 	}
 };
-//return true if time out
-T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int timeout)
+T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int timeout) //return true if time out
 {
 	//	clearRemote_man_answer();
 	timeout= getRCtimeoutSec(premote_man_answer);
@@ -1290,12 +1296,10 @@ T_COM_STATUS CEnOceanRMCC::getCommStatus()
 {
 	return m_com_status;
 }
-//return true if comm status = ok
-bool  CEnOceanRMCC::isCommStatusOk()
+bool  CEnOceanRMCC::isCommStatusOk()//return true if comm status = ok
 {
 	return (m_com_status == COM_OK);
 }
-
 //return true if ok 
 bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBeforeSend)
 {

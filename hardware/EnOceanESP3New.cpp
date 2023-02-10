@@ -614,8 +614,8 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->getRepeaterQuery(DeviceIdStringToUInt(deviceId));
-				root["message"] = pEnocean->waitRemote_man_answer(RC_GET_REPEATER_FUNCTIONS_RESPONSE, RMCC_ACK_TIMEOUT).message;
+				T_RMCC_RESULT res = pEnocean->GetRepeaterQuery(DeviceIdStringToUInt(deviceId));
+				root["message"] = res.message;
 			}
 			checkComStatus(pEnocean, root);
 		}
@@ -625,8 +625,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->setRepeaterQuery(DeviceIdStringToUInt(deviceId), 0, 1, 0);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 0, 1, 0);
 			}
 			checkComStatus(pEnocean, root);
 		}
@@ -636,8 +635,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->setRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 1, 0);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 1, 0);
 			}
 			checkComStatus(pEnocean, root);
 		}
@@ -647,8 +645,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->setRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 2, 0);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 2, 0);
 			}
 			checkComStatus(pEnocean, root);
 		}
