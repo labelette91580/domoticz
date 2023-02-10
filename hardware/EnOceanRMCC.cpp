@@ -1188,7 +1188,7 @@ void CEnOceanRMCC::GetLinkTableList(Json::Value& root, std::string& DeviceIds, u
 			root["result"][entry]["Profile"] = string_format("%06X", sensors->LinkTable[entry].Profile);
 			uint32_t SenderId = sensors->LinkTable[entry].SenderId;
 			root["result"][entry]["SenderId"] = string_format("%08X", SenderId);
-			root["result"][entry]["Channel"] = string_format("%d", sensors->LinkTable[entry].Channel);
+			root["result"][entry]["Channel"] = string_format("%d", sensors->LinkTable[entry].Channel+1);
 			root["result"][entry]["Config"] = string_format("%d (%08X)", sensors->LinkTable[entry].Config, sensors->LinkTable[entry].Config);
 			/*if (CheckIsGatewayAdress(SenderId))
 			{
