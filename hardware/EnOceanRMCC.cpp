@@ -6,6 +6,18 @@
 #include <stdarg.h>
 using namespace enocean;
 
+#define RMCC_call_with_retry(function)\
+{																						\
+	T_RMCC_RESULT res = { 0 };															\
+	for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)   ; retry ++ )	\
+	{																					\
+		int panswer = (destID == BROADCAST_ID ) ? RC_PACKET_RESPONSE : RC_ACK ;			\
+		function;																\
+		res = waitRemote_man_answer(panswer, RMCC_ACK_TIMEOUT);							\
+	}																					\
+}
+
+
 #define SET_CMD_SIZE(ptc,SIZE) *ptc++  = SIZE>>1 ; *ptc++  =  (SIZE)<<7 | 0x7F;
 #define SET_CMD(ptc,CMD)       *ptc++  = 0xF0 | (CMD>>8) ; *ptc++  = CMD & 0xFF  ;
 // ESP3 Packet types
@@ -402,6 +414,17 @@ void CEnOceanRMCC::remoteLearning(unsigned int destID, int channel, T_LEARN_MODE
 	Log(LOG_NORM, "send remoteLearning to %08X channel %d Mode:%d", destID, channel, Device_LRN_Mode);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
+
+void CEnOceanRMCC::Unlock(unsigned int destID, unsigned int code)
+{
+	T_RMCC_RESULT res = { 0 };
+	for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)   ; retry ++ )
+	{
+		int panswer = (destID == BROADCAST_ID ) ? RC_PACKET_RESPONSE : RC_ACK ;
+		unlock(destID, code);
+		res = waitRemote_man_answer(panswer, RMCC_ACK_TIMEOUT);
+	}
+}
 void CEnOceanRMCC::unlock(unsigned int destID, unsigned int code)
 {
 	unsigned char buff[16];
@@ -418,6 +441,16 @@ void CEnOceanRMCC::unlock(unsigned int destID, unsigned int code)
 	setDestination(opt, destID);
 	Log(LOG_NORM, "SEND: unlock cmd to %08X code:%08X", destID, code);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
+}
+void CEnOceanRMCC::Lock(unsigned int destID, unsigned int code)
+{
+	T_RMCC_RESULT res = { 0 };
+	for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)   ; retry ++ )
+	{
+		int panswer = (destID == BROADCAST_ID ) ? RC_PACKET_RESPONSE : RC_ACK ;
+		lock(destID, code);
+		res = waitRemote_man_answer(panswer, RMCC_ACK_TIMEOUT);
+	}
 }
 void CEnOceanRMCC::lock(unsigned int destID, unsigned int code)
 {
@@ -436,6 +469,17 @@ void CEnOceanRMCC::lock(unsigned int destID, unsigned int code)
 	Log(LOG_NORM, "SEND: lock  cmd to %08X code:%08X", destID, code);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
+void CEnOceanRMCC::Setcode(unsigned int destID, unsigned int code)
+{
+	T_RMCC_RESULT res = { 0 };
+	for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)   ; retry ++ )
+	{
+		int panswer = (destID == BROADCAST_ID ) ? RC_PACKET_RESPONSE : RC_ACK ;
+		setcode(destID, code);
+		res = waitRemote_man_answer(panswer, RMCC_ACK_TIMEOUT);
+	}
+}
+
 void CEnOceanRMCC::setcode(unsigned int destID, unsigned int code)
 {
 	unsigned char buff[16];
@@ -1285,8 +1329,7 @@ bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBef
 	res.function = 0;
 	unsigned int code = GetLockCode();
 	if (deviceId == BROADCAST_ID) {
-		unlock(BROADCAST_ID, code);
-		res = waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
+		Unlock(BROADCAST_ID, code);
 	}
 	else {
 		NodeInfo* sensors = m_nodes.search(deviceId);
@@ -1294,24 +1337,16 @@ bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBef
 			|| (!testUnLockTimeoutBeforeSend)
 			)
 		{
-			for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)  ; retry ++ )
-			{
-				unlock((deviceId), code);
-				sensors->SetUnLockTimeout();
-				res = waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
-			}
-			if (res.function != 0)
-				//answer received : some device need time after unlock ??
-				sleep_milliseconds(1000);
+				Unlock((deviceId), code);
+				if (isCommStatusOk()){
+					//answer received : some device need time after unlock ??
+					sleep_milliseconds(1000);
+					sensors->SetUnLockTimeout();
+				}
 		}
 		else {
-			res.function = RC_ACK;
 			Log(LOG_NORM, "unlock device %08X timeout:%d sec ", deviceId, (GetClockTicks() - sensors->TimeLastUnlockInMs) / 1000);
 		}
 	}
-	if (res.function != 0)
-		return true;
-	else
-		//timeout
-		return false;
+	return isCommStatusOk();
 }

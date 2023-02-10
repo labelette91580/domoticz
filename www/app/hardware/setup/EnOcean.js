@@ -14,6 +14,7 @@ define(['app'], function (app) {
 		const confirmAction          = ['Delete', 'DeleteEntrys'];
 		const refreshLinkTableAction = ['GetLinkTable', 'Link','DeleteEntrys','GetLinkConfig'];
 		const refreshNodeTableAction = ['Delete', 'GetProductId', 'LearnIn', 'ClearTeachInStatus'];
+		const broadcastCmd           = ['SendCode', 'GetProductId', 'Lock', 'UnLock'];
 
 		getNodeName = function (node) {
 			return node ? node.nodeName : '';
@@ -124,7 +125,10 @@ define(['app'], function (app) {
 		    var oLinkTable = $('#inboundlinktable').dataTable();
 		    var linkSelected = fnGetSelected(oLinkTable);
 
-		    var payload = {};
+			var payload = {};
+			//broadcast default if no selected
+			if (broadcastCmd.includes(cmd))
+				payload[0] = "FFFFFFFF;FFFFFFFF" ;
 		    for (i = 0; i < anSelected.length ; i++) {
 		        var data = oTable.fnGetData(anSelected[i]);
 		        payload[i] = data[0];
