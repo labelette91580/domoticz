@@ -365,8 +365,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->resetToDefaults(DeviceIdStringToUInt(deviceId), ResetToDefaults);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+				pEnocean->ResetToDefaults(DeviceIdStringToUInt(deviceId), ResetToDefaultsCst);
 			}
 			checkComStatus(pEnocean, root);
 		}

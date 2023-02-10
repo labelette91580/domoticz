@@ -17,7 +17,7 @@
 #define ResetConfigurationParameters   (1<<7)
 #define ResetSetIinboundLinkTable      (1<<6)
 #define ResetOutboundLinkTable         (1<<5)
-#define ResetToDefaults                (0xE0 )
+#define ResetToDefaultsCst             (0xE0 )
 
 
 #define BROADCAST_ID 0xFFFFFFFF
@@ -189,6 +189,8 @@ public:
     void getLinkTable(uint32_t DeviceId);
 
 	void setLinkEntryTable(uint32_t SensorId, int begin, uint32_t ID, int EEP, int channel);
+
+	void ResetToDefaults(uint32_t destID, int resetAction);
 
 	void resetToDefaults(uint32_t destID, int resetAction);
 
