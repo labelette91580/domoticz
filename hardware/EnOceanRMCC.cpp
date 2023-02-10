@@ -636,13 +636,11 @@ void CEnOceanRMCC::GetLinkTableMedadata(uint32_t destID)
 {
 	RMCC_call_with_retry(getLinkTableMedadata(destID),getRCresponseCode(RC_GET_METADATA));
 }
-
 T_RMCC_RESULT CEnOceanRMCC::QueryFunction(uint32_t destID)
 {
 	RMCC_call_with_retry(queryFunction(destID),getRCresponseCode(QUERY_FUNCTION));
 	return res;
 }
-
 void CEnOceanRMCC::queryFunction(uint32_t destID)
 {
 	unsigned char buff[16];
@@ -842,13 +840,10 @@ void CEnOceanRMCC::getallLinkTable(uint32_t SensorId, int begin, int end)
 	//3 entry by response datagramm
 	int NbAnswer = ((end - begin + 1) + 2) / 3;
 }
-
 void CEnOceanRMCC::GetallLinkTable(uint32_t destID, int begin, int end)
 {
 	RMCC_call_with_retry(getallLinkTable(destID,begin,end) , getRCresponseCode(RC_GET_TABLE_RESPONSE));
 }
-
-
 void CEnOceanRMCC::getGPTable(uint32_t SensorId, int index)
 {
 	unsigned char buff[16];
@@ -934,6 +929,10 @@ void CEnOceanRMCC::setLinkEntryTable(uint32_t SensorId, int begin, uint32_t ID, 
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 	//wait for all the table response
 	//waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+}
+void CEnOceanRMCC::ResetToDefaults(uint32_t destID, int resetAction)
+{
+	RMCC_call_with_retry(resetToDefaults(destID,resetAction),getRCresponseCode(RC_RESET_TO_DEFAULTS));
 }
 void CEnOceanRMCC::resetToDefaults(uint32_t destID, int resetAction)
 {
@@ -1022,9 +1021,9 @@ void CEnOceanRMCC::setNodonRepeaterLevel(unsigned int source, unsigned int desti
 	Log(LOG_NORM, "SEND: SetNodonRepeaterLevel cmd send to %08X  Repeaterlevel:%d  ", destination, Repeaterlevel);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 11, opt, 7);
 }
-//teachin from ID database
 void CEnOceanRMCC::TeachIn(std::string& sidx, T_LEARN_MODE Device_LRN_Mode)
 {
+	//teachin from ID database
 	std::vector<std::vector<std::string> > result;
 	result = m_sql.safe_query("SELECT DeviceID,Unit  FROM DeviceStatus WHERE (ID='%s')  ", sidx.c_str());
 	if (result.size() > 0)
@@ -1032,9 +1031,9 @@ void CEnOceanRMCC::TeachIn(std::string& sidx, T_LEARN_MODE Device_LRN_Mode)
 		TeachIn(result[0][0], result[0][1], Device_LRN_Mode);
 	}
 }
-//teachin from senderId / unit 
 void CEnOceanRMCC::TeachIn(std::string& deviceId, std::string& unit, T_LEARN_MODE Device_LRN_Mode)
 {
+	//teachin from senderId / unit 
 	int channel = atoi(unit.c_str());
 	//get sender adress from db
 	unsigned int SenderAdress = DeviceIdStringToUInt(deviceId);
