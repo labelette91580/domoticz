@@ -420,8 +420,8 @@ int StrToInt(std::string value)
 				pEnocean->ping(BROADCAST_ID);
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->ping(DeviceIdStringToUInt(deviceId));
-				root["message"] = pEnocean->waitRemote_man_answer(PING_ANSWER, RMCC_ACK_TIMEOUT).message;
+				T_RMCC_RESULT res = pEnocean->Ping(DeviceIdStringToUInt(deviceId));
+				root["message"] =res.message;
 			}
 			checkComStatus(pEnocean, root);
 		}

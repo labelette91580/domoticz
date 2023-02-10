@@ -146,6 +146,8 @@ public:
 
 	void queryid(unsigned int EEP, unsigned int mask);
 
+	T_RMCC_RESULT Ping(unsigned int destID);
+
 	void ping(unsigned int destID);
 
 	void action(unsigned int destID);
