@@ -94,6 +94,14 @@ std::string NodeInfo::teachin_mode_string()
 {
 	return teachin_mode_string(teachin_mode);
 }
+void NodeInfo::setLinkTableMedadata( int csize, int MaxSize)
+{
+	CurrentSize = csize;
+	MaxSize = MaxSize;
+	initEntry(csize);
+}
+
+
 void T_NODES::add(uint32_t idx, uint32_t nodeID, std::string Name, uint16_t manufacturerID, uint8_t  RORG, uint8_t  func, uint8_t  type, std::string description, TeachinMode teachin_mode)
 {
 	NodeInfo node;

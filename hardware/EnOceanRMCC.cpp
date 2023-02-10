@@ -765,6 +765,10 @@ void CEnOceanRMCC::sendSysExMessage(uint32_t destSensorId, uint8_t data[], uint8
 		len -= currenLen;
 	}
 }
+void CEnOceanRMCC::SetDeviceLinkBaseConfiguration(uint32_t destID, int Linkindex, int indexParam, int NbParam, int length, uint8_t data[])
+{
+	RMCC_call_with_retry(setDeviceLinkBaseConfiguration(destID,Linkindex,indexParam,NbParam,length,data),getRCresponseCode(RC_SET_LINK_BASED_CONFIG));
+}
 void CEnOceanRMCC::setDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkindex, int indexParam, int NbParam, int length, uint8_t data[])
 {
 	unsigned char buff[16];
@@ -1185,7 +1189,7 @@ void CEnOceanRMCC::GetLinkTableList(Json::Value& root, std::string& DeviceIds, u
 			uint32_t SenderId = sensors->LinkTable[entry].SenderId;
 			root["result"][entry]["SenderId"] = string_format("%08X", SenderId);
 			root["result"][entry]["Channel"] = string_format("%d", sensors->LinkTable[entry].Channel);
-			root["result"][entry]["Config"] = string_format("%d", sensors->LinkTable[entry].Config);
+			root["result"][entry]["Config"] = string_format("%d (%08X)", sensors->LinkTable[entry].Config, sensors->LinkTable[entry].Config);
 			/*if (CheckIsGatewayAdress(SenderId))
 			{
 				int unitCode = GetOffsetAdress(SenderId);

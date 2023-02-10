@@ -176,6 +176,8 @@ public:
 
     void sendSysExMessage(uint32_t destSensorId, uint8_t data[], uint8_t len);
 
+	void SetDeviceLinkBaseConfiguration(uint32_t destID, int Linkindex, int indexParam, int NbParam, int length, uint8_t data[]);
+
     void setDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkindex, int indexParam, int NbParam, int length, uint8_t data[]);
 
     void setDeviceLinkBaseConfiguration2(uint32_t SensorId, int Linkindex, int indexParam, int NbParam, int length, uint8_t data[]);

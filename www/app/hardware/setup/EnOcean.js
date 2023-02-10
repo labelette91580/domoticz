@@ -229,7 +229,20 @@ define(['app'], function (app) {
 		                        "6": healButton,
 
 		                    });
-		                });
+						});
+						$("#inboundlinktable tbody").off();
+						$("#inboundlinktable tbody").on('click', 'tr', function () {
+							if ($(this).hasClass('row_selected')) {
+								$(this).removeClass('row_selected');
+							}
+							else {
+								var oTable = $('#inboundlinktable').dataTable();
+								oTable.$('tr.row_selected').removeClass('row_selected');
+								$(this).addClass('row_selected');
+
+							}
+						});
+
 
 		}
 		refreshLinkTable = function (DeviceID) {
@@ -317,20 +330,6 @@ define(['app'], function (app) {
 		            }
 		        }
 		    });
-
-		    var oTableLink = $('#inboundlinktable').dataTable();
-		    $("#inboundlinktable tbody").on('click', 'tr', function () {
-		        if ($(this).hasClass('row_selected')) {
-		            $(this).removeClass('row_selected');
-		        }
-		        else {
-		            var oTable = $('#inboundlinktable').dataTable();
-		            oTable.$('tr.row_selected').removeClass('row_selected');
-		            $(this).addClass('row_selected');
-
-		        }
-		    });
-
 
 		    /* Add a click handler to the rows - this could be used as a callback */
 		    $("#nodestable tbody").off();
