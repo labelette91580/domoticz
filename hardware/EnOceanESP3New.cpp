@@ -400,8 +400,10 @@ int StrToInt(std::string value)
 				while ((pEnocean->isCommStatusOk()) && (!entry.empty()))
 				{
 					pEnocean->SetLinkEntryTable(DeviceId, std::stoi(entry, 0, 0), 0, 0, 0);
-					if (pEnocean->isCommStatusOk())
+					if (pEnocean->isCommStatusOk()){
 						pEnocean->m_nodes.deleteLinkTableEntry(DeviceId, std::stoi(entry, 0, 0));
+						pEnocean->m_nodes.setLinkTableMedadata(DeviceId,0,0);
+					}
 					entryNb++;
 					entry = getLinkEntry(req, entryNb);
 				}
@@ -716,8 +718,7 @@ int StrToInt(std::string value)
 					int begin = 0;
 					int end = 0;
 					uint8_t data[] = { 0xC0,0x56, 0x01 };
-					pEnocean->setDeviceLinkBaseConfiguration(ideviceId, entry, begin, end, 3, data);
-					pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+					pEnocean->SetDeviceLinkBaseConfiguration(ideviceId, entry, begin, end, 3, data);
 				}
 			}
 			checkComStatus(pEnocean, root);
