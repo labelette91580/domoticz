@@ -35,6 +35,7 @@ void NodeInfo::initEntry(int deb, int fin)
 		LinkTable[i].Profile = EMPTY_PROFILE;
 		LinkTable[i].SenderId = EMPTY_ID;
 		LinkTable[i].Channel = 0;
+		LinkTable[i].Config = 0;
 	}
 }
 int  NodeInfo::getSensorRorg()
