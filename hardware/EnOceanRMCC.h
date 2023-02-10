@@ -194,7 +194,11 @@ public:
 
 	void resetToDefaults(uint32_t destID, int resetAction);
 
+	T_RMCC_RESULT GetRepeaterQuery(unsigned int destID);
+
 	void getRepeaterQuery(unsigned int destination);
+
+	void SetRepeaterQuery(unsigned int destID, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter);
 
 	void setRepeaterQuery(unsigned int destination, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter);
 
