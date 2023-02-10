@@ -38,6 +38,13 @@ constexpr int CO_WR_REPEATER = 9 ;				// Set Repeater Level
 constexpr int CO_RD_REPEATER = 10;			// Read Repeater Level
 constexpr int PACKET_COMMON_COMMAND = 0x05;	// Common command
 
+#define WEB_CMD_ARG   http::server::WebEmSession &session, const http::server::request &req, Json::Value &root, int nbSelectedDevice , int iHardwareID ,CEnOceanESP3 *pEnocean
+typedef std::function<void(WEB_CMD_ARG)> EnOcean_web_function;
+typedef struct {
+	char* name;
+	EnOcean_web_function fct;
+} enocean_web_cmd_t;
+
 
 ///---------------------nodes ------------------------------------------------------
 void  CEnOceanESP3::SetNodeTeachInStatus(const uint32_t nodeID, uint32_t TeachInStatus)
@@ -212,12 +219,6 @@ int StrToInt(std::string value)
 				//			pEnocean->setCommStatus(COM_OK);
 			}
 		}
-#define WEB_CMD_ARG   http::server::WebEmSession &session, const http::server::request &req, Json::Value &root, int nbSelectedDevice , int iHardwareID ,CEnOceanESP3 *pEnocean
-		typedef std::function<void(WEB_CMD_ARG)> EnOcean_web_function;
-		typedef struct {
-			char* name;
-			EnOcean_web_function fct;
-		} enocean_web_cmd_t;
 		//--------------------- web command function
 		static void GetNodeList(WEB_CMD_ARG)
 		{
@@ -702,13 +703,8 @@ int StrToInt(std::string value)
 				int end = 0;
 				for (begin = 0; begin <= end; begin++)
 				{
-					T_RMCC_RESULT res =  {0};
-					for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)  ; retry ++ )
-					{
-						int length = 1;
-						pEnocean->getDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
-						res = pEnocean->waitRemote_man_answer(RC_GET_LINK_BASED_CONFIG_RESPONSE, RMCC_ACK_TIMEOUT) ;
-					}
+					int length = 1;
+					pEnocean->GetDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
 
 					//root["message"] = res.message;
 				}

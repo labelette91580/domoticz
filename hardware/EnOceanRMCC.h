@@ -154,6 +154,8 @@ public:
 
 	void getLinkTableMedadata(uint32_t destID);
 
+	void GetLinkTableMedadata(uint32_t destID);
+
 	void queryFunction(uint32_t destID);
 
 	void queryStatus(uint32_t destID);
@@ -162,6 +164,8 @@ public:
 
     void getDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkindex, int begin, int end, int length);
 
+	void GetDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkindex, int begin, int end, int length);
+
     void sendSysExMessage(uint32_t destSensorId, uint8_t data[], uint8_t len);
 
     void setDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkindex, int indexParam, int NbParam, int length, uint8_t data[]);
@@ -169,6 +173,8 @@ public:
     void setDeviceLinkBaseConfiguration2(uint32_t SensorId, int Linkindex, int indexParam, int NbParam, int length, uint8_t data[]);
 
     void getallLinkTable(uint32_t SensorId, int begin, int end);
+
+	void GetallLinkTable(uint32_t destID, int begin, int end);
 
     void getGPTable(uint32_t SensorId, int index);
 
