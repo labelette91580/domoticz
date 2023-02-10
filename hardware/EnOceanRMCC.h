@@ -132,9 +132,15 @@ public:
 
 	void remoteLearning(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode);
 
+	void Unlock(unsigned int destID, unsigned int code);
+
 	void unlock(unsigned int destID, unsigned int code);
 
+	void Lock(unsigned int destID, unsigned int code);
+
 	void lock(unsigned int destID, unsigned int code);
+
+	void Setcode(unsigned int destID, unsigned int code);
 
 	void setcode(unsigned int destID, unsigned int code);
 

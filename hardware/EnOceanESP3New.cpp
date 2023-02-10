@@ -227,15 +227,9 @@ int StrToInt(std::string value)
 		{
 			std::string deviceId;
 			unsigned int code = pEnocean->GetLockCode();
-			if (nbSelectedDevice == 0)
-			{
-				pEnocean->setcode(BROADCAST_ID, code);
-				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
-			}
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->setcode(DeviceIdStringToUInt(deviceId), code);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+				pEnocean->Setcode(DeviceIdStringToUInt(deviceId), code);
 			}
 			checkComStatus(pEnocean, root);
 		}
@@ -243,24 +237,15 @@ int StrToInt(std::string value)
 		{
 			std::string deviceId;
 			unsigned int code = pEnocean->GetLockCode();
-			if (nbSelectedDevice == 0)
-			{
-				pEnocean->lock(BROADCAST_ID, code);
-				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
-			}
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->lock(DeviceIdStringToUInt(deviceId), code);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+				pEnocean->Lock(DeviceIdStringToUInt(deviceId), code);
 			}
 			checkComStatus(pEnocean, root);
 		}
 		static void UnLock(WEB_CMD_ARG)
 		{
 			std::string deviceId;
-			if (nbSelectedDevice == 0) {
-				pEnocean->unlockDevice(BROADCAST_ID, false);
-			}
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId), false);
