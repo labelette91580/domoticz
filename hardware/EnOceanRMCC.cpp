@@ -411,7 +411,12 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 
 	setRemote_man_answer(fct, (char*)messageStr.c_str(), senderId);
 }
-void CEnOceanRMCC::remoteLearning(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode)
+void CEnOceanRMCC::RemoteSetLearnMode(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode)
+{
+	RMCC_call_with_retry(remoteSetLearnMode(destID,channel,Device_LRN_Mode) , getRCresponseCode(RC_SET_LEARN_MODE));
+
+}
+void CEnOceanRMCC::remoteSetLearnMode(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode)
 {
 	unsigned char buff[16];
 	unsigned char opt[16];
@@ -1037,7 +1042,7 @@ void CEnOceanRMCC::TeachIn(std::string& deviceId, std::string& unit, T_LEARN_MOD
 	unlockDevice(SenderAdress);
 	if (!isCommStatusOk())
 		return;
-	remoteLearning(SenderAdress, channel - 1, Device_LRN_Mode);
+	RemoteSetLearnMode(SenderAdress, channel - 1, Device_LRN_Mode);
 }
 static void CopyLine(Json::Value& root, int ii)
 {

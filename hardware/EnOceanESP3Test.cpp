@@ -281,9 +281,9 @@ void testParsingData(int sec_counter)
 
 //	if (sec_counter == 2)	TestData("D2 32 01 00 00 00 01 30 "); //VLD D2  eep func D2-03-0A baterie 50% button 1
 
-//			if (sec_counter == 3)	remoteLearning(0x01A65428 , true ,LEARN_IN ); //4BS data  :  eep func A-02-01
+//			if (sec_counter == 3)	remoteSetLearnMode(0x01A65428 , true ,LEARN_IN ); //4BS data  :  eep func A-02-01
 
-//			if (sec_counter == 5)	remoteLearning(0x01A65428, false, LEARN_IN); //4BS data  :  eep func A-02-01
+//			if (sec_counter == 5)	remoteSetLearnMode(0x01A65428, false, LEARN_IN); //4BS data  :  eep func A-02-01
 //			if (sec_counter == 2)	ping(0x01A65428); 
 //			if (sec_counter == 1)	unlock(0x01A65428,1);
 //			if (sec_counter == 2)	action(0x01A65428);

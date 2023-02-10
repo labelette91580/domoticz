@@ -130,7 +130,9 @@ public:
 
 	void parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int m_DataSize, int m_OptionalDataSize);
 
-	void remoteLearning(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode);
+	void RemoteSetLearnMode(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode);
+
+	void remoteSetLearnMode(unsigned int destID, int channel, T_LEARN_MODE Device_LRN_Mode);
 
 	void Unlock(unsigned int destID, unsigned int code);
 

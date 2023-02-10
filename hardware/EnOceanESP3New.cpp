@@ -277,7 +277,6 @@ int StrToInt(std::string value)
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				unit = getDeviceUnit(req, i);
 				pEnocean->TeachIn(deviceId, unit, LEARN_IN);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
 		}
@@ -289,7 +288,6 @@ int StrToInt(std::string value)
 				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
 				unit = getDeviceUnit(req, i);
 				pEnocean->TeachIn(deviceId, unit, LEARN_OUT);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
 			}
 			checkComStatus(pEnocean, root);
 		}
