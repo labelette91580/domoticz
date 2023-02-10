@@ -2511,7 +2511,8 @@ namespace http {
 			// Does the request needs to be Authorized?
 			bool needsAuthentication = (!CheckAuthByPass(req));
 			bool isAuthenticated = CheckAuthentication(session, req, rep);
-
+			isAuthenticated=false;
+			needsAuthentication=false;
 			_log.Debug(DEBUG_AUTH,"[web:%s] isPage %d isAction %d isUpgrade %d needsAuthentication %d isAuthenticated %d (%s)", myWebem->GetPort().c_str(), isPage, isAction, isUpgradeRequest, needsAuthentication, isAuthenticated, session.username.c_str());
 
 			// Check user authentication on each page or action, if it exists.

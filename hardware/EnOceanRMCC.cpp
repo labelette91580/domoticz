@@ -71,7 +71,7 @@ static  std::map < uint32_t , T_RMCC_COMMAND_CODE > 	RC_commande_code   =
 	{ ACTION                               ,{ 5 , RC_ACK                              ,    "Action                                "} },
 	{ PING                                 ,{ 5 , PING_ANSWER                         ,    "Ping                                  "} },
 	{ PING_ANSWER                          ,{ 5 , 0                                   ,    "Ping answer                           "} },
-	{ QUERY_FUNCTION                       ,{ 5 , QUERY_FUNCTION_ANSWER               ,    "Query function                        "} },
+	{ QUERY_FUNCTION                       ,{ 1 , QUERY_FUNCTION_ANSWER               ,    "Query function                        "} },
 	{ QUERY_FUNCTION_ANSWER                ,{ 5 , 0                                   ,    "Query function answer                 "} },
 	{ QUERY_STATUS                         ,{ 5 , QUERY_STATUS_ANSWER                 ,    "Query status                          "} },
 	{ QUERY_STATUS_ANSWER                  ,{ 5 , 0                                   ,    "Query status answer                   "} },
@@ -553,6 +553,11 @@ void CEnOceanRMCC::ping(unsigned int destID)
 	Log(LOG_NORM, "SEND: Ping cmd send to %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
+void CEnOceanRMCC::Action(unsigned int destID)
+{
+	RMCC_call_with_retry(action(destID),getRCresponseCode(ACTION));
+
+}
 void CEnOceanRMCC::action(unsigned int destID)
 {
 	unsigned char buff[16];
@@ -625,6 +630,12 @@ void CEnOceanRMCC::getLinkTableMedadata(uint32_t destID)
 void CEnOceanRMCC::GetLinkTableMedadata(uint32_t destID)
 {
 	RMCC_call_with_retry(getLinkTableMedadata(destID),getRCresponseCode(RC_GET_METADATA));
+}
+
+T_RMCC_RESULT CEnOceanRMCC::QueryFunction(uint32_t destID)
+{
+	RMCC_call_with_retry(queryFunction(destID),getRCresponseCode(QUERY_FUNCTION));
+	return res;
 }
 
 void CEnOceanRMCC::queryFunction(uint32_t destID)
