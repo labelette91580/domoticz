@@ -7,7 +7,6 @@
 using namespace enocean;
 
 #define RMCC_call_with_retry(FUNCTION,RESPONSE_CODE)\
-{																						\
 	T_RMCC_RESULT res = { 0 };															\
 	for (int retry = 0 ; (retry < RMCC_NB_RETRY) && (res.function == 0)   ; retry ++ )	\
 	{																					\
@@ -15,7 +14,6 @@ using namespace enocean;
 		FUNCTION;																\
 		res = waitRemote_man_answer(panswer, RMCC_ACK_TIMEOUT);							\
 	}																					\
-}
 
 
 #define SET_CMD_SIZE(ptc,SIZE) *ptc++  = SIZE>>1 ; *ptc++  =  (SIZE)<<7 | 0x7F;
@@ -533,6 +531,11 @@ void CEnOceanRMCC::queryid(unsigned int EEP, unsigned int mask)
 	setDestination(opt, 0xFFFFFFFF);
 	Log(LOG_NORM, "SEND: queryid send cmd EEP: %08X Mask: %d", EEP, mask);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
+}
+T_RMCC_RESULT CEnOceanRMCC::Ping(unsigned int destID)
+{
+	RMCC_call_with_retry(ping(destID),getRCresponseCode(PING));
+	return res;
 }
 void CEnOceanRMCC::ping(unsigned int destID)
 {
