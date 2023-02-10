@@ -150,6 +150,8 @@ public:
 
 	void ping(unsigned int destID);
 
+	void Action(unsigned int destID);
+
 	void action(unsigned int destID);
 
 	void getProductId(unsigned int destination = 0xFFFFFFFF );
@@ -157,6 +159,8 @@ public:
 	void getLinkTableMedadata(uint32_t destID);
 
 	void GetLinkTableMedadata(uint32_t destID);
+
+	T_RMCC_RESULT QueryFunction(uint32_t destID);
 
 	void queryFunction(uint32_t destID);
 

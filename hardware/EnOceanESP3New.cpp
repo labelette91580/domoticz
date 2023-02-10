@@ -380,8 +380,8 @@ int StrToInt(std::string value)
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
 				if (pEnocean->isCommStatusOk())
 				{
-					pEnocean->queryFunction(DeviceIdStringToUInt(deviceId));
-					root["message"] = pEnocean->waitRemote_man_answer(QUERY_FUNCTION_ANSWER, RMCC_ACK_TIMEOUT).message;
+					T_RMCC_RESULT res = pEnocean->QueryFunction(DeviceIdStringToUInt(deviceId));
+					root["message"] = res.message;
 				}
 			}
 			checkComStatus(pEnocean, root);
@@ -431,8 +431,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
 				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->action(DeviceIdStringToUInt(deviceId));
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+				pEnocean->Action(DeviceIdStringToUInt(deviceId));
 			}
 			checkComStatus(pEnocean, root);
 		}
