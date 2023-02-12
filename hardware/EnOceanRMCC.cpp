@@ -140,6 +140,19 @@ const char* RMCC_Cmd_Desc(const uint32_t fct)
 	return name;
 }
 
+static  std::map < uint32_t , std::string > 	RC_LinkConfigString   =
+{
+{ 12604929	, "Rocker Switch  AI "  },
+{ 12604930	, "Rocker Switch  A0 "  },
+{ 12604931	, "Rocker Switch  BI "  },
+{ 12604932	, "Rocker Switch  B0 " 	},
+};
+
+std::string getLinkConfigString(uint32_t config)
+{
+	return RC_LinkConfigString[config];
+}
+
 std::string  GetDeviceNameFromId(unsigned int ID)
 {
 	char szDeviceID[20];
@@ -866,7 +879,7 @@ void CEnOceanRMCC::getGPTable(uint32_t SensorId, int index)
 	waitRemote_man_answer(RC_GET_GP_TABLE_RESPONSE, RMCC_ACK_TIMEOUT);
 }
 
-void CEnOceanRMCC::getLinkConfig(uint32_t DeviceId)
+void CEnOceanRMCC::getLinksConfig(uint32_t DeviceId)
 {
 	int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
 	NodeInfo* node = m_nodes.search(  DeviceId);
@@ -903,7 +916,7 @@ void CEnOceanRMCC::getLinkTable(uint32_t DeviceId)
 				if (begin > m_nodes.getTableLinkMaxSize(DeviceId))
 					break;
 			}
-			getLinkConfig( DeviceId);
+			getLinksConfig( DeviceId);
 		}
 	}
 	if (!isCommStatusOk())
@@ -1207,7 +1220,7 @@ void CEnOceanRMCC::GetLinkTableList(Json::Value& root, std::string& DeviceIds, u
 			uint32_t SenderId = sensors->LinkTable[entry].SenderId;
 			root["result"][entry]["SenderId"] = string_format("%08X", SenderId);
 			root["result"][entry]["Channel"] = string_format("%d", sensors->LinkTable[entry].Channel+1);
-			root["result"][entry]["Config"] = string_format("%d (%08X)", sensors->LinkTable[entry].Config, sensors->LinkTable[entry].Config);
+			root["result"][entry]["Config"] = string_format("%d (%08X): %s", sensors->LinkTable[entry].Config, sensors->LinkTable[entry].Config, getLinkConfigString(sensors->LinkTable[entry].Config).c_str() );
 			/*if (CheckIsGatewayAdress(SenderId))
 			{
 				int unitCode = GetOffsetAdress(SenderId);

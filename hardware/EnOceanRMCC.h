@@ -188,7 +188,7 @@ public:
 
     void getGPTable(uint32_t SensorId, int index);
 
-	void getLinkConfig(uint32_t DeviceId);
+	void getLinksConfig(uint32_t DeviceId);
 
 	void getLinkTable(uint32_t DeviceId);
 
