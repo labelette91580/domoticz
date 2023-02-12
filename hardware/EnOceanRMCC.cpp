@@ -865,6 +865,22 @@ void CEnOceanRMCC::getGPTable(uint32_t SensorId, int index)
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 	waitRemote_man_answer(RC_GET_GP_TABLE_RESPONSE, RMCC_ACK_TIMEOUT);
 }
+
+void CEnOceanRMCC::getLinkConfig(uint32_t DeviceId)
+{
+	int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
+	NodeInfo* node = m_nodes.search(  DeviceId);
+	if (node)
+	{
+		for (int Linkindex=0;Linkindex<TableSize;Linkindex++)
+		{
+			if ( node->LinkTable[Linkindex].Config == 0 )
+			{
+				GetDeviceLinkBaseConfiguration(DeviceId,  Linkindex, 0, 0,3) ;
+			}
+		}
+	}
+}
 void CEnOceanRMCC::getLinkTable(uint32_t DeviceId)
 {
 	unlockDevice(DeviceId);
@@ -877,7 +893,7 @@ void CEnOceanRMCC::getLinkTable(uint32_t DeviceId)
 		sleep_milliseconds(1000);
 		int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
 		int begin = 0;
-		if (TableSize != PreviousTableSize)
+		if (TableSize != PreviousTableSize){
 			while (TableSize > m_nodes.getTableLinkValidSensorIdSize(DeviceId))
 			{
 				GetallLinkTable(DeviceId, begin, begin + 2);
@@ -887,6 +903,8 @@ void CEnOceanRMCC::getLinkTable(uint32_t DeviceId)
 				if (begin > m_nodes.getTableLinkMaxSize(DeviceId))
 					break;
 			}
+			getLinkConfig( DeviceId);
+		}
 	}
 	if (!isCommStatusOk())
 	{
