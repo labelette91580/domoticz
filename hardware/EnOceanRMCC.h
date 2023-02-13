@@ -230,7 +230,7 @@ public:
 
 	void clearRemote_man_answer();
 
-	T_RMCC_RESULT waitRemote_man_answer(int premote_man_answer, int timeout);
+	T_RMCC_RESULT waitRemote_man_answer(int premote_man_answer, int timeoutInSec = 1 );
 
 	void setCommStatus(T_COM_STATUS status);
 

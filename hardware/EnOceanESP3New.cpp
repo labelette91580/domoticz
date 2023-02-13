@@ -299,6 +299,7 @@ int StrToInt(std::string value)
 			for (int i = 0; i < nbSelectedDevice; i++) {
 				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
 				unsigned int ID = DeviceIdStringToUInt(deviceId);
+				pEnocean->unlockDevice(ID, false);
 				pEnocean->getProductId(ID);
 				if(ID==BROADCAST_ID)
 				{
@@ -336,8 +337,27 @@ int StrToInt(std::string value)
 		{
 			pEnocean->unlockDevice(0xFFFFFFFF);
 			pEnocean->queryid(0, 0);
-			pEnocean->waitRemote_man_answer(QUERYID_ANSWER_EXT, RMCC_ACK_TIMEOUT);
-			checkComStatus(pEnocean, root);
+
+			int nbDeviceDiscovered = 0;
+			T_RMCC_RESULT answ;
+			std::map<uint32_t, uint32_t> devicesId;
+			do
+			{
+				answ = pEnocean->waitRemote_man_answer(QUERYID_ANSWER_EXT);
+				if (answ.function != 0) {
+					nbDeviceDiscovered++;
+					devicesId[answ.senderId] = answ.senderId;
+				}
+			} while ( (answ.function != 0) );
+			std::string discoveredDevice = std_format("%d devices discovered ", devicesId.size());
+			for (const auto& deviceId : devicesId)
+			{
+				auto node = pEnocean->GetNodeInfo(deviceId.second);
+				discoveredDevice += "<BR>" + node->Description();
+			}
+			pEnocean->Log(LOG_NORM, discoveredDevice.c_str());
+			root["status"] = "OK";
+			root["message"] = discoveredDevice;
 		}
 		static void GetLinkTable(WEB_CMD_ARG)
 		{
