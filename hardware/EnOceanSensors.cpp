@@ -76,9 +76,14 @@ void NodeInfo::SetUnLockTimeout()
 {
 	TimeLastUnlockInMs = GetClockTicks();
 }
+void NodeInfo::ReSetUnLockTimeout()
+{
+	TimeLastUnlockInMs = 0;
+}
+
 std::string NodeInfo::Description()
 {
-	return std_format("SenderId: %08X Profile:%06X : %s : %s", nodeID, Profile, GetEEPLabel(RORG, func, type), GetEEPDescription(RORG, func, type));
+	return std_format("SenderId: %08X Profile:%06X : %s : %s Ref:%08X", nodeID, Profile, GetEEPLabel(RORG, func, type), GetEEPDescription(RORG, func, type), Reference);
 }
 std::string NodeInfo::teachin_mode_string(TeachinMode pteachin_mode)
 {
@@ -176,7 +181,8 @@ void T_NODES::printTableLink()
 {
 	for (auto itt = begin(); itt != end(); itt++)
 	{
-		_log.Log(LOG_NORM, "EnOcean: Print Link Table DeviceId:%08X  Profile:%0X Manufacturer:%d CurrentSize:%d MaxSize:%d", itt->first, itt->second.Profile, itt->second.manufacturerID, itt->second.CurrentSize, itt->second.MaxSize);
+		auto node = itt->second;
+		_log.Log(LOG_NORM, "EnOcean: Print Link Table DeviceId:%08X  Profile:%0X Manufacturer:%d Reference:%08X CurrentSize:%d MaxSize:%d", itt->first, node.Profile, node.manufacturerID,node.Reference, node.CurrentSize, node.MaxSize);
 		for (int i = 0; i < itt->second.CurrentSize; i++)
 			_log.Debug(DEBUG_NORM, "                      Entry:%d Id:%08X Profile:%X Channel:%d", i, itt->second.LinkTable[i].SenderId, itt->second.LinkTable[i].Profile, itt->second.LinkTable[i].Channel);
 	}
