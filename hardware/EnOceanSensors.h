@@ -56,6 +56,7 @@ namespace enocean {
 		//return true if lock timeout is achived
 		bool UnLockTimeout();
 		void SetUnLockTimeout();
+		void ReSetUnLockTimeout();
 		std::string NodeInfo::Description();
 		static std::string teachin_mode_string(TeachinMode pteachin_mode);
 		std::string teachin_mode_string();

@@ -402,7 +402,6 @@ int StrToInt(std::string value)
 					pEnocean->SetLinkEntryTable(DeviceId, std::stoi(entry, 0, 0), 0, 0, 0);
 					if (pEnocean->isCommStatusOk()){
 						pEnocean->m_nodes.deleteLinkTableEntry(DeviceId, std::stoi(entry, 0, 0));
-						pEnocean->m_nodes.setLinkTableMedadata(DeviceId,0,0);
 					}
 					entryNb++;
 					entry = getLinkEntry(req, entryNb);
