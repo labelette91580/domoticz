@@ -22,10 +22,8 @@ define(['app'], function (app) {
 		getGroupName = function (group) {
 			return group ? group.groupName : '';
 		};
-
 		$ctrl.$onInit = function () {
-			$scope.ozw_node_id = "-";
-			$scope.ozw_node_desc = "-";
+			$.esp3hwdid = $ctrl.hardware.idx;
 
 			EditEnOcean($ctrl.hardware.idx, $ctrl.hardware.Name, 1, 2, 3, 4, 5, 6);
 		};
@@ -35,7 +33,6 @@ define(['app'], function (app) {
 		    var data = oTable.fnGetData(anSelected[0]);
 		    EnOceanDeviceSendDialogOpen($.hwid, data[5], data[0], data[7]);
 		}
-
 		function ShowWaiting(txt, iserror) {
 				$("#notification").html('<p>' + txt + '</p>');
 
@@ -47,11 +44,9 @@ define(['app'], function (app) {
 				$("#notification").center();
 				$("#notification").show();
 	}
-
-	function HideWaiting() {
+		function HideWaiting() {
 		$("#notification").hide();
 	}
-
 		EnOceanSendCmd = function (cmd, payload) {
 			$.ajax({
 				beforeSend: function () {
@@ -94,7 +89,6 @@ define(['app'], function (app) {
 				}
 			});
 		}
-
 		EnOceanConfirmAndSendCmd = function(cmd,payload)
 		{
 			if ( confirmAction.includes(cmd) )
@@ -109,8 +103,6 @@ define(['app'], function (app) {
 				EnOceanSendCmd  (cmd,payload) ;
 
 		}
-
-
 		refreshStatus = function(deviceId , status ){
 				    
 			$('#statusImg'+deviceId).attr("src", "images/"+status+".png" );
@@ -129,10 +121,10 @@ define(['app'], function (app) {
 			//broadcast default if no selected
 			if (broadcastCmd.includes(cmd))
 				payload[0] = "FFFFFFFF;FFFFFFFF" ;
-		    for (i = 0; i < anSelected.length ; i++) {
-		        var data = oTable.fnGetData(anSelected[i]);
-		        payload[i] = data[0];
-		    }
+//		    for (i = 0; i < anSelected.length ; i++) {
+//		        var data = oTable.fnGetData(anSelected[i]);
+//		        payload[i] = data[0];
+//		    }
 
 			$.deviceIdSelected = {} ;
 		    
@@ -204,7 +196,6 @@ define(['app'], function (app) {
 			EnOceanConfirmAndSendCmd (cmd,payload);
 
 		}
-
 		dislayLinkTable = function (DeviceID, result) {
 						var oTableLink = $('#inboundlinktable').dataTable();
 						oTableLink.fnClearTable();
@@ -265,7 +256,6 @@ define(['app'], function (app) {
 
 
 		}
-
 		DeviceCmd = function( cmd,DeviceID ,UnitId , linkEntry )
 		{
 		    var payload = {};
@@ -377,7 +367,6 @@ define(['app'], function (app) {
 
 		    $('#modal').hide();
 		}
-
 		EditEnOcean = function (idx, name, Mode1, Mode2, Mode3, Mode4, Mode5, Mode6) {
 		    $.hwid = idx;
 		    $.devName = name;
@@ -426,7 +415,6 @@ define(['app'], function (app) {
 
 		    RefreshOpenEnOceanNodeTable();
 		}
-
 		EnOceanSetCode = function () {
 		    bootbox.dialog({
 		        message: $.t("Please enter the code protection:") + "<input type='text' id='add_node' data-toggle='tooltip' title='NodeId or NodeId.Instance'></input><br>",
@@ -456,7 +444,6 @@ define(['app'], function (app) {
 		        }
 		    });
 		};
-
 		EnOceanCreateSensor = function () {
 		    bootbox.dialog({
 		        message: $.t("Please enter sensor ID in hexa 0x12345678 / EEP: D20101 :<br>") 
@@ -497,6 +484,78 @@ define(['app'], function (app) {
 		            }
 		        }
 		    });
+		};
+		EnableLearnMode = function () {
+			if (typeof $scope.mytimer !== "undefined") {
+				$interval.cancel($scope.mytimer);
+				$scope.mytimer = undefined;
+			}
+			$.ajax({
+				url: "json.htm?type=command&param=esp3enablelearnmode&hwdid=" + $.esp3hwdid + "&minutes=1",
+				async: true,
+				dataType: "json",
+				success: function (data, status) {
+					$("#esp3lmdwaiting").show();
+					$("#esp3lmdteachedin").hide();
+					$("#esp3lmdtimedout").hide();
+					$("#esp3learnmodedialog").modal("show");
+
+					$scope.mytimer = $interval(function () { $scope.IsNodeTeachedIn(); }, 1000);
+				},
+				error: function (result, status, error) {
+					ShowNotify($.t("Problem enabling learn mode!"), 2500, true);
+				},
+			});
+		};
+
+		$scope.IsNodeTeachedIn = function () {
+			if (typeof $scope.mytimer !== "undefined") {
+				$interval.cancel($scope.mytimer);
+				$scope.mytimer = undefined;
+			}
+			$.ajax({
+				url: "json.htm?type=command&param=esp3isnodeteachedin&hwdid=" + $.esp3hwdid,
+				async: true,
+				dataType: "json",
+				success: function (data, status) {
+					if (data.result === 1) { // An EnOcean node has been teached-in
+						$scope.esp3_nodeid = addLeadingZeros(parseInt(data.nodeid).toString(16).toUpperCase(), 8);
+						$scope.esp3_manufacturername = data.manufacturername;
+						$scope.esp3_eep = data.eep;
+						$scope.esp3_description = data.description;
+						$("#esp3lmdwaiting").hide();
+						$("#esp3lmdteachedin").show();
+						$scope.$apply();
+						return;
+					}
+					if (data.result === 2) { // Learn mode timed out
+						$("#esp3lmdwaiting").hide();
+						$("#esp3lmdtimedout").show();
+						return;
+					}
+					// Keep waiting
+					$scope.mytimer = $interval(function () { $scope.IsNodeTeachedIn(); }, 1000);
+				},
+				error: function (result, status, error) {
+					ShowNotify($.t("Problem teachin-in node!"), 2500, true);
+				},
+			});
+		};
+
+		OnCancelTeachIn = function () {
+			$.ajax({
+				url: "json.htm?type=command&param=esp3cancelteachin&hwdid=" + $.esp3hwdid,
+				async: true,
+				dataType: "json",
+			});
+			$interval.cancel($scope.mytimer);
+			$scope.mytimer = undefined;
+			$("#esp3learnmodedialog").modal("hide");
+		};
+
+		OnCloseLearnMode = function () {
+			$("#esp3learnmodedialog").modal("hide");
+			RefreshNodesTable();
 		};
 
 	}
