@@ -296,15 +296,16 @@ int StrToInt(std::string value)
 			//pEnocean->unlock(BROADCAST_ID, pEnocean->GetLockCode());
 			std::string deviceId;
 			//assume all new device is power on
-			if (nbSelectedDevice == 0){
-				pEnocean->getProductId(BROADCAST_ID);
-				nbSelectedDevice = 0x7ff;
-			}
-			else
-				for (int i = 0; i < nbSelectedDevice; i++) {
-					deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-					pEnocean->getProductId(DeviceIdStringToUInt(deviceId));
+			for (int i = 0; i < nbSelectedDevice; i++) {
+				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+				unsigned int ID = DeviceIdStringToUInt(deviceId);
+				pEnocean->getProductId(ID);
+				if(ID==BROADCAST_ID)
+				{
+					nbSelectedDevice = 0x7ff;
+					break;
 				}
+			}
 			//wait response 
 			int nbDeviceDiscovered = 0;
 			T_RMCC_RESULT answ;

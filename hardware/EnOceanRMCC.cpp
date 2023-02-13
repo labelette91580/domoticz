@@ -110,8 +110,8 @@ static  std::map < uint32_t , T_RMCC_COMMAND_CODE > 	RC_commande_code   =
 	{ RC_APPLY_CHANGES                     ,{ 1 , RC_ACK                              ,    "Apply Changes Command"                 } },
 	{ RC_RESET_TO_DEFAULTS                 ,{ 1 , RC_ACK                              ,    "Reset to Defaults"                     } },
 	{ RC_RADIO_LINK_TEST_CONTROL           ,{ 5 , 0                                   ,    "Radio Link Test Control"               } },
-	{ RC_GET_PRODUCT_ID                    ,{ 2 , RC_GET_PRODUCT_RESPONSE             ,    "Get Product ID Query"                  } },
-	{ RC_GET_PRODUCT_RESPONSE              ,{ 2 , 0                                   ,    "Get Product ID Response"               } },
+	{ RC_GET_PRODUCT_ID                    ,{ 6 , RC_GET_PRODUCT_RESPONSE             ,    "Get Product ID Query"                  } },
+	{ RC_GET_PRODUCT_RESPONSE              ,{ 6 , 0                                   ,    "Get Product ID Response"               } },
 	{ RC_GET_REPEATER_FUNCTIONS            ,{ 1 , RC_GET_REPEATER_FUNCTIONS_RESPONSE  ,    "Get Repeater Functions Query"          } },
 	{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,{ 1 , 0                                   ,    "Get Repeater Functions Response"       } },
 	{ RC_SET_REPEATER_FUNCTIONS            ,{ 1 , RC_ACK                              ,    "Set Repeater Functions Query"          } },
@@ -152,7 +152,6 @@ std::string getLinkConfigString(uint32_t config)
 {
 	return RC_LinkConfigString[config];
 }
-
 std::string  GetDeviceNameFromId(unsigned int ID)
 {
 	char szDeviceID[20];
@@ -164,21 +163,6 @@ std::string  GetDeviceNameFromId(unsigned int ID)
 		return result[0][0];
 	}
 	return "";
-}
-std::string IntToString(int val, int nbDigit)
-{
-	char fmt[16];
-	char intStr[32];
-	sprintf(fmt, "%%0%dX", nbDigit);
-	sprintf(intStr, fmt, val);
-	return intStr;
-}
-std::string string_format(const char* fmt, ...) {
-	va_list ap;
-	char buf[1024];
-	va_start(ap, fmt);
-	vsnprintf((char*)buf, sizeof(buf), fmt, ap);
-	return buf;
 }
 std::string  replaceString(const char* str, std::string stringToReplace, std::string stringReplace)
 {
@@ -235,7 +219,8 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 	unsigned int senderId = 0;
 	if (fct == RC_ACK)
 	{
-		snprintf(message, sizeof(message), "RMC :  function :%03X :%s", fct, RMCC_Cmd_Desc(fct));
+		senderId = DeviceArrayToInt(&m_buffer[m_DataSize + 4]);
+		snprintf(message, sizeof(message), "RMC :  function :%03X :%s from %08X", fct, RMCC_Cmd_Desc(fct),senderId);
 		messageStr = message;
 		Log(LOG_NORM, message );
 	}
@@ -364,7 +349,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		for (int i = 0; i < nb; i++) {
 			int  function = m_buffer[4 + i * 4] * 256 + m_buffer[5 + i * 4];
 			if (function) {
-				snprintf(message, sizeof(message),"  Function :%0X = %s ", function, RMCC_Cmd_Desc(function));
+				snprintf(message, sizeof(message), " Function :%0X = %s ", function, RMCC_Cmd_Desc(function));
 				messageStr += message;
 				messageStr += "<BR>";
 				Log(LOG_NORM, message);
@@ -1153,7 +1138,7 @@ void CEnOceanRMCC::GetNodeList(std::string& HardwareID, Json::Value& root)
 				int func = atoi(sd[2].c_str());
 				int type = atoi(sd[3].c_str());
 				uint32_t profil = RorgFuncTypeToProfile(rorg, func, type);
-				root["result"][ii]["Profile"] = IntToString(rorg, 2) + IntToString(func, 2) + IntToString(type, 2);
+				root["result"][ii]["Profile"] = std_format("%02X%02X%02X", rorg , func , type );
 				root["result"][ii]["Manufacturer"] = sd[4];
 				std::string man = GetManufacturerName(atoi(sd[4].c_str()));
 				if (man[0] == '>') man = "Unkown";
@@ -1218,11 +1203,11 @@ void CEnOceanRMCC::GetLinkTableList(Json::Value& root, std::string& DeviceIds, u
 			getLinkTable(DeviceId);
 		for (int entry = 0; entry < sensors->MaxSize; entry++)
 		{
-			root["result"][entry]["Profile"] = string_format("%06X", sensors->LinkTable[entry].Profile);
+			root["result"][entry]["Profile"] = std_format("%06X", sensors->LinkTable[entry].Profile);
 			uint32_t SenderId = sensors->LinkTable[entry].SenderId;
-			root["result"][entry]["SenderId"] = string_format("%08X", SenderId);
-			root["result"][entry]["Channel"] = string_format("%d", sensors->LinkTable[entry].Channel+1);
-			root["result"][entry]["Config"] = string_format("%d (%08X): %s", sensors->LinkTable[entry].Config, sensors->LinkTable[entry].Config, getLinkConfigString(sensors->LinkTable[entry].Config).c_str() );
+			root["result"][entry]["SenderId"] = std_format("%08X", SenderId);
+			root["result"][entry]["Channel"] = std_format("%d", sensors->LinkTable[entry].Channel+1);
+			root["result"][entry]["Config"] = std_format("%d (%08X): %s", sensors->LinkTable[entry].Config, sensors->LinkTable[entry].Config, getLinkConfigString(sensors->LinkTable[entry].Config).c_str() );
 			/*if (CheckIsGatewayAdress(SenderId))
 			{
 				int unitCode = GetOffsetAdress(SenderId);
@@ -1324,7 +1309,7 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int pt
 		logStr += std_format(": TIMEOUT");
 	}
 	else
-		//        Log(LOG_NORM, "Wait: Recving OK"  );
+		//        Log(LOG_NORM, "Wait: Recving OK " );
 		logStr += std_format(": OK ");
 	Log(LOG_NORM, logStr.c_str());
 	return remote_man_answer;
