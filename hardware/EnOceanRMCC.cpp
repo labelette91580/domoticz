@@ -69,54 +69,55 @@ const char * Name;
 }T_RMCC_COMMAND_CODE;
 static  std::map < uint32_t , T_RMCC_COMMAND_CODE > 	RC_commande_code   =
 {
-	{ UNLOCK                               ,{ 1 , RC_ACK                              ,    "Unlock"                                } },
-	{ LOCK                                 ,{ 1 , RC_ACK                              ,    "Lock"                                  } },
-	{ SETCODE                              ,{ 1 , RC_ACK                              ,    "Set code"                              } },
-	{ QUERYID                              ,{ 1 , 0                                   ,    "Query ID"                              } },
-	{ QUERYID_ANSWER                       ,{ 1 , 0                                   ,    "Query ID answer"                       } },
-	{ QUERYID_ANSWER_EXT                   ,{ 1 , 0                                   ,    "! Ext Query Id Answer"                 } },
-	{ ACTION                               ,{ 1 , RC_ACK                              ,    "Action"                                } },
-	{ PING                                 ,{ 1 , PING_ANSWER                         ,    "Ping"                                  } },
-	{ PING_ANSWER                          ,{ 1 , 0                                   ,    "Ping answer"                           } },
-	{ QUERY_FUNCTION                       ,{ 1 , QUERY_FUNCTION_ANSWER               ,    "Query function"                        } },
-	{ QUERY_FUNCTION_ANSWER                ,{ 1 , 0                                   ,    "Query function answer"                 } },
-	{ QUERY_STATUS                         ,{ 1 , QUERY_STATUS_ANSWER                 ,    "Query status"                          } },
-	{ QUERY_STATUS_ANSWER                  ,{ 1 , 0                                   ,    "Query status answer"                   } },
-	{ REMOTE_LEARNIN                       ,{ 1 , RC_ACK                              ,    "Remote learn in"                       } },
-	{ REMOTE_FLASH_WRITE                   ,{ 5 , 0                                   ,    "Remote flash write"                    } },
-	{ REMOTE_FLASH_READ                    ,{ 5 , 0                                   ,    "Remote flash read"                     } },
-	{ REMOTE_FLASH_READ_ANSWER             ,{ 5 , 0                                   ,    "Remote flash read answer"              } },
-	{ SMARTACK_READ                        ,{ 5 , 0                                   ,    "SmartACK read"                         } },
-	{ SMARTACK_READ_MAILBOX_ANSWER         ,{ 5 , 0                                   ,    "SmartACK read mailbox answer"          } },
-	{ SMARTACK_READ_LEARNED_SENSOR_ANSWER  ,{ 5 , 0                                   ,    "SmartACK read learned sensor answer"   } },
-	{ SMARTACK_WRITE                       ,{ 5 , 0                                   ,    "SmartACK write"                        } },
-	{ RC_ACK                               ,{ 1 , 0                                   ,    "Remote Commissioning Acknowledge"      } },
-	{ RC_GET_METADATA                      ,{ 1 , RC_GET_METADATA_RESPONSE            ,    "Get Link Table Metadata Query"         } },
-	{ RC_GET_METADATA_RESPONSE             ,{ 1 , 0                                   ,    "Get Link Table Metadata Response"      } },
-	{ RC_GET_TABLE                         ,{ 2 , 0                                   ,    "Get Link Table Query"                  } },
-	{ RC_GET_TABLE_RESPONSE                ,{ 2 , RC_GET_TABLE_RESPONSE               ,    "Get Link Table Response"               } },
-	{ RC_SET_TABLE                         ,{ 2 , RC_ACK                              ,    "Set Link Table Query"                  } },
-	{ RC_GET_GP_TABLE                      ,{ 2 , RC_GET_GP_TABLE_RESPONSE            ,    "Get Link Table GP Entry Query"         } },
-	{ RC_GET_GP_TABLE_RESPONSE             ,{ 5 , 0                                   ,    "Get Link Table GP Entry Response"      } },
-	{ RC_SET_GP_TABLE                      ,{ 1 , RC_ACK                              ,    "Set Link Table GP Entry Query"         } },
-	{ RC_SET_LEARN_MODE                    ,{ 1 , RC_ACK                              ,    "Remote Set Learn Mode"                 } },
-	{ RC_TRIG_OUTBOUND_TEACH_REQ           ,{ 5 , 0                                   ,    "Trigger Outbound Remote Teach Request" } },
-	{ RC_GET_DEVICE_CONFIG                 ,{ 2 , RC_GET_DEVICE_CONFIG_RESPONSE       ,    "Get Device Configuration Query"        } },
-	{ RC_GET_DEVICE_CONFIG_RESPONSE        ,{ 2 , 0                                   ,    "Get Device Configuration Response"     } },
-	{ RC_SET_DEVICE_CONFIG                 ,{ 2 , RC_ACK                              ,    "Set Device Configuration Query"        } },
-	{ RC_GET_LINK_BASED_CONFIG             ,{ 1 , RC_GET_LINK_BASED_CONFIG_RESPONSE   ,    "Get Link Based Configuration Query"    } },
-	{ RC_GET_LINK_BASED_CONFIG_RESPONSE    ,{ 1 , 0                                   ,    "Get Link Based Configuration Response" } },
-	{ RC_SET_LINK_BASED_CONFIG             ,{ 1 , RC_ACK                              ,    "Set Link Based Configuration Query"    } },
-	{ RC_APPLY_CHANGES                     ,{ 1 , RC_ACK                              ,    "Apply Changes Command"                 } },
-	{ RC_RESET_TO_DEFAULTS                 ,{ 1 , RC_ACK                              ,    "Reset to Defaults"                     } },
-	{ RC_RADIO_LINK_TEST_CONTROL           ,{ 5 , 0                                   ,    "Radio Link Test Control"               } },
-	{ RC_GET_PRODUCT_ID                    ,{ 6 , RC_GET_PRODUCT_RESPONSE             ,    "Get Product ID Query"                  } },
-	{ RC_GET_PRODUCT_RESPONSE              ,{ 6 , 0                                   ,    "Get Product ID Response"               } },
-	{ RC_GET_REPEATER_FUNCTIONS            ,{ 1 , RC_GET_REPEATER_FUNCTIONS_RESPONSE  ,    "Get Repeater Functions Query"          } },
-	{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,{ 1 , 0                                   ,    "Get Repeater Functions Response"       } },
-	{ RC_SET_REPEATER_FUNCTIONS            ,{ 1 , RC_ACK                              ,    "Set Repeater Functions Query"          } },
-	{ RC_SET_REPEATER_FILTER               ,{ 1 , RC_ACK                              ,    "Set Repeater Filter Query"             } },
-	{ RC_PACKET_RESPONSE                   ,{ 1 , 0                                   ,    "PACKET RESPONSE"                       } },
+	//command                                timeout Answer code                            description
+	{ UNLOCK                               ,{ 1    , RC_ACK                              ,    "Unlock"                                } },
+	{ LOCK                                 ,{ 1    , RC_ACK                              ,    "Lock"                                  } },
+	{ SETCODE                              ,{ 1    , RC_ACK                              ,    "Set code"                              } },
+	{ QUERYID                              ,{ 5    , QUERYID_ANSWER_EXT                  ,    "Query ID"                              } },
+	{ QUERYID_ANSWER                       ,{ 5    , 0                                   ,    "Query ID answer"                       } },
+	{ QUERYID_ANSWER_EXT                   ,{ 5    , 0                                   ,    "! Ext Query Id Answer"                 } },
+	{ ACTION                               ,{ 1    , RC_ACK                              ,    "Action"                                } },
+	{ PING                                 ,{ 1    , PING_ANSWER                         ,    "Ping"                                  } },
+	{ PING_ANSWER                          ,{ 1    , 0                                   ,    "Ping answer"                           } },
+	{ QUERY_FUNCTION                       ,{ 1    , QUERY_FUNCTION_ANSWER               ,    "Query function"                        } },
+	{ QUERY_FUNCTION_ANSWER                ,{ 1    , 0                                   ,    "Query function answer"                 } },
+	{ QUERY_STATUS                         ,{ 1    , QUERY_STATUS_ANSWER                 ,    "Query status"                          } },
+	{ QUERY_STATUS_ANSWER                  ,{ 1    , 0                                   ,    "Query status answer"                   } },
+	{ REMOTE_LEARNIN                       ,{ 1    , RC_ACK                              ,    "Remote learn in"                       } },
+	{ REMOTE_FLASH_WRITE                   ,{ 5    , 0                                   ,    "Remote flash write"                    } },
+	{ REMOTE_FLASH_READ                    ,{ 5    , 0                                   ,    "Remote flash read"                     } },
+	{ REMOTE_FLASH_READ_ANSWER             ,{ 5    , 0                                   ,    "Remote flash read answer"              } },
+	{ SMARTACK_READ                        ,{ 5    , 0                                   ,    "SmartACK read"                         } },
+	{ SMARTACK_READ_MAILBOX_ANSWER         ,{ 5    , 0                                   ,    "SmartACK read mailbox answer"          } },
+	{ SMARTACK_READ_LEARNED_SENSOR_ANSWER  ,{ 5    , 0                                   ,    "SmartACK read learned sensor answer"   } },
+	{ SMARTACK_WRITE                       ,{ 5    , 0                                   ,    "SmartACK write"                        } },
+	{ RC_ACK                               ,{ 1    , 0                                   ,    "Remote Commissioning Acknowledge"      } },
+	{ RC_GET_METADATA                      ,{ 1    , RC_GET_METADATA_RESPONSE            ,    "Get Link Table Metadata Query"         } },
+	{ RC_GET_METADATA_RESPONSE             ,{ 1    , 0                                   ,    "Get Link Table Metadata Response"      } },
+	{ RC_GET_TABLE                         ,{ 2    , RC_GET_TABLE_RESPONSE               ,    "Get Link Table Query"                  } },
+	{ RC_GET_TABLE_RESPONSE                ,{ 2    , RC_GET_TABLE_RESPONSE               ,    "Get Link Table Response"               } },
+	{ RC_SET_TABLE                         ,{ 2    , RC_ACK                              ,    "Set Link Table Query"                  } },
+	{ RC_GET_GP_TABLE                      ,{ 2    , RC_GET_GP_TABLE_RESPONSE            ,    "Get Link Table GP Entry Query"         } },
+	{ RC_GET_GP_TABLE_RESPONSE             ,{ 5    , 0                                   ,    "Get Link Table GP Entry Response"      } },
+	{ RC_SET_GP_TABLE                      ,{ 1    , RC_ACK                              ,    "Set Link Table GP Entry Query"         } },
+	{ RC_SET_LEARN_MODE                    ,{ 1    , RC_ACK                              ,    "Remote Set Learn Mode"                 } },
+	{ RC_TRIG_OUTBOUND_TEACH_REQ           ,{ 5    , 0                                   ,    "Trigger Outbound Remote Teach Request" } },
+	{ RC_GET_DEVICE_CONFIG                 ,{ 2    , RC_GET_DEVICE_CONFIG_RESPONSE       ,    "Get Device Configuration Query"        } },
+	{ RC_GET_DEVICE_CONFIG_RESPONSE        ,{ 2    , 0                                   ,    "Get Device Configuration Response"     } },
+	{ RC_SET_DEVICE_CONFIG                 ,{ 2    , RC_ACK                              ,    "Set Device Configuration Query"        } },
+	{ RC_GET_LINK_BASED_CONFIG             ,{ 1    , RC_GET_LINK_BASED_CONFIG_RESPONSE   ,    "Get Link Based Configuration Query"    } },
+	{ RC_GET_LINK_BASED_CONFIG_RESPONSE    ,{ 1    , 0                                   ,    "Get Link Based Configuration Response" } },
+	{ RC_SET_LINK_BASED_CONFIG             ,{ 1    , RC_ACK                              ,    "Set Link Based Configuration Query"    } },
+	{ RC_APPLY_CHANGES                     ,{ 1    , RC_ACK                              ,    "Apply Changes Command"                 } },
+	{ RC_RESET_TO_DEFAULTS                 ,{ 1    , RC_ACK                              ,    "Reset to Defaults"                     } },
+	{ RC_RADIO_LINK_TEST_CONTROL           ,{ 5    , 0                                   ,    "Radio Link Test Control"               } },
+	{ RC_GET_PRODUCT_ID                    ,{ 6    , RC_GET_PRODUCT_RESPONSE             ,    "Get Product ID Query"                  } },
+	{ RC_GET_PRODUCT_RESPONSE              ,{ 6    , 0                                   ,    "Get Product ID Response"               } },
+	{ RC_GET_REPEATER_FUNCTIONS            ,{ 1    , RC_GET_REPEATER_FUNCTIONS_RESPONSE  ,    "Get Repeater Functions Query"          } },
+	{ RC_GET_REPEATER_FUNCTIONS_RESPONSE   ,{ 1    , 0                                   ,    "Get Repeater Functions Response"       } },
+	{ RC_SET_REPEATER_FUNCTIONS            ,{ 1    , RC_ACK                              ,    "Set Repeater Functions Query"          } },
+	{ RC_SET_REPEATER_FILTER               ,{ 1    , RC_ACK                              ,    "Set Repeater Filter Query"             } },
+	{ RC_PACKET_RESPONSE                   ,{ 1    , 0                                   ,    "PACKET RESPONSE"                       } },
 
 };
 uint32_t getRCtimeoutSec(int fct)
@@ -1274,17 +1275,17 @@ void CEnOceanRMCC::clearRemote_man_answer()
 		m_RMCC_queue.clear();
 	}
 };
-T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int ptimeout) //return true if time out
+T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int ptimeoutInSec ) //return true if time out
 {
 	//	clearRemote_man_answer();
-	ptimeout= getRCtimeoutSec(premote_man_answer);
+	ptimeoutInSec= getRCtimeoutSec(premote_man_answer);
 	std::string logStr;
 	T_RMCC_RESULT remote_man_answer;
 	//    Log(LOG_NORM, "Wait: Waiting ,%02X:%s ",premote_man_answer, RMCC_Cmd_Desc(premote_man_answer) );
 	logStr = std_format("Wait: %02X:%s / ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
 	remote_man_answer.function = 0;
 	setCommStatus(COM_OK);
-	int timeout = ptimeout*10; 
+	int timeout = ptimeoutInSec*10; 
 	sleep_milliseconds(100);
 	while ((remote_man_answer.function != premote_man_answer) && (timeout > 0))
 	{
@@ -1293,7 +1294,7 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int pt
 			remote_man_answer = getRemote_man_answer();
 			//            Log(LOG_NORM, "Wait: Reading ,%02X:%s ,%d Time:%d ms",remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function),getRemote_man_answer_queue_size(), timeout*100);
 			if (remote_man_answer.function != 0xFF)
-				logStr += std_format("Read: %02X:%s ,%d Time:%d ms", remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function), getRemote_man_answer_queue_size(), ptimeout * 1000 - timeout * 100);
+				logStr += std_format("Read: %02X:%s ,%d Time:%d ms", remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function), getRemote_man_answer_queue_size(), ptimeoutInSec * 1000 - timeout * 100);
 		}
 		else
 		{
