@@ -322,7 +322,7 @@ int StrToInt(std::string value)
 					//					    answ =  pEnocean->waitRemote_man_answer(PING_ANSWER, timeout );
 				}
 			} while ( (answ.function != 0) && (nbDeviceDiscovered< nbSelectedDevice) );
-			std::string discoveredDevice = std_format("%d devices discovered ", nbDeviceDiscovered);
+			std::string discoveredDevice = std_format("%d devices discovered ", devicesId.size());
 			for (const auto& deviceId : devicesId)
 			{
 				auto node = pEnocean->GetNodeInfo(deviceId.second);
