@@ -223,7 +223,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		senderId = DeviceArrayToInt(&m_buffer[m_DataSize + 4]);
 		snprintf(message, sizeof(message), "RMC :  function :%03X :%s from %08X", fct, RMCC_Cmd_Desc(fct),senderId);
 		messageStr = message;
-		Log(LOG_NORM, message );
+		Debug(DEBUG_NORM, message );
 	}
 	//ping response
 	else if (fct == PING_ANSWER)
@@ -243,7 +243,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		TeachInNodeIfExist(senderId, 0, rorg, func, type, GENERIC_NODE);
 		snprintf(message, sizeof(message), "RMC : Ping Answer <BR> SenderId: %08X Profile:%06X : %s : %s", senderId, profile, GetEEPLabel(rorg, func, type), GetEEPDescription(rorg, func, type));
 		messageStr = message;
-		Log(LOG_NORM, replaceString(message, "<BR>", ""));
+		Debug(DEBUG_NORM, replaceString(message, "<BR>", ""));
 	}
 	//query  response
 	else if ((fct == QUERYID_ANSWER) || (fct == QUERYID_ANSWER_EXT))
@@ -262,7 +262,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		TeachInNodeIfExist(senderId, 0, rorg, func, type, GENERIC_NODE);
 		snprintf(message, sizeof(message), "RMC : QueryId Answer SenderId: %08X Profile:%06X ", senderId, profile);
 		messageStr = message;
-		Log(LOG_NORM, message);
+		Debug(DEBUG_NORM, message);
 		fct = QUERYID_ANSWER_EXT;
 	}
 	//product id  response
@@ -277,7 +277,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		senderId = DeviceArrayToInt(&m_buffer[14]);
 		snprintf(message, sizeof(message), "RMC : getProductId Answer SenderId: %08X Manufacturer:%s Ref:%08X  ", senderId, GetManufacturerName(manuf), reference);
 		messageStr = message;
-		Log(LOG_NORM, message);
+		Debug(DEBUG_NORM, message);
 		TeachInNodeIfExist(senderId, manuf, 0, 0, 0, GENERIC_NODE);
 		m_nodes.setSensorReference( senderId, reference);
 
@@ -298,7 +298,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		senderId = DeviceArrayToInt(&m_buffer[13]);
 		snprintf(message, sizeof(message), "RMC : Get Link table medatadata Answer SenderId: %08X Size:%d Max:%d ", senderId, currentSize, maxSize);
 		messageStr = message;
-		Log(LOG_NORM, message);
+		Debug(DEBUG_NORM, message);
 		m_nodes.setLinkTableMedadata(senderId, currentSize, maxSize);
 		//if no link content , delete internal base Adresse
 /*		if (currentSize == 0)
@@ -332,7 +332,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 			m_nodes.addLinkTableEntry(senderId, offs, entryProfile, entryId, channel);
 			snprintf(message, sizeof(message), "RMC : ADD Link table Entry SenderId: %08X  entry %02d EntryId: %08X Profile %06X Channel:%d", senderId, offs, entryId, entryProfile, channel);
 			messageStr = message;
-			Log(LOG_NORM, message);
+			Debug(DEBUG_NORM, message);
 		}
 		m_nodes.printTableLink();
 	}
@@ -343,7 +343,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		//55 00 0F 07 01 2B	C5 80 00 7F F0 07 00 00 00 00 00 00 00 00 8F 				03 01 A6 54 28 FF 00     8D  opt 7
 		//55 00 34 0A 07 DD 06 07 07 FF 02 24 07 FF 02 27 07 FF 02 20 07 FF 02 10 07 FF 02 11 07 FF 02 12 07 FF 02 30 07 FF 02 31 07 FF 02 32 07 FF 02 33 07 FF 02 26 07 FF 00 00 00 00      FF FF FF FF 01 A6 54 28 2C 00     2E opt 10
 		senderId = DeviceArrayToInt(&m_buffer[m_DataSize + 4]);
-		Log(LOG_NORM, "RMC : QUERY FUNCTION answer SenderId: %08X  ", senderId);
+		Debug(DEBUG_NORM, "RMC : QUERY FUNCTION answer SenderId: %08X  ", senderId);
 		messageStr = "Functions list: <BR>";
 		int nb = m_DataSize - 4;
 		nb /= 4;
@@ -353,7 +353,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 				snprintf(message, sizeof(message), " Function :%0X = %s ", function, RMCC_Cmd_Desc(function));
 				messageStr += message;
 				messageStr += "<BR>";
-				Log(LOG_NORM, message);
+				Debug(DEBUG_NORM, message);
 			}
 		}
 	}
@@ -366,7 +366,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		senderId = DeviceArrayToInt(&m_buffer[12]);
 		snprintf(message, sizeof(message), "RMC : QUERY STATUS ANSWER SenderId: %08X CodeIsSet:%d LastSeq:%d lastFunc:%04X lastReturnCode:%d :%s", senderId, CodeIsSet, LastSeq, lastFunc, lastReturnCode, Query_Status_return_codes[lastReturnCode & 0xF]);
 		messageStr = message;
-		Log(LOG_NORM, message);
+		Debug(DEBUG_NORM, message);
 	}
 	else if (fct == RC_GET_REPEATER_FUNCTIONS_RESPONSE)
 	{
@@ -384,7 +384,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		senderId = DeviceArrayToInt(&m_buffer[12]);
 		snprintf(message, sizeof(message), "RMC : GET_REPEATER_FUNCTIONS_RESPONSE SenderId: %08X Repeater function:%d  Repeater level: %d Repeater Filter Structure  : %d", senderId, RepFunc, RepLev, RepStruct);
 		messageStr = message;
-		Log(LOG_NORM, message);
+		Debug(DEBUG_NORM, message);
 	}
 	else if (fct == RC_GET_LINK_BASED_CONFIG_RESPONSE)
 	{
@@ -407,7 +407,7 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		snprintf(message, sizeof(message), "RMC : GET_LINK_BASED_CONFIG_RESPONSE SenderId:%08X dir:%d Entry:%d Index:%d Len:%d data:%s : %d ", senderId, direction, LinkTableindex, index, Length, data, value);
 		m_nodes.updateLinkConfig (senderId , LinkTableindex ,  value );
 		messageStr = message;
-		Log(LOG_NORM, message);
+		Debug(DEBUG_NORM, message);
 	}
 	else if (fct == RC_GET_DEVICE_CONFIG_RESPONSE)
 	{
@@ -429,14 +429,14 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		}
 		snprintf(message, sizeof(message), "RMC : RC_GET_DEVICE_CONFIG_RESPONSE SenderId:%08X Index:%d Len:%d data:%s : %08X ", senderId,  index, Length, data, value);
 		messageStr = message;
-		Log(LOG_NORM, message);
+		Debug(DEBUG_NORM, message);
 	}
 	else
 	{
 		if (m_OptionalDataSize < 8)
-			Log(LOG_NORM, "Func: Received RMC :%03X :%s", fct, RMCC_Cmd_Desc(fct));
+			Debug(DEBUG_NORM, "Func: Received RMC :%03X :%s", fct, RMCC_Cmd_Desc(fct));
 		else
-			Log(LOG_NORM, "Func: Received RMC :%03X :%s from %02X%02X%02X%02X", fct, RMCC_Cmd_Desc(fct), m_buffer[m_DataSize + 4], m_buffer[m_DataSize + 5], m_buffer[m_DataSize + 6], m_buffer[m_DataSize + 7]);
+			Debug(DEBUG_NORM, "Func: Received RMC :%03X :%s from %02X%02X%02X%02X", fct, RMCC_Cmd_Desc(fct), m_buffer[m_DataSize + 4], m_buffer[m_DataSize + 5], m_buffer[m_DataSize + 6], m_buffer[m_DataSize + 7]);
 	}
 
 	setRemote_man_answer(fct, (char*)messageStr.c_str(), senderId);
@@ -462,7 +462,7 @@ void CEnOceanRMCC::remoteSetLearnMode(unsigned int destID, int channel, T_LEARN_
 	buff[14] = 0x8F; //status
 	//optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "send remoteLearning to %08X channel %d Mode:%d", destID, channel, Device_LRN_Mode);
+	Debug(DEBUG_NORM, "send remoteLearning to %08X channel %d Mode:%d", destID, channel, Device_LRN_Mode);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::Unlock(unsigned int destID, unsigned int code)
@@ -483,7 +483,7 @@ void CEnOceanRMCC::unlock(unsigned int destID, unsigned int code)
 	DeviceIntToArray(code, &buff[6]);
 	//optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: unlock cmd to %08X code:%08X", destID, code);
+	Debug(DEBUG_NORM, "SEND: unlock cmd to %08X code:%08X", destID, code);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::Lock(unsigned int destID, unsigned int code)
@@ -504,7 +504,7 @@ void CEnOceanRMCC::lock(unsigned int destID, unsigned int code)
 	DeviceIntToArray(code, &buff[6]);
 	//optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: lock  cmd to %08X code:%08X", destID, code);
+	Debug(DEBUG_NORM, "SEND: lock  cmd to %08X code:%08X", destID, code);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::Setcode(unsigned int destID, unsigned int code)
@@ -525,7 +525,7 @@ void CEnOceanRMCC::setcode(unsigned int destID, unsigned int code)
 	DeviceIntToArray(code, &buff[6]);
 	//optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: setcode cmd to %08X , %d", destID, code);
+	Debug(DEBUG_NORM, "SEND: setcode cmd to %08X , %d", destID, code);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 /*
@@ -562,7 +562,7 @@ void CEnOceanRMCC::queryid(unsigned int EEP, unsigned int mask)
 	buff[14] = 0x8F; //status
 	//optionnal data : alway broadcast
 	setDestination(opt, 0xFFFFFFFF);
-	Log(LOG_NORM, "SEND: queryid send cmd EEP: %08X Mask: %d", EEP, mask);
+	Debug(DEBUG_NORM, "SEND: queryid send cmd EEP: %08X Mask: %d", EEP, mask);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 T_RMCC_RESULT CEnOceanRMCC::Ping(unsigned int destID)
@@ -583,7 +583,7 @@ void CEnOceanRMCC::ping(unsigned int destID)
 	buff[14] = 0x8F; //status
 	//optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: Ping cmd send to %08X ", destID);
+	Debug(DEBUG_NORM, "SEND: Ping cmd send to %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::Action(unsigned int destID)
@@ -604,7 +604,7 @@ void CEnOceanRMCC::action(unsigned int destID)
 					 //optionnal data
 	setDestination(opt, destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
-	Log(LOG_NORM, "SEND: action cmd %08X ", destID);
+	Debug(DEBUG_NORM, "SEND: action cmd %08X ", destID);
 }
 /*
 broadcast oe unicast
@@ -639,7 +639,7 @@ void CEnOceanRMCC::getProductId(unsigned int destination)
 	buff[14] = 0x8F;		//status
 							//optionnal data
 	setDestination(opt, destination);
-	Log(LOG_NORM, "SEND: getProductId cmd send to %08X", destination);
+	Debug(DEBUG_NORM, "SEND: getProductId cmd send to %08X", destination);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::getLinkTableMedadata(uint32_t destID)
@@ -655,7 +655,7 @@ void CEnOceanRMCC::getLinkTableMedadata(uint32_t destID)
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: getLinkTableMedadata %08X ", destID);
+	Debug(DEBUG_NORM, "SEND: getLinkTableMedadata %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::GetLinkTableMedadata(uint32_t destID)
@@ -681,7 +681,7 @@ void CEnOceanRMCC::queryFunction(uint32_t destID)
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: queryFunction %08X ", destID);
+	Debug(DEBUG_NORM, "SEND: queryFunction %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::queryStatus(uint32_t destID)
@@ -698,7 +698,7 @@ void CEnOceanRMCC::queryStatus(uint32_t destID)
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: queryStatus %08X ", destID);
+	Debug(DEBUG_NORM, "SEND: queryStatus %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 T_RMCC_RESULT CEnOceanRMCC::GetDeviceConfiguration(uint32_t destID, int begin, int end, int length)
@@ -724,7 +724,7 @@ void CEnOceanRMCC::getDeviceConfiguration(uint32_t SensorId, int begin, int end,
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, SensorId);
-	Log(LOG_NORM, "SEND: getDeviceConfiguration %08X begin :%d End:%d ", SensorId, begin, end);
+	Debug(DEBUG_NORM, "SEND: getDeviceConfiguration %08X begin :%d End:%d ", SensorId, begin, end);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 	memset(buff, 0, sizeof(buff));
 	setRorg(buff, 1);
@@ -753,7 +753,7 @@ void CEnOceanRMCC::getDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkind
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, SensorId);
-	Log(LOG_NORM, "SEND: getDeviceLinkBaseConfiguration  %08X entry:%d begin :%d End:%d len:%d", SensorId, Linkindex, begin, end, length);
+	Debug(DEBUG_NORM, "SEND: getDeviceLinkBaseConfiguration  %08X entry:%d begin :%d End:%d len:%d", SensorId, Linkindex, begin, end, length);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 	memset(buff, 0, sizeof(buff));
 	setRorg(buff, 1);
@@ -803,7 +803,7 @@ void CEnOceanRMCC::setDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkind
 	unsigned char opt[16];
 	memset(buff, 0, sizeof(buff));
 	setRorg(buff);
-	Log(LOG_NORM, "SEND: setDeviceLinkBaseConfiguration  %08X entry:%d begin :%d End:%d len:%d", SensorId, Linkindex, indexParam, NbParam, length);
+	Debug(DEBUG_NORM, "SEND: setDeviceLinkBaseConfiguration  %08X entry:%d begin :%d End:%d len:%d", SensorId, Linkindex, indexParam, NbParam, length);
 	memset(buff, 0, sizeof(buff));
 	setRorg(buff);
 	unsigned char* ptc = &buff[2];
@@ -834,7 +834,7 @@ void CEnOceanRMCC::setDeviceLinkBaseConfiguration2(uint32_t SensorId, int Linkin
 {
 	unsigned char buff[256];
 	memset(buff, 0, sizeof(buff));
-	Log(LOG_NORM, "SEND: setDeviceLinkBaseConfiguration  %08X entry:%d begin :%d End:%d len:%d", SensorId, Linkindex, indexParam, NbParam, length);
+	Debug(DEBUG_NORM, "SEND: setDeviceLinkBaseConfiguration  %08X entry:%d begin :%d End:%d len:%d", SensorId, Linkindex, indexParam, NbParam, length);
 	unsigned char* ptc = buff;
 	NbParam = 1;
 	int len = 2 + (length + 3) * NbParam;
@@ -864,7 +864,7 @@ void CEnOceanRMCC::getallLinkTable(uint32_t SensorId, int begin, int end)
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, SensorId);
-	Log(LOG_NORM, "SEND: getallLinkTable %08X begin :%d End:%d ", SensorId, begin, end);
+	Debug(DEBUG_NORM, "SEND: getallLinkTable %08X begin :%d End:%d ", SensorId, begin, end);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 	//Number of table entry to received
 	//3 entry by response datagramm
@@ -889,7 +889,7 @@ void CEnOceanRMCC::getGPTable(uint32_t SensorId, int index)
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, SensorId);
-	Log(LOG_NORM, "SEND: getGPTable %08X index :%d ", SensorId, index);
+	Debug(DEBUG_NORM, "SEND: getGPTable %08X index :%d ", SensorId, index);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 	waitRemote_man_answer(RC_GET_GP_TABLE_RESPONSE, RMCC_ACK_TIMEOUT);
 }
@@ -949,7 +949,7 @@ void CEnOceanRMCC::setLinkEntryTable(uint32_t SensorId, int begin, uint32_t ID, 
 	unsigned char buff[16];
 	unsigned char opt[16];
 	unsigned char sdid[16];
-	Log(LOG_NORM, "SEND: setLinkTable %08X begin :%d ID:%08X EEP:%06X Channel : %d", SensorId, begin, ID, EEP, channel);
+	Debug(DEBUG_NORM, "SEND: setLinkTable %08X begin :%d ID:%08X EEP:%06X Channel : %d", SensorId, begin, ID, EEP, channel);
 	DeviceIntToArray(ID, sdid);
 	memset(buff, 0, sizeof(buff));
 	setRorg(buff);
@@ -1000,7 +1000,7 @@ void CEnOceanRMCC::resetToDefaults(uint32_t destID, int resetAction)
 	buff[14] = 0x8F; //status
 					 //optionnal data
 	setDestination(opt, destID);
-	Log(LOG_NORM, "SEND: resetToDefaults %08X ", destID);
+	Debug(DEBUG_NORM, "SEND: resetToDefaults %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 T_RMCC_RESULT CEnOceanRMCC::GetRepeaterQuery(unsigned int destID)
@@ -1021,7 +1021,7 @@ void CEnOceanRMCC::getRepeaterQuery(unsigned int destination)
 	buff[14] = 0x8F;		//status
 							//optionnal data
 	setDestination(opt, destination);
-	Log(LOG_NORM, "SEND: geRepeaterFunctionsQuery cmd send to %08X", destination);
+	Debug(DEBUG_NORM, "SEND: geRepeaterFunctionsQuery cmd send to %08X", destination);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::SetRepeaterQuery(unsigned int destID, int Repeaterfunction, int Repeaterlevel, int RepeaterFilter)
@@ -1050,7 +1050,7 @@ void CEnOceanRMCC::setRepeaterQuery(unsigned int destination, int Repeaterfuncti
 	buff[6] = (Repeaterfunction << 6) & (Repeaterlevel << 4) & (RepeaterFilter << 3);
 	//optionnal data
 	setDestination(opt, destination);
-	Log(LOG_NORM, "SEND: setRepeaterFunctionsQuery cmd send to %08X  Repeaterfunction:%d  Repeaterlevel:%d  RepeaterFilter:%d ", destination, Repeaterfunction, Repeaterlevel, RepeaterFilter);
+	Debug(DEBUG_NORM, "SEND: setRepeaterFunctionsQuery cmd send to %08X  Repeaterfunction:%d  Repeaterlevel:%d  RepeaterFilter:%d ", destination, Repeaterfunction, Repeaterlevel, RepeaterFilter);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
 }
 void CEnOceanRMCC::setNodonRepeaterLevel(unsigned int source, unsigned int destination, int Repeaterlevel)
@@ -1079,7 +1079,7 @@ void CEnOceanRMCC::setNodonRepeaterLevel(unsigned int source, unsigned int desti
 	DeviceIntToArray(source, &buff[6]);
 	//optionnal data
 	setDestination(opt, destination);
-	Log(LOG_NORM, "SEND: SetNodonRepeaterLevel cmd send to %08X  Repeaterlevel:%d  ", destination, Repeaterlevel);
+	Debug(DEBUG_NORM, "SEND: SetNodonRepeaterLevel cmd send to %08X  Repeaterlevel:%d  ", destination, Repeaterlevel);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 11, opt, 7);
 }
 void CEnOceanRMCC::TeachIn(std::string& sidx, T_LEARN_MODE Device_LRN_Mode)
@@ -1098,7 +1098,7 @@ void CEnOceanRMCC::TeachIn(std::string& deviceId, std::string& unit, T_LEARN_MOD
 	int channel = atoi(unit.c_str());
 	//get sender adress from db
 	unsigned int SenderAdress = DeviceIdStringToUInt(deviceId);
-	Log(LOG_NORM, "SEND: remoteLearning to device %s channel:%d Mode:%d", deviceId.c_str(), channel, Device_LRN_Mode);
+	Debug(DEBUG_NORM, "SEND: remoteLearning to device %s channel:%d Mode:%d", deviceId.c_str(), channel, Device_LRN_Mode);
 	unlockDevice(SenderAdress);
 	if (!isCommStatusOk())
 		return;
@@ -1308,7 +1308,7 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int pt
 	ptimeoutInSec= getRCtimeoutSec(premote_man_answer);
 	std::string logStr;
 	T_RMCC_RESULT remote_man_answer;
-	//    Log(LOG_NORM, "Wait: Waiting ,%02X:%s ",premote_man_answer, RMCC_Cmd_Desc(premote_man_answer) );
+	//    Debug(DEBUG_NORM, "Wait: Waiting ,%02X:%s ",premote_man_answer, RMCC_Cmd_Desc(premote_man_answer) );
 	logStr = std_format("Wait: %02X:%s / ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
 	remote_man_answer.function = 0;
 	setCommStatus(COM_OK);
@@ -1319,7 +1319,7 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int pt
 		if (getRemote_man_answer_queue_size() > 0)
 		{
 			remote_man_answer = getRemote_man_answer();
-			//            Log(LOG_NORM, "Wait: Reading ,%02X:%s ,%d Time:%d ms",remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function),getRemote_man_answer_queue_size(), timeout*100);
+			//            Debug(DEBUG_NORM, "Wait: Reading ,%02X:%s ,%d Time:%d ms",remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function),getRemote_man_answer_queue_size(), timeout*100);
 			if (remote_man_answer.function != 0xFF)
 				logStr += std_format("Read: %02X:%s ,%d Time:%d ms", remote_man_answer.function, RMCC_Cmd_Desc(remote_man_answer.function), getRemote_man_answer_queue_size(), ptimeoutInSec * 1000 - timeout * 100);
 		}
@@ -1332,14 +1332,14 @@ T_RMCC_RESULT CEnOceanRMCC::waitRemote_man_answer(int premote_man_answer, int pt
 	}
 	if ((remote_man_answer.function == 0) || (timeout == 0)) {
 		setCommStatus(COM_TIMEOUT);
-		//		Log(LOG_NORM, "Wait: TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
+		//		Debug(DEBUG_NORM, "Wait: TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
 //		logStr += std_format(": TIMEOUT waiting answer %04X :%s ", premote_man_answer, RMCC_Cmd_Desc(premote_man_answer));
 		logStr += std_format(": TIMEOUT");
 	}
 	else
-		//        Log(LOG_NORM, "Wait: Recving OK " );
+		//        Debug(DEBUG_NORM, "Wait: Recving OK " );
 		logStr += std_format(": OK ");
-	Log(LOG_NORM, logStr.c_str());
+	Debug(DEBUG_NORM, logStr.c_str());
 	return remote_man_answer;
 }
 void CEnOceanRMCC::setCommStatus(T_COM_STATUS status)
@@ -1379,7 +1379,7 @@ bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBef
 					sensors->ReSetUnLockTimeout();
 		}
 		else {
-			Log(LOG_NORM, "unlock device %08X timeout:%d sec ", deviceId, (GetClockTicks() - sensors->TimeLastUnlockInMs) / 1000);
+			Debug(DEBUG_NORM, "unlock device %08X timeout:%d sec ", deviceId, (GetClockTicks() - sensors->TimeLastUnlockInMs) / 1000);
 		}
 	}
 	return isCommStatusOk();
