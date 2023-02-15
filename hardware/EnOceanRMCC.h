@@ -168,6 +168,8 @@ public:
 
 	void queryStatus(uint32_t destID);
 
+	T_RMCC_RESULT GetDeviceConfiguration(uint32_t destID, int begin, int end, int length);
+
     void getDeviceConfiguration(uint32_t SensorId, int begin, int end, int length);
 
     void getDeviceLinkBaseConfiguration(uint32_t SensorId, int Linkindex, int begin, int end, int length);

@@ -9,6 +9,8 @@
 #include <map>
 #include "EnOceanRawValue.h"
 
+using  namespace enocean;
+
 //Profile descriptor from eep.xml
 
 #if 0
