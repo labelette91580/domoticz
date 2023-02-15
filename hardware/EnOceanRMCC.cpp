@@ -409,6 +409,28 @@ void CEnOceanRMCC::parse_PACKET_REMOTE_MAN_COMMAND(unsigned char m_buffer[], int
 		messageStr = message;
 		Log(LOG_NORM, message);
 	}
+	else if (fct == RC_GET_DEVICE_CONFIG_RESPONSE)
+	{
+		senderId = DeviceArrayToInt(&m_buffer[m_DataSize + 4]);
+		unsigned char* ptb = &m_buffer[4];
+		//read paylod
+		int   index = *ptb++ * 256;
+		index += *ptb++;
+		int   Length = *ptb++;
+		if (Length>4 )Length=4;
+
+		char data[16];
+		uint32_t value = 0;
+		for (int i = 0; i < Length ; i++)
+		{
+			value <<= 8;
+			value += *ptb;
+			sprintf(&data[i * 2], "%02X ", *ptb++);
+		}
+		snprintf(message, sizeof(message), "RMC : RC_GET_DEVICE_CONFIG_RESPONSE SenderId:%08X Index:%d Len:%d data:%s : %08X ", senderId,  index, Length, data, value);
+		messageStr = message;
+		Log(LOG_NORM, message);
+	}
 	else
 	{
 		if (m_OptionalDataSize < 8)
@@ -678,6 +700,11 @@ void CEnOceanRMCC::queryStatus(uint32_t destID)
 	setDestination(opt, destID);
 	Log(LOG_NORM, "SEND: queryStatus %08X ", destID);
 	SendESP3PacketQueued(PACKET_RADIO_ERP1, buff, 15, opt, 7);
+}
+T_RMCC_RESULT CEnOceanRMCC::GetDeviceConfiguration(uint32_t destID, int begin, int end, int length)
+{
+	RMCC_call_with_retry(getDeviceConfiguration(destID,begin,end,length) , getRCresponseCode(RC_GET_DEVICE_CONFIG));
+	return res;
 }
 void CEnOceanRMCC::getDeviceConfiguration(uint32_t SensorId, int begin, int end, int length)
 {

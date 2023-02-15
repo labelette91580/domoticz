@@ -709,18 +709,35 @@ int StrToInt(std::string value)
 				//					int entryNb = 1;
 				std::string sentry = getLinkEntry(req, 1);
 				if (sentry.empty())	return;
-				//pEnocean->getDeviceConfiguration(ideviceId, 0 ,1 , 1);
-				//root["message"] = pEnocean->waitRemote_man_answer(RC_GET_DEVICE_CONFIG_RESPONSE, RMCC_ACK_TIMEOUT);	
 				int entry = std::stoi(sentry, 0, 0);
 				//for (int entry = 0; entry < 1 ; entry++ )
 				int begin = 0;
 				int end = 0;
-				for (begin = 0; begin <= end; begin++)
+				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+				if (pEnocean->isCommStatusOk())
 				{
-					int length = 1;
-					pEnocean->GetDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
+					for (begin = 0; begin <= end; begin++)
+					{
+						int length = 1;
+						pEnocean->GetDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
 
-					//root["message"] = res.message;
+						//root["message"] = res.message;
+					}
+				}
+			}
+			checkComStatus(pEnocean, root);
+		}
+		static void GetDeviceConfiguration(WEB_CMD_ARG)
+		{
+			std::string deviceId;
+			for (int i = 0; i < nbSelectedDevice; i++) {
+				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+				uint32_t ideviceId = DeviceIdStringToUInt(deviceId);
+				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+				if (pEnocean->isCommStatusOk())
+				{
+					T_RMCC_RESULT res = pEnocean->GetDeviceConfiguration(ideviceId, 0 ,0 , 1);
+					root["message"] = res.message;
 				}
 			}
 			checkComStatus(pEnocean, root);
@@ -809,7 +826,9 @@ int StrToInt(std::string value)
 {			"GetLinkConfig"                   ,			GetLinkConfig              },
 {			"SetLinkConfig"                   ,			SetLinkConfig              },
 {			"CreateSensor"                    ,			CreateSensor               },
-{			"ClearTeachInStatus"              ,			ClearTeachInStatus         }
+{			"ClearTeachInStatus"              ,			ClearTeachInStatus         },
+{			"GetDeviceConfiguration"          ,			GetDeviceConfiguration     },
+
 		};
 //	}
 //}

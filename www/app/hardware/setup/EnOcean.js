@@ -131,7 +131,8 @@ define(['app'], function (app) {
 		    var totalselected = $('#nodestable input:checkbox:checked').length;
 
 		    if (totalselected == 0) {
-				if (MinIdSelected>0)  {
+//				if (MinIdSelected > 0)
+				{
 					if(anSelected.length > 0 ){
 						var data = oTable.fnGetData(anSelected[0]);
 						payload[0] = data[0] + ";" + data[1];
