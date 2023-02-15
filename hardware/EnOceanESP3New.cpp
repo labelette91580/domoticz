@@ -124,7 +124,7 @@ void CEnOceanESP3::getRepeaterLevel()
 	uint8_t buf[4];
 	buf[0] = CO_RD_REPEATER;
 	SendESP3PacketQueued(PACKET_COMMON_COMMAND, buf, 1, NULL, 0);
-	Log(LOG_NORM, "Set repeater mode ON ");
+	Debug(DEBUG_NORM, "Set repeater mode ON ");
 }
 void CEnOceanESP3::parsePACKET_RESPONSE(uint8_t* data, uint16_t datalen)
 {
@@ -134,7 +134,7 @@ void CEnOceanESP3::parsePACKET_RESPONSE(uint8_t* data, uint16_t datalen)
 		const char* Repeater_status[] = { "OFF","ON", "FILTER" };
 		int REP_ENABLE = data[1] % 3;
 		int REP_LEVEL = data[2];
-		Log(LOG_NORM, " REPEATER function Enable=%d:%s Level=%d", REP_ENABLE, Repeater_status[REP_ENABLE], REP_LEVEL);
+		Debug(DEBUG_NORM, " REPEATER function Enable=%d:%s Level=%d", REP_ENABLE, Repeater_status[REP_ENABLE], REP_LEVEL);
 	}
 	setRemote_man_answer(RC_PACKET_RESPONSE, (char*)GetReturnCodeLabel(data[0]), 0);
 }
@@ -329,7 +329,7 @@ int StrToInt(std::string value)
 				auto node = pEnocean->GetNodeInfo(deviceId.second);
 				discoveredDevice += "<BR>" + node->Description();
 			}
-			pEnocean->Log(LOG_NORM, discoveredDevice.c_str());
+			pEnocean->Debug(DEBUG_NORM, discoveredDevice.c_str());
 			root["status"] = "OK";
 			root["message"] = discoveredDevice;
 		}
@@ -355,7 +355,7 @@ int StrToInt(std::string value)
 				auto node = pEnocean->GetNodeInfo(deviceId.second);
 				discoveredDevice += "<BR>" + node->Description();
 			}
-			pEnocean->Log(LOG_NORM, discoveredDevice.c_str());
+			pEnocean->Debug(DEBUG_NORM, discoveredDevice.c_str());
 			root["status"] = "OK";
 			root["message"] = discoveredDevice;
 		}
@@ -499,7 +499,7 @@ int StrToInt(std::string value)
 				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
 				if (pEnocean->isCommStatusOk()) {
 					pEnocean->m_nodes.addLinkTableEntry(deviceIdReceiver, emptyEntry, senderEEP, deviceIdSender, receiverChannel - 1);
-					pEnocean->Log(LOG_NORM, "Link receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
+					pEnocean->Debug(DEBUG_NORM, "Link receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
 				}
 				else
 					pEnocean->Log(LOG_ERROR, "Linking receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
@@ -687,7 +687,7 @@ int StrToInt(std::string value)
 				//for (int j = 0; j < NbDeviceId; j++)
 				//    m_sql.DeleteDevices(result[i][0]);
 				pEnocean->DeleteSensor(NodeID);
-				pEnocean->Log(LOG_NORM, "CSQLHelper::DeleteDevices: EnOceanNodes  ID: %s", enOceanId.c_str());
+				pEnocean->Debug(DEBUG_NORM, "CSQLHelper::DeleteDevices: EnOceanNodes  ID: %s", enOceanId.c_str());
 			}
 			checkComStatus(pEnocean, root);
 		}
@@ -857,7 +857,7 @@ void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::
 		for (int i = 0; i < nbSelectedDevice; i++) {
 			arg += http::server::request::findValue(&req, std::to_string(i).c_str()) + "-";
 		}
-		pEnocean->Log(LOG_NORM, "WEBS: Server received cmd:%s Hwid:%s arg:%s Entry=%s ", cmd.c_str(), hwid.c_str(), arg.c_str(), http::server::request::findValue(&req, "entry").c_str());
+		pEnocean->Debug(DEBUG_NORM, "WEBS: Server received cmd:%s Hwid:%s arg:%s Entry=%s ", cmd.c_str(), hwid.c_str(), arg.c_str(), http::server::request::findValue(&req, "entry").c_str());
 	}
 	//handle command if registered
 	auto pfunction = EnOcean_webcommands.find(cmd);
@@ -1040,7 +1040,7 @@ void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manI
 			SetDbEnOceanValue(nodeID, "Func", func);
 			SetDbEnOceanValue(nodeID, "Type", type);
 			m_nodes.setSensorProfile(nodeID, RORG, func, type);
-			Log(LOG_NORM, "Update Node EEP : HwdID %u Node %08X Manufacturer %03X (%s) %sEEP %02X-%02X-%02X (%s)",
+			Debug(DEBUG_NORM, "Update Node EEP : HwdID %u Node %08X Manufacturer %03X (%s) %sEEP %02X-%02X-%02X (%s)",
 				m_HwdID, nodeID, manID, GetManufacturerName(manID),
 				(teachin_mode == GENERIC_NODE) ? "Generic " : ((teachin_mode == VIRTUAL_NODE) ? "Virtual " : ""),
 				RORG, func, type, GetEEPLabel(RORG, func, type));
@@ -1049,7 +1049,7 @@ void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manI
 		{
 			SetDbEnOceanValue(nodeID, "ManufacturerId", manID);
 			m_nodes.setSensorManuf(nodeID, manID);
-			Log(LOG_NORM, "Update Node Manufacturer: HwdID %u Node %08X Manufacturer %03X (%s) %sEEP %02X-%02X-%02X (%s)",
+			Debug(DEBUG_NORM, "Update Node Manufacturer: HwdID %u Node %08X Manufacturer %03X (%s) %sEEP %02X-%02X-%02X (%s)",
 				m_HwdID, nodeID, manID, GetManufacturerName(manID),
 				(teachin_mode == GENERIC_NODE) ? "Generic " : ((teachin_mode == VIRTUAL_NODE) ? "Virtual " : ""),
 				RORG, func, type, GetEEPLabel(RORG, func, type));
