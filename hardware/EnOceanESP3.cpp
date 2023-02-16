@@ -4508,32 +4508,6 @@ uint32_t CEnOceanESP3::sendVld(unsigned int srcID, unsigned int destID, enocean:
 	return DataSize;
 }
 
-bool CEnOceanESP3::updateSwitchType(int HardwareID, const char *deviceID, _eSwitchType SwitchType)
-{
-	std::vector<std::vector<std::string>> result;
-
-	result = m_sql.safe_query("SELECT ID FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q')", HardwareID, deviceID);
-	if (!result.empty())
-	{
-		m_sql.safe_query("UPDATE DeviceStatus SET SwitchType=%d WHERE (ID=='%q')", SwitchType, result[0][0].c_str());
-		return false;
-	}
-	return true;
-}
-
-
-//return position 0..100% from command / level
-int CEnOceanESP3::getPositionFromCommandLevel(int cmnd, int pos)
-{
-	if (cmnd == light2_sOn)
-		pos = 100;
-	else if (cmnd == light2_sOff)
-		pos = 0;
-	else
-		pos = pos * 100 / 15;
-
-	return pos;
-}
 // Webserver helpers
 
 namespace http

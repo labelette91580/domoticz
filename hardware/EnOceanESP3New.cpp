@@ -46,13 +46,6 @@ typedef struct {
 } enocean_web_cmd_t;
 
 
-///---------------------nodes ------------------------------------------------------
-void  CEnOceanESP3::SetNodeTeachInStatus(const uint32_t nodeID, uint32_t TeachInStatus)
-{
-	auto node = GetNodeInfo(nodeID);
-	if (node != nullptr)
-		node->teachin_mode = (TeachinMode)TeachInStatus;
-}
 ///--- db 
 void CEnOceanESP3::GetDbValue(const char* tableName, const char* fieldName, const char* whereFieldName, const char* whereFieldValue, uint32_t& Value)
 {
@@ -97,7 +90,7 @@ void CEnOceanESP3::SetDbTeachInStatus(uint32_t DeviceId, uint32_t TeachInStatus)
 void CEnOceanESP3::SetTeachInStatus(uint32_t DeviceId, uint32_t TeachInStatus)
 {
 	SetDbTeachInStatus(DeviceId, TeachInStatus);
-	SetNodeTeachInStatus(DeviceId, TeachInStatus);
+	m_nodes.setTeachInStatus(DeviceId, TeachInStatus);
 }
 void CEnOceanESP3::setRepeaterLevelOn()
 {
@@ -141,7 +134,7 @@ const char* PACKET_TYPE_name[] = {
 };
 const char* getPACKET_TYPE_name(int ptype)
 {
-	if (ptype < 11)
+	if (ptype < sizeof(PACKET_TYPE_name)/sizeof(char*))
 		return PACKET_TYPE_name[ptype];
 	else
 		return "UNKNOWN PACKET";
@@ -166,619 +159,619 @@ int StrToInt(std::string value)
 //Webserver helpers
 //namespace http {
 //	namespace server {
-		std::string getDeviceId(const http::server::request& req, unsigned int argNb)
+std::string getDeviceId(const http::server::request& req, unsigned int argNb)
+{
+	std::string cmd = http::server::request::findValue(&req, std::to_string(argNb).c_str());
+	std::vector<std::string> splitresults;
+	StringSplit(cmd, ";", splitresults);
+	if (splitresults.size() >= 1)
+		return splitresults[0];
+	else
+		return "";
+}
+std::string getDeviceUnit(const http::server::request& req, unsigned int argNb)
+{
+	std::string cmd = http::server::request::findValue(&req, std::to_string(argNb).c_str());
+	std::vector<std::string> splitresults;
+	StringSplit(cmd, ";", splitresults);
+	if (splitresults.size() >= 2)
+		return splitresults[1];
+	else
+		return "1";
+}
+std::string getLinkEntry(const http::server::request& req, unsigned int argNb)
+{
+	std::string cmd = http::server::request::findValue(&req, "entry");
+	std::vector<std::string> splitresults;
+	StringSplit(cmd, ";", splitresults);
+	if (splitresults.size() >= (argNb + 1))
+		return splitresults[argNb];
+	else
+		return "";
+}
+void checkComStatus(CEnOceanESP3* pEnocean, Json::Value& root)
+{
+	if (pEnocean->isCommStatusOk())
+		root["status"] = "OK";
+	else {
+		root["message"] = "Communication Timeout";
+		//			Log(LOG_ERROR, "EnOcean: Server Error: %s  cmd:%s Hwid:%s arg:%s  Entry=%s", root["message"].asString().c_str(), cmd.c_str(), hwid.c_str(), arg.c_str(), request::findValue(&req, "entry").c_str());
+		pEnocean->Log(LOG_ERROR, "Server Error: %s  cmd:%s ", root["message"].asString().c_str(), root["cmd"].asString().c_str());
+		//			pEnocean->setCommStatus(COM_OK);
+	}
+}
+//--------------------- web command function
+static void GetNodeList(WEB_CMD_ARG)
+{
+	pEnocean->GetNodeList(std::to_string(iHardwareID), root);
+}
+static void SendCode(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	unsigned int code = pEnocean->GetLockCode();
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		pEnocean->Setcode(DeviceIdStringToUInt(deviceId), code);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void Lock(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	unsigned int code = pEnocean->GetLockCode();
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		pEnocean->Lock(DeviceIdStringToUInt(deviceId), code);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void UnLock(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId), false);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void SetCode(WEB_CMD_ARG)
+{
+	//
+	std::string code = http::server::request::findValue(&req, "code");
+	if (code.empty())
+		return;
+	pEnocean->SetLockCode(code);
+	root["status"] = "OK";
+}
+static void GetLinkTableList(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	deviceId = getDeviceId(req, 0);  if (deviceId.empty())	return;
+	pEnocean->GetLinkTableList(root, deviceId, pEnocean->m_id_chip);
+	checkComStatus(pEnocean, root);
+}
+static void LearnIn(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	std::string unit;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		unit = getDeviceUnit(req, i);
+		pEnocean->TeachIn(deviceId, unit, LEARN_IN);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void LearnOut(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	std::string unit;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		unit = getDeviceUnit(req, i);
+		pEnocean->TeachIn(deviceId, unit, LEARN_OUT);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void GetProductId(WEB_CMD_ARG)
+{
+	//pEnocean->unlock(BROADCAST_ID, pEnocean->GetLockCode());
+	std::string deviceId;
+	//assume all new device is power on
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		unsigned int ID = DeviceIdStringToUInt(deviceId);
+		pEnocean->unlockDevice(ID, false);
+		pEnocean->getProductId(ID);
+		if(ID==BROADCAST_ID)
 		{
-			std::string cmd = http::server::request::findValue(&req, std::to_string(argNb).c_str());
-			std::vector<std::string> splitresults;
-			StringSplit(cmd, ";", splitresults);
-			if (splitresults.size() >= 1)
-				return splitresults[0];
-			else
-				return "";
+			nbSelectedDevice = 0x7ff;
+			break;
 		}
-		std::string getDeviceUnit(const http::server::request& req, unsigned int argNb)
-		{
-			std::string cmd = http::server::request::findValue(&req, std::to_string(argNb).c_str());
-			std::vector<std::string> splitresults;
-			StringSplit(cmd, ";", splitresults);
-			if (splitresults.size() >= 2)
-				return splitresults[1];
-			else
-				return "1";
+	}
+	//wait response 
+	int nbDeviceDiscovered = 0;
+	T_RMCC_RESULT answ;
+	std::map<uint32_t, uint32_t> devicesId;
+	do
+	{
+		int timeout = RMCC_GETPRODUCTID_TIMEOUT;
+		//if(nbDeviceDiscovered==0) timeout*=2;
+		answ = pEnocean->waitRemote_man_answer(RC_GET_PRODUCT_RESPONSE, timeout);
+		if (answ.function != 0) {
+			nbDeviceDiscovered++;
+			pEnocean->ping(answ.senderId);
+			devicesId[answ.senderId] = answ.senderId;
+			//					    answ =  pEnocean->waitRemote_man_answer(PING_ANSWER, timeout );
 		}
-		std::string getLinkEntry(const http::server::request& req, unsigned int argNb)
-		{
-			std::string cmd = http::server::request::findValue(&req, "entry");
-			std::vector<std::string> splitresults;
-			StringSplit(cmd, ";", splitresults);
-			if (splitresults.size() >= (argNb + 1))
-				return splitresults[argNb];
-			else
-				return "";
-		}
-		void checkComStatus(CEnOceanESP3* pEnocean, Json::Value& root)
-		{
-			if (pEnocean->isCommStatusOk())
-				root["status"] = "OK";
-			else {
-				root["message"] = "Communication Timeout";
-				//			Log(LOG_ERROR, "EnOcean: Server Error: %s  cmd:%s Hwid:%s arg:%s  Entry=%s", root["message"].asString().c_str(), cmd.c_str(), hwid.c_str(), arg.c_str(), request::findValue(&req, "entry").c_str());
-				pEnocean->Log(LOG_ERROR, "Server Error: %s  cmd:%s ", root["message"].asString().c_str(), root["cmd"].asString().c_str());
-				//			pEnocean->setCommStatus(COM_OK);
-			}
-		}
-		//--------------------- web command function
-		static void GetNodeList(WEB_CMD_ARG)
-		{
-			pEnocean->GetNodeList(std::to_string(iHardwareID), root);
-		}
-		static void SendCode(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			unsigned int code = pEnocean->GetLockCode();
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->Setcode(DeviceIdStringToUInt(deviceId), code);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void Lock(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			unsigned int code = pEnocean->GetLockCode();
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->Lock(DeviceIdStringToUInt(deviceId), code);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void UnLock(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId), false);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void SetCode(WEB_CMD_ARG)
-		{
-			//
-			std::string code = http::server::request::findValue(&req, "code");
-			if (code.empty())
-				return;
-			pEnocean->SetLockCode(code);
-			root["status"] = "OK";
-		}
-		static void GetLinkTableList(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			deviceId = getDeviceId(req, 0);  if (deviceId.empty())	return;
-			pEnocean->GetLinkTableList(root, deviceId, pEnocean->m_id_chip);
-			checkComStatus(pEnocean, root);
-		}
-		static void LearnIn(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			std::string unit;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				unit = getDeviceUnit(req, i);
-				pEnocean->TeachIn(deviceId, unit, LEARN_IN);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void LearnOut(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			std::string unit;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				unit = getDeviceUnit(req, i);
-				pEnocean->TeachIn(deviceId, unit, LEARN_OUT);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void GetProductId(WEB_CMD_ARG)
-		{
-			//pEnocean->unlock(BROADCAST_ID, pEnocean->GetLockCode());
-			std::string deviceId;
-			//assume all new device is power on
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				unsigned int ID = DeviceIdStringToUInt(deviceId);
-				pEnocean->unlockDevice(ID, false);
-				pEnocean->getProductId(ID);
-				if(ID==BROADCAST_ID)
-				{
-					nbSelectedDevice = 0x7ff;
-					break;
-				}
-			}
-			//wait response 
-			int nbDeviceDiscovered = 0;
-			T_RMCC_RESULT answ;
-			std::map<uint32_t, uint32_t> devicesId;
-			do
-			{
-				int timeout = RMCC_GETPRODUCTID_TIMEOUT;
-				//if(nbDeviceDiscovered==0) timeout*=2;
-				answ = pEnocean->waitRemote_man_answer(RC_GET_PRODUCT_RESPONSE, timeout);
-				if (answ.function != 0) {
-					nbDeviceDiscovered++;
-					pEnocean->ping(answ.senderId);
-					devicesId[answ.senderId] = answ.senderId;
-					//					    answ =  pEnocean->waitRemote_man_answer(PING_ANSWER, timeout );
-				}
-			} while ( (answ.function != 0) && (nbDeviceDiscovered< nbSelectedDevice) );
-			std::string discoveredDevice = std_format("%d devices discovered ", devicesId.size());
-			for (const auto& deviceId : devicesId)
-			{
-				auto node = pEnocean->GetNodeInfo(deviceId.second);
-				discoveredDevice += "<BR>" + node->Description();
-			}
-			pEnocean->Debug(DEBUG_NORM, discoveredDevice.c_str());
-			root["status"] = "OK";
-			root["message"] = discoveredDevice;
-		}
-		static void QueryId(WEB_CMD_ARG)
-		{
-			pEnocean->unlockDevice(0xFFFFFFFF);
-			pEnocean->queryid(0, 0);
+	} while ( (answ.function != 0) && (nbDeviceDiscovered< nbSelectedDevice) );
+	std::string discoveredDevice = std_format("%d devices discovered ", devicesId.size());
+	for (const auto& deviceId : devicesId)
+	{
+		auto node = pEnocean->GetNodeInfo(deviceId.second);
+		discoveredDevice += "<BR>" + node->Description();
+	}
+	pEnocean->Debug(DEBUG_NORM, discoveredDevice.c_str());
+	root["status"] = "OK";
+	root["message"] = discoveredDevice;
+}
+static void QueryId(WEB_CMD_ARG)
+{
+	pEnocean->unlockDevice(0xFFFFFFFF);
+	pEnocean->queryid(0, 0);
 
-			int nbDeviceDiscovered = 0;
-			T_RMCC_RESULT answ;
-			std::map<uint32_t, uint32_t> devicesId;
-			do
-			{
-				answ = pEnocean->waitRemote_man_answer(QUERYID_ANSWER_EXT);
-				if (answ.function != 0) {
-					nbDeviceDiscovered++;
-					devicesId[answ.senderId] = answ.senderId;
-				}
-			} while ( (answ.function != 0) );
-			std::string discoveredDevice = std_format("%d devices discovered ", devicesId.size());
-			for (const auto& deviceId : devicesId)
-			{
-				auto node = pEnocean->GetNodeInfo(deviceId.second);
-				discoveredDevice += "<BR>" + node->Description();
-			}
-			pEnocean->Debug(DEBUG_NORM, discoveredDevice.c_str());
-			root["status"] = "OK";
-			root["message"] = discoveredDevice;
+	int nbDeviceDiscovered = 0;
+	T_RMCC_RESULT answ;
+	std::map<uint32_t, uint32_t> devicesId;
+	do
+	{
+		answ = pEnocean->waitRemote_man_answer(QUERYID_ANSWER_EXT);
+		if (answ.function != 0) {
+			nbDeviceDiscovered++;
+			devicesId[answ.senderId] = answ.senderId;
 		}
-		static void GetLinkTable(WEB_CMD_ARG)
+	} while ( (answ.function != 0) );
+	std::string discoveredDevice = std_format("%d devices discovered ", devicesId.size());
+	for (const auto& deviceId : devicesId)
+	{
+		auto node = pEnocean->GetNodeInfo(deviceId.second);
+		discoveredDevice += "<BR>" + node->Description();
+	}
+	pEnocean->Debug(DEBUG_NORM, discoveredDevice.c_str());
+	root["status"] = "OK";
+	root["message"] = discoveredDevice;
+}
+static void GetLinkTable(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	deviceId = getDeviceId(req, 0);    if (deviceId.empty())	return;
+	//pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+	pEnocean->getLinkTable(DeviceIdStringToUInt(deviceId));
+	checkComStatus(pEnocean, root);
+}
+static void QueryStatus(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		if (!pEnocean->isCommStatusOk())
+			break;
+		pEnocean->queryStatus(DeviceIdStringToUInt(deviceId));
+		root["message"] = pEnocean->waitRemote_man_answer(QUERY_STATUS_ANSWER, RMCC_ACK_TIMEOUT).message;
+	}
+	checkComStatus(pEnocean, root);
+}
+static void ResetToDefault(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		pEnocean->ResetToDefaults(DeviceIdStringToUInt(deviceId), ResetToDefaultsCst);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void QueryFunction(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		if (pEnocean->isCommStatusOk())
 		{
-			std::string deviceId;
-			deviceId = getDeviceId(req, 0);    if (deviceId.empty())	return;
-			//pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-			pEnocean->getLinkTable(DeviceIdStringToUInt(deviceId));
-			checkComStatus(pEnocean, root);
+			T_RMCC_RESULT res = pEnocean->QueryFunction(DeviceIdStringToUInt(deviceId));
+			root["message"] = res.message;
 		}
-		static void QueryStatus(WEB_CMD_ARG)
+	}
+	checkComStatus(pEnocean, root);
+}
+static void DeleteEntrys(WEB_CMD_ARG)
+{
+	{
+		std::string deviceId;
+		deviceId = getLinkEntry(req, 0);    if (deviceId.empty())	return;
+		unsigned int DeviceId = DeviceIdStringToUInt(deviceId);
+		int entryNb = 1;
+		std::string entry;
+		entry = getLinkEntry(req, entryNb);
+		T_LINK_TABLE* lEntry = pEnocean->m_nodes.getLinkEntry(DeviceId, std::stoi(entry, 0, 0));
+		//if entry is equal to chip id , delete the teach in status = teachout
+		if (lEntry->SenderId == pEnocean->m_id_chip)
+			pEnocean->SetTeachInStatus(DeviceId, 0);
+		pEnocean->unlockDevice((DeviceId));
+		while ((pEnocean->isCommStatusOk()) && (!entry.empty()))
 		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				if (!pEnocean->isCommStatusOk())
-					break;
-				pEnocean->queryStatus(DeviceIdStringToUInt(deviceId));
-				root["message"] = pEnocean->waitRemote_man_answer(QUERY_STATUS_ANSWER, RMCC_ACK_TIMEOUT).message;
+			pEnocean->SetLinkEntryTable(DeviceId, std::stoi(entry, 0, 0), 0, 0, 0);
+			if (pEnocean->isCommStatusOk()){
+				pEnocean->m_nodes.deleteLinkTableEntry(DeviceId, std::stoi(entry, 0, 0));
 			}
-			checkComStatus(pEnocean, root);
+			entryNb++;
+			entry = getLinkEntry(req, entryNb);
 		}
-		static void ResetToDefault(WEB_CMD_ARG)
+		//pEnocean->getLinkTable(DeviceId);
+		checkComStatus(pEnocean, root);
+	}
+}
+static void Ping(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	if (nbSelectedDevice == 0)
+		pEnocean->ping(BROADCAST_ID);
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		T_RMCC_RESULT res = pEnocean->Ping(DeviceIdStringToUInt(deviceId));
+		root["message"] =res.message;
+	}
+	checkComStatus(pEnocean, root);
+}
+static void Action(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		pEnocean->Action(DeviceIdStringToUInt(deviceId));
+	}
+	checkComStatus(pEnocean, root);
+}
+static void Link(WEB_CMD_ARG)
+{
+	if (nbSelectedDevice != 2) { root["message"] = "Only 2 devices selected"; return; }
+	int deviceId1 = DeviceIdStringToUInt(getDeviceId(req, 0));
+	int deviceId2 = DeviceIdStringToUInt(getDeviceId(req, 1));
+	if (pEnocean->m_nodes.asLinkTable(deviceId1))
+		pEnocean->getLinkTable(deviceId1);
+	if (!pEnocean->isCommStatusOk()) { checkComStatus(pEnocean, root);  return; }
+	if (pEnocean->m_nodes.asLinkTable(deviceId2))
+		pEnocean->getLinkTable(deviceId2);
+	if (!pEnocean->isCommStatusOk()) { checkComStatus(pEnocean, root);  return; }
+	int LinkSize1 = pEnocean->m_nodes.getTableLinkMaxSize(deviceId1);
+	int LinkSize2 = pEnocean->m_nodes.getTableLinkMaxSize(deviceId2);
+	int deviceIdSender, deviceIdReceiver, receiverChannel, senderChannel;
+	if ((LinkSize1 == 0) && (LinkSize2 != 0))
+	{
+		deviceIdSender = deviceId1;
+		deviceIdReceiver = deviceId2;
+		senderChannel = std::stoi(getDeviceUnit(req, 0));
+		receiverChannel = std::stoi(getDeviceUnit(req, 1));
+	}
+	else
+		if ((LinkSize1 != 0) && (LinkSize2 == 0))
 		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->ResetToDefaults(DeviceIdStringToUInt(deviceId), ResetToDefaultsCst);
-			}
-			checkComStatus(pEnocean, root);
+			deviceIdSender = deviceId2;
+			deviceIdReceiver = deviceId1;
+			senderChannel = std::stoi(getDeviceUnit(req, 1));
+			receiverChannel = std::stoi(getDeviceUnit(req, 0));
 		}
-		static void QueryFunction(WEB_CMD_ARG)
+		else
 		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				if (pEnocean->isCommStatusOk())
-				{
-					T_RMCC_RESULT res = pEnocean->QueryFunction(DeviceIdStringToUInt(deviceId));
-					root["message"] = res.message;
-				}
-			}
-			checkComStatus(pEnocean, root);
+			root["message"] = "Could not link devices"; return;
 		}
-		static void DeleteEntrys(WEB_CMD_ARG)
-		{
-			{
-				std::string deviceId;
-				deviceId = getLinkEntry(req, 0);    if (deviceId.empty())	return;
-				unsigned int DeviceId = DeviceIdStringToUInt(deviceId);
-				int entryNb = 1;
-				std::string entry;
-				entry = getLinkEntry(req, entryNb);
-				T_LINK_TABLE* lEntry = pEnocean->m_nodes.getLinkEntry(DeviceId, std::stoi(entry, 0, 0));
-				//if entry is equal to chip id , delete the teach in status = teachout
-				if (lEntry->SenderId == pEnocean->m_id_chip)
-					pEnocean->SetTeachInStatus(DeviceId, 0);
-				pEnocean->unlockDevice((DeviceId));
-				while ((pEnocean->isCommStatusOk()) && (!entry.empty()))
-				{
-					pEnocean->SetLinkEntryTable(DeviceId, std::stoi(entry, 0, 0), 0, 0, 0);
-					if (pEnocean->isCommStatusOk()){
-						pEnocean->m_nodes.deleteLinkTableEntry(DeviceId, std::stoi(entry, 0, 0));
-					}
-					entryNb++;
-					entry = getLinkEntry(req, entryNb);
-				}
-				//pEnocean->getLinkTable(DeviceId);
-				checkComStatus(pEnocean, root);
-			}
+	//get empty entry in receiver
+	int emptyEntry = pEnocean->m_nodes.FindEmptyEntry(deviceIdReceiver);
+	if (emptyEntry < 0)
+	{
+		root["message"] = "Link table full or device not found "; return;
+	}
+	else
+	{
+		int senderEEP = pEnocean->m_nodes.getEEP(deviceIdSender);
+		pEnocean->setLinkEntryTable(deviceIdReceiver, emptyEntry, deviceIdSender, senderEEP, receiverChannel - 1);
+		pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
+		if (pEnocean->isCommStatusOk()) {
+			pEnocean->m_nodes.addLinkTableEntry(deviceIdReceiver, emptyEntry, senderEEP, deviceIdSender, receiverChannel - 1);
+			pEnocean->Debug(DEBUG_NORM, "Link receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
 		}
-		static void Ping(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			if (nbSelectedDevice == 0)
-				pEnocean->ping(BROADCAST_ID);
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				T_RMCC_RESULT res = pEnocean->Ping(DeviceIdStringToUInt(deviceId));
-				root["message"] =res.message;
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void Action(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->Action(DeviceIdStringToUInt(deviceId));
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void Link(WEB_CMD_ARG)
-		{
-			if (nbSelectedDevice != 2) { root["message"] = "Only 2 devices selected"; return; }
-			int deviceId1 = DeviceIdStringToUInt(getDeviceId(req, 0));
-			int deviceId2 = DeviceIdStringToUInt(getDeviceId(req, 1));
-			if (pEnocean->m_nodes.asLinkTable(deviceId1))
-				pEnocean->getLinkTable(deviceId1);
-			if (!pEnocean->isCommStatusOk()) { checkComStatus(pEnocean, root);  return; }
-			if (pEnocean->m_nodes.asLinkTable(deviceId2))
-				pEnocean->getLinkTable(deviceId2);
-			if (!pEnocean->isCommStatusOk()) { checkComStatus(pEnocean, root);  return; }
-			int LinkSize1 = pEnocean->m_nodes.getTableLinkMaxSize(deviceId1);
-			int LinkSize2 = pEnocean->m_nodes.getTableLinkMaxSize(deviceId2);
-			int deviceIdSender, deviceIdReceiver, receiverChannel, senderChannel;
-			if ((LinkSize1 == 0) && (LinkSize2 != 0))
-			{
-				deviceIdSender = deviceId1;
-				deviceIdReceiver = deviceId2;
-				senderChannel = std::stoi(getDeviceUnit(req, 0));
-				receiverChannel = std::stoi(getDeviceUnit(req, 1));
-			}
-			else
-				if ((LinkSize1 != 0) && (LinkSize2 == 0))
-				{
-					deviceIdSender = deviceId2;
-					deviceIdReceiver = deviceId1;
-					senderChannel = std::stoi(getDeviceUnit(req, 1));
-					receiverChannel = std::stoi(getDeviceUnit(req, 0));
-				}
-				else
-				{
-					root["message"] = "Could not link devices"; return;
-				}
-			//get empty entry in receiver
-			int emptyEntry = pEnocean->m_nodes.FindEmptyEntry(deviceIdReceiver);
-			if (emptyEntry < 0)
-			{
-				root["message"] = "Link table full or device not found "; return;
-			}
-			else
-			{
-				int senderEEP = pEnocean->m_nodes.getEEP(deviceIdSender);
-				pEnocean->setLinkEntryTable(deviceIdReceiver, emptyEntry, deviceIdSender, senderEEP, receiverChannel - 1);
-				pEnocean->waitRemote_man_answer(RC_ACK, RMCC_ACK_TIMEOUT);
-				if (pEnocean->isCommStatusOk()) {
-					pEnocean->m_nodes.addLinkTableEntry(deviceIdReceiver, emptyEntry, senderEEP, deviceIdSender, receiverChannel - 1);
-					pEnocean->Debug(DEBUG_NORM, "Link receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
-				}
-				else
-					pEnocean->Log(LOG_ERROR, "Linking receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void getCases(WEB_CMD_ARG)
-		{
-			//return the list of eep cases for the profil 
-			std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())return;
+		else
+			pEnocean->Log(LOG_ERROR, "Linking receiver %08X channel %d to sender %08X(%06X) ", deviceIdReceiver, receiverChannel, deviceIdSender, senderEEP);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void getCases(WEB_CMD_ARG)
+{
+	//return the list of eep cases for the profil 
+	std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())return;
 #ifdef USE_PROFIL
-			Profils.LoadXml();
-			T_PROFIL_EEP* prof = Profils.getProfil(DeviceIdStringToUInt(sprofil));
-			for (unsigned int caseNb = 0; caseNb < prof->cases.size(); caseNb++)
-			{
-				root["result"][caseNb]["Num"] = caseNb + 1;
-				root["result"][caseNb]["Title"] = prof->cases[caseNb].Title;
-				root["result"][caseNb]["Description"] = prof->cases[caseNb].Desc;
-			}
+	Profils.LoadXml();
+	T_PROFIL_EEP* prof = Profils.getProfil(DeviceIdStringToUInt(sprofil));
+	for (unsigned int caseNb = 0; caseNb < prof->cases.size(); caseNb++)
+	{
+		root["result"][caseNb]["Num"] = caseNb + 1;
+		root["result"][caseNb]["Title"] = prof->cases[caseNb].Title;
+		root["result"][caseNb]["Description"] = prof->cases[caseNb].Desc;
+	}
 #endif				
-			root["status"] = "OK";
-		}
-		static void getCases2(WEB_CMD_ARG)
-		{
-			//return the list of eep cases for the profil 
-			//std::string sprofil = request::findValue(&req, "profil");if (sprofil.empty())return;
-			//T_PROFIL_LIST * prof = getProfil (DeviceIdStringToUInt(sprofil));
-			//if(prof)
-			//for (unsigned int caseNb = 0; caseNb < prof->nbCases; caseNb++)
-			//{
-			//	root["result"][caseNb]["Num"]         = caseNb +1;
-			//	root["result"][caseNb]["Title"]       = prof->cases[caseNb]->Title;
-			//	root["result"][caseNb]["Description"] = prof->cases[caseNb]->Desc;
-			//}
-			root["status"] = "OK";
-		}
-		static void getCaseShortCut(WEB_CMD_ARG)
-		{
-			//return the list of shorcuts for the  case for the profil 
-			std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
-			std::string scaseNb = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
+	root["status"] = "OK";
+}
+static void getCases2(WEB_CMD_ARG)
+{
+	//return the list of eep cases for the profil 
+	//std::string sprofil = request::findValue(&req, "profil");if (sprofil.empty())return;
+	//T_PROFIL_LIST * prof = getProfil (DeviceIdStringToUInt(sprofil));
+	//if(prof)
+	//for (unsigned int caseNb = 0; caseNb < prof->nbCases; caseNb++)
+	//{
+	//	root["result"][caseNb]["Num"]         = caseNb +1;
+	//	root["result"][caseNb]["Title"]       = prof->cases[caseNb]->Title;
+	//	root["result"][caseNb]["Description"] = prof->cases[caseNb]->Desc;
+	//}
+	root["status"] = "OK";
+}
+static void getCaseShortCut(WEB_CMD_ARG)
+{
+	//return the list of shorcuts for the  case for the profil 
+	std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
+	std::string scaseNb = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
 #ifdef USE_PROFIL
-			Profils.LoadXml();
-			T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
-			for (unsigned int i = 0; i < Case->size(); i++)
-			{
-				root["result"][i]["Short"] = Case->at(i)->ShortCut;
-				root["result"][i]["Desc"] = Case->at(i)->description;
-				root["result"][i]["Enum"] = Case->at(i)->enumerate;
-			}
+	Profils.LoadXml();
+	T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
+	for (unsigned int i = 0; i < Case->size(); i++)
+	{
+		root["result"][i]["Short"] = Case->at(i)->ShortCut;
+		root["result"][i]["Desc"] = Case->at(i)->description;
+		root["result"][i]["Enum"] = Case->at(i)->enumerate;
+	}
 #endif			
-			root["status"] = "OK";
-		}
-		static void getCaseShortCut2(WEB_CMD_ARG)
-		{
-			//return the list of shorcuts for the  case for the profil 
-			std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
-			std::string scaseNb = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
-			//T_EEP_CASE_ * Case = getProfilCase (DeviceIdStringToUInt(sprofil),  std::stoi(scaseNb, nullptr, 0)   );
-			//if(Case)
-			//	for (unsigned int i = 0; i < 50 ; i++)
-			//	{
-			//		if (Case->Dataf[i].Size ==0)
-			//			break;
-			//		root["result"][i]["Short"] = Case->Dataf[i].ShortCut ;
-			//		root["result"][i]["Desc"]  = Case->Dataf[i].description;
-			//		root["result"][i]["Enum"] = "";//Case->at(i).Enum ;
-			//	}
-			root["status"] = "OK";
-		}
-		static void sendvld(WEB_CMD_ARG)
-		{
-			//return the list of shorcuts for the  case for the profil 
-			std::string sprofil         = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
-			std::string scaseNb         = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
-			std::string sdevidx         = http::server::request::findValue(&req, "devidx"); if (sdevidx.empty())	return;
-			std::string sdevicebaseAddr = http::server::request::findValue(&req, "baseAddr"); if (sdevidx.empty())	return;
-			int NbValues = req.parameters.size() - 7;
-			int values[256];
-			for (int i = 0; i < NbValues; i++) {
-				std::string value = getDeviceId(req, i).c_str();
-				int val = StrToInt(getDeviceId(req, i));
-				values[i] = val;
-			}
+	root["status"] = "OK";
+}
+static void getCaseShortCut2(WEB_CMD_ARG)
+{
+	//return the list of shorcuts for the  case for the profil 
+	std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
+	std::string scaseNb = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
+	//T_EEP_CASE_ * Case = getProfilCase (DeviceIdStringToUInt(sprofil),  std::stoi(scaseNb, nullptr, 0)   );
+	//if(Case)
+	//	for (unsigned int i = 0; i < 50 ; i++)
+	//	{
+	//		if (Case->Dataf[i].Size ==0)
+	//			break;
+	//		root["result"][i]["Short"] = Case->Dataf[i].ShortCut ;
+	//		root["result"][i]["Desc"]  = Case->Dataf[i].description;
+	//		root["result"][i]["Enum"] = "";//Case->at(i).Enum ;
+	//	}
+	root["status"] = "OK";
+}
+static void sendvld(WEB_CMD_ARG)
+{
+	//return the list of shorcuts for the  case for the profil 
+	std::string sprofil         = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
+	std::string scaseNb         = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
+	std::string sdevidx         = http::server::request::findValue(&req, "devidx"); if (sdevidx.empty())	return;
+	std::string sdevicebaseAddr = http::server::request::findValue(&req, "baseAddr"); if (sdevidx.empty())	return;
+	int NbValues = req.parameters.size() - 7;
+	int values[256];
+	for (int i = 0; i < NbValues; i++) {
+		std::string value = getDeviceId(req, i).c_str();
+		int val = StrToInt(getDeviceId(req, i));
+		values[i] = val;
+	}
 #ifdef USE_PROFIL
-			T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
-			//T_EEP_CASE_* Case = getProfilCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
-			if (Case)
-			{
-				unsigned int DeviceId = DeviceIdStringToUInt(sdevidx);
-				//					unsigned int DeviceId = DeviceIdStringToUInt(sdevicebaseAddr);
-				//                    int siz = Case->dataFileds.size();
-				T_DATAFIELD* dataf = Case->dataFileds.data();
-				pEnocean->sendDataVld(pEnocean->m_id_chip, DeviceId, dataf, values, NbValues);
-				//					pEnocean->senDatadVld(pEnocean->m_id_chip, DeviceId , Case->Dataf, values,  NbValues);
-				root["status"] = "OK";
-			}
+	T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
+	//T_EEP_CASE_* Case = getProfilCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
+	if (Case)
+	{
+		unsigned int DeviceId = DeviceIdStringToUInt(sdevidx);
+		//					unsigned int DeviceId = DeviceIdStringToUInt(sdevicebaseAddr);
+		//                    int siz = Case->dataFileds.size();
+		T_DATAFIELD* dataf = Case->dataFileds.data();
+		pEnocean->sendDataVld(pEnocean->m_id_chip, DeviceId, dataf, values, NbValues);
+		//					pEnocean->senDatadVld(pEnocean->m_id_chip, DeviceId , Case->Dataf, values,  NbValues);
+		root["status"] = "OK";
+	}
 #endif
-		}
-		static void SetRepeaterNodonLevelOff(WEB_CMD_ARG)
+}
+static void SetRepeaterNodonLevelOff(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 0);
+		pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void SetRepeaterNodonLevel1(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 1);
+		pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void SetRepeaterNodonLevel2(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 2);
+		pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void getRepeaterQuery(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		T_RMCC_RESULT res = pEnocean->GetRepeaterQuery(DeviceIdStringToUInt(deviceId));
+		root["message"] = res.message;
+	}
+	checkComStatus(pEnocean, root);
+}
+static void SetRepeaterQueryLevelOff(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 0, 1, 0);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void SetRepeaterQueryLevel1(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 1, 0);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void SetRepeaterQueryLevel2(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 2, 0);
+	}
+	checkComStatus(pEnocean, root);
+}
+static void Delete(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	std::string unit;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		uint32_t NodeID = DeviceIdStringToUInt(deviceId);
+		unit = getDeviceUnit(req, i);
+		std::vector<std::vector<std::string> > result;
+		//trqnsfor 
+		std::string enOceanId = deviceId;
+		deviceId = pEnocean->GetDeviceID(DeviceIdStringToUInt(deviceId));
+		result = m_sql.safe_query("SELECT ID FROM DeviceStatus  WHERE (DeviceID=='%s') ", deviceId.c_str());
+		int NbDeviceId = result.size();
+		//for (int j = 0; j < NbDeviceId; j++)
+		//    m_sql.DeleteDevices(result[i][0]);
+		pEnocean->DeleteSensor(NodeID);
+		pEnocean->Debug(DEBUG_NORM, "CSQLHelper::DeleteDevices: EnOceanNodes  ID: %s", enOceanId.c_str());
+	}
+	checkComStatus(pEnocean, root);
+}
+static void GetCode(WEB_CMD_ARG)
+{
+	//
+	unsigned int code = pEnocean->GetLockCode();
+	if ((code != 0) && (code != 0xFFFFFFFF))
+		root["status"] = "OK";
+	else
+		root["status"] = "KO";
+}
+static void GetLinkConfig(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		uint32_t ideviceId = DeviceIdStringToUInt(deviceId);
+		//					int entryNb = 1;
+		std::string sentry = getLinkEntry(req, 1);
+		if (sentry.empty())	return;
+		int entry = std::stoi(sentry, 0, 0);
+		//for (int entry = 0; entry < 1 ; entry++ )
+		int begin = 0;
+		int end = 0;
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		if (pEnocean->isCommStatusOk())
 		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 0);
-				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void SetRepeaterNodonLevel1(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 1);
-				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void SetRepeaterNodonLevel2(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->setNodonRepeaterLevel(pEnocean->m_id_chip, DeviceIdStringToUInt(deviceId), 2);
-				pEnocean->waitRemote_man_answer(RC_PACKET_RESPONSE, RMCC_ACK_TIMEOUT);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void getRepeaterQuery(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				T_RMCC_RESULT res = pEnocean->GetRepeaterQuery(DeviceIdStringToUInt(deviceId));
-				root["message"] = res.message;
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void SetRepeaterQueryLevelOff(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 0, 1, 0);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void SetRepeaterQueryLevel1(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 1, 0);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void SetRepeaterQueryLevel2(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				pEnocean->SetRepeaterQuery(DeviceIdStringToUInt(deviceId), 1, 2, 0);
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void Delete(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			std::string unit;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				uint32_t NodeID = DeviceIdStringToUInt(deviceId);
-				unit = getDeviceUnit(req, i);
-				std::vector<std::vector<std::string> > result;
-				//trqnsfor 
-				std::string enOceanId = deviceId;
-				deviceId = pEnocean->GetDeviceID(DeviceIdStringToUInt(deviceId));
-				result = m_sql.safe_query("SELECT ID FROM DeviceStatus  WHERE (DeviceID=='%s') ", deviceId.c_str());
-				int NbDeviceId = result.size();
-				//for (int j = 0; j < NbDeviceId; j++)
-				//    m_sql.DeleteDevices(result[i][0]);
-				pEnocean->DeleteSensor(NodeID);
-				pEnocean->Debug(DEBUG_NORM, "CSQLHelper::DeleteDevices: EnOceanNodes  ID: %s", enOceanId.c_str());
-			}
-			checkComStatus(pEnocean, root);
-		}
-		static void GetCode(WEB_CMD_ARG)
-		{
-			//
-			unsigned int code = pEnocean->GetLockCode();
-			if ((code != 0) && (code != 0xFFFFFFFF))
-				root["status"] = "OK";
-			else
-				root["status"] = "KO";
-		}
-		static void GetLinkConfig(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				uint32_t ideviceId = DeviceIdStringToUInt(deviceId);
-				//					int entryNb = 1;
-				std::string sentry = getLinkEntry(req, 1);
-				if (sentry.empty())	return;
-				int entry = std::stoi(sentry, 0, 0);
-				//for (int entry = 0; entry < 1 ; entry++ )
-				int begin = 0;
-				int end = 0;
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				if (pEnocean->isCommStatusOk())
-				{
-					for (begin = 0; begin <= end; begin++)
-					{
-						int length = 1;
-						pEnocean->GetDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
+			for (begin = 0; begin <= end; begin++)
+			{
+				int length = 1;
+				pEnocean->GetDeviceLinkBaseConfiguration((ideviceId), entry, begin, end, length);
 
-						//root["message"] = res.message;
-					}
-				}
+				//root["message"] = res.message;
 			}
-			checkComStatus(pEnocean, root);
 		}
-		static void GetDeviceConfiguration(WEB_CMD_ARG)
+	}
+	checkComStatus(pEnocean, root);
+}
+static void GetDeviceConfiguration(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		uint32_t ideviceId = DeviceIdStringToUInt(deviceId);
+		pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
+		if (pEnocean->isCommStatusOk())
 		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				uint32_t ideviceId = DeviceIdStringToUInt(deviceId);
-				pEnocean->unlockDevice(DeviceIdStringToUInt(deviceId));
-				if (pEnocean->isCommStatusOk())
-				{
-					T_RMCC_RESULT res = pEnocean->GetDeviceConfiguration(ideviceId, 0 ,0 , 1);
-					root["message"] = res.message;
-				}
-			}
-			checkComStatus(pEnocean, root);
+			T_RMCC_RESULT res = pEnocean->GetDeviceConfiguration(ideviceId, 0 ,0 , 1);
+			root["message"] = res.message;
 		}
-		static void SetLinkConfig(WEB_CMD_ARG)
+	}
+	checkComStatus(pEnocean, root);
+}
+static void SetLinkConfig(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
+		uint32_t ideviceId = DeviceIdStringToUInt(deviceId);
+		std::string sentry = getLinkEntry(req, 1);
+		if (sentry.empty())	return;
+		int entry = std::stoi(sentry, 0, 0);
 		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);    if (deviceId.empty())	return;
-				uint32_t ideviceId = DeviceIdStringToUInt(deviceId);
-				std::string sentry = getLinkEntry(req, 1);
-				if (sentry.empty())	return;
-				int entry = std::stoi(sentry, 0, 0);
-				{
-					int begin = 0;
-					int end = 0;
-					uint8_t data[] = { 0xC0,0x56, 0x01 };
-					pEnocean->SetDeviceLinkBaseConfiguration(ideviceId, entry, begin, end, 3, data);
-				}
-			}
-			checkComStatus(pEnocean, root);
+			int begin = 0;
+			int end = 0;
+			uint8_t data[] = { 0xC0,0x56, 0x01 };
+			pEnocean->SetDeviceLinkBaseConfiguration(ideviceId, entry, begin, end, 3, data);
 		}
-		static void CreateSensor(WEB_CMD_ARG)
-		{
-			//
-			std::string id = http::server::request::findValue(&req, "id");
-			if (id.empty())
-				return;
-			std::string eep = http::server::request::findValue(&req, "eep");
-			if (eep.empty())
-				return;
-			uint32_t senderID = DeviceIdStringToUInt(id);
-			uint32_t eepProfil = DeviceIdStringToUInt(eep);
-			//create sensor
-			if (pEnocean->GetEEP(getRorg(eepProfil), getFunc(eepProfil), getType(eepProfil)) != nullptr)
-				pEnocean->TeachInNode(senderID, UNKNOWN_MANUFACTURER, getRorg(eepProfil), getFunc(eepProfil), getType(eepProfil), GENERIC_NODE);
-			else {
-				root["message"] = "Profil " + eep + " does not exist";
-				return;
-			}
-			root["status"] = "OK";
-		}
-		static void ClearTeachInStatus(WEB_CMD_ARG)
-		{
-			std::string deviceId;
-			for (int i = 0; i < nbSelectedDevice; i++) {
-				deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
-				pEnocean->SetTeachInStatus(DeviceIdStringToUInt(deviceId), 0);
-			}
-			root["status"] = "OK";
-		}
-		//------------------------
-		std::map < std::string, EnOcean_web_function > EnOcean_webcommands = {
+	}
+	checkComStatus(pEnocean, root);
+}
+static void CreateSensor(WEB_CMD_ARG)
+{
+	//
+	std::string id = http::server::request::findValue(&req, "id");
+	if (id.empty())
+		return;
+	std::string eep = http::server::request::findValue(&req, "eep");
+	if (eep.empty())
+		return;
+	uint32_t senderID = DeviceIdStringToUInt(id);
+	uint32_t eepProfil = DeviceIdStringToUInt(eep);
+	//create sensor
+	if (pEnocean->GetEEP(getRorg(eepProfil), getFunc(eepProfil), getType(eepProfil)) != nullptr)
+		pEnocean->TeachInNode(senderID, UNKNOWN_MANUFACTURER, getRorg(eepProfil), getFunc(eepProfil), getType(eepProfil), GENERIC_NODE);
+	else {
+		root["message"] = "Profil " + eep + " does not exist";
+		return;
+	}
+	root["status"] = "OK";
+}
+static void ClearTeachInStatus(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		pEnocean->SetTeachInStatus(DeviceIdStringToUInt(deviceId), 0);
+	}
+	root["status"] = "OK";
+}
+//------------------------
+std::map < std::string, EnOcean_web_function > EnOcean_webcommands = {
 {			"GetNodeList"                     ,			GetNodeList                },
 {			"SendCode"                        ,			SendCode                   },
 {			"Lock"                            ,			Lock                       },
@@ -817,7 +810,7 @@ int StrToInt(std::string value)
 {			"ClearTeachInStatus"              ,			ClearTeachInStatus         },
 {			"GetDeviceConfiguration"          ,			GetDeviceConfiguration     },
 
-		};
+};
 //	}
 //}
 void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::request& req, Json::Value& root)

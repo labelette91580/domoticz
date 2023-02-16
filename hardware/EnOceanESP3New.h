@@ -1,15 +1,12 @@
 public:
 	uint32_t sendDataVld(unsigned int unitBaseAddr, unsigned int destID, enocean::T_DATAFIELD* OffsetDes, int* values, int NbValues);
-	int getPositionFromCommandLevel(int cmnd, int pos);
 	//new
 	void parse_PACKET_MAN_SPECIFIC_COMMAND(unsigned char m_buffer[], int m_DataSize, int m_OptionalDataSize);
-	bool updateSwitchType(int HardwareID, const char* deviceID, _eSwitchType SwitchType);
 public:
 	void DeleteSensor(uint32_t sensorId);
 	void setRepeaterLevelOn();
 	void getRepeaterLevel();
 	void parsePACKET_RESPONSE(uint8_t* data, uint16_t datalen);
-	void SetNodeTeachInStatus(const uint32_t nodeID, uint32_t TeachInStatus);
 	void GetDbValue(const char* tableName, const char* fieldName, const char* whereFieldName, const char* whereFielValue, uint32_t& Value);
 	void SetDbValue(const char* tableName, const char* fieldName, const char* fieldValue, const char* whereFieldName, const char* whereFieldValue);
 	void SetDbValue(const char* tableName, const char* fieldName, uint32_t fieldValue, const char* whereFieldName, const char* whereFielValue);
