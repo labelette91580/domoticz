@@ -105,8 +105,8 @@ static  std::map < uint32_t , T_RMCC_COMMAND_CODE > 	RC_commande_code   =
 	{ RC_GET_DEVICE_CONFIG                 ,{ 2    , RC_GET_DEVICE_CONFIG_RESPONSE       ,    "Get Device Configuration Query"        } },
 	{ RC_GET_DEVICE_CONFIG_RESPONSE        ,{ 2    , 0                                   ,    "Get Device Configuration Response"     } },
 	{ RC_SET_DEVICE_CONFIG                 ,{ 2    , RC_ACK                              ,    "Set Device Configuration Query"        } },
-	{ RC_GET_LINK_BASED_CONFIG             ,{ 1    , RC_GET_LINK_BASED_CONFIG_RESPONSE   ,    "Get Link Based Configuration Query"    } },
-	{ RC_GET_LINK_BASED_CONFIG_RESPONSE    ,{ 1    , 0                                   ,    "Get Link Based Configuration Response" } },
+	{ RC_GET_LINK_BASED_CONFIG             ,{ 2    , RC_GET_LINK_BASED_CONFIG_RESPONSE   ,    "Get Link Based Configuration Query"    } },
+	{ RC_GET_LINK_BASED_CONFIG_RESPONSE    ,{ 2    , 0                                   ,    "Get Link Based Configuration Response" } },
 	{ RC_SET_LINK_BASED_CONFIG             ,{ 1    , RC_ACK                              ,    "Set Link Based Configuration Query"    } },
 	{ RC_APPLY_CHANGES                     ,{ 1    , RC_ACK                              ,    "Apply Changes Command"                 } },
 	{ RC_RESET_TO_DEFAULTS                 ,{ 1    , RC_ACK                              ,    "Reset to Defaults"                     } },
@@ -897,7 +897,7 @@ void CEnOceanRMCC::getGPTable(uint32_t SensorId, int index)
 void CEnOceanRMCC::getLinksConfig(uint32_t DeviceId)
 {
 	int TableSize = m_nodes.getTableLinkCurrentSize(DeviceId);
-	NodeInfo* node = m_nodes.search(  DeviceId);
+	NodeInfo* node = m_nodes.getNodeInfo(  DeviceId);
 	if (node)
 	{
 		for (int Linkindex=0;Linkindex<TableSize;Linkindex++)
@@ -1224,7 +1224,7 @@ void CEnOceanRMCC::GetLinkTableList(Json::Value& root, std::string& DeviceIds, u
 		addLinkTableEntry(0x1a65428, 2, 0xD0500, 0x1234567, 1);
 		addLinkTableEntry(0x1a65428, 3, 0xD0500, 0x2345678, 1);
 	*/
-	NodeInfo* sensors = m_nodes.search(DeviceId);
+	NodeInfo* sensors = m_nodes.getNodeInfo(DeviceId);
 	if (sensors) {
 		//read link table if not readed
 		if ((sensors->asLinkTable()) && (sensors->getTableLinkMaxSize() == 0))
@@ -1364,7 +1364,9 @@ bool CEnOceanRMCC::unlockDevice(unsigned int deviceId, bool testUnLockTimeoutBef
 		Unlock(BROADCAST_ID, code);
 	}
 	else {
-		NodeInfo* sensors = m_nodes.search(deviceId);
+		NodeInfo* sensors = m_nodes.getNodeInfo(deviceId);
+		if ( !isCommStatusOk())
+			sensors->ReSetUnLockTimeout();
 		if ((testUnLockTimeoutBeforeSend && sensors->UnLockTimeout())
 			|| (!testUnLockTimeoutBeforeSend)
 			)

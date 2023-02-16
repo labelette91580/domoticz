@@ -53,18 +53,6 @@ void  CEnOceanESP3::SetNodeTeachInStatus(const uint32_t nodeID, uint32_t TeachIn
 	if (node != nullptr)
 		node->teachin_mode = (TeachinMode)TeachInStatus;
 }
-uint32_t  CEnOceanESP3::GetNodeTeachInStatus(const uint32_t nodeID)
-{
-	auto node = GetNodeInfo(nodeID);
-	if (node != nullptr)
-		return node->teachin_mode;
-	else
-		return 0;
-}
-bool  CEnOceanESP3::NodeIsAlreadyTeachedIn(const uint32_t nodeID)
-{
-	return GetNodeTeachInStatus(nodeID) != 0;
-}
 ///--- db 
 void CEnOceanESP3::GetDbValue(const char* tableName, const char* fieldName, const char* whereFieldName, const char* whereFieldValue, uint32_t& Value)
 {

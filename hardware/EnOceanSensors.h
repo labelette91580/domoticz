@@ -72,6 +72,8 @@ namespace enocean {
 		void setSensorManuf(uint32_t SensorId, uint16_t Manuf);
 		void setSensorReference(uint32_t SensorId, uint32_t ref);
 		void setTeachInStatus(uint32_t SensorId, uint32_t pTeachInStatus);
+		uint32_t getTeachInStatus(uint32_t SensorId);
+		bool IsAlreadyTeachedIn(const uint32_t nodeID);
 		void setSensorProfile(uint32_t SensorId, uint32_t pProfile);
 		void setSensorProfile(uint32_t SensorId, uint8_t  RORG, uint8_t  func, uint8_t  type);
 		void setLinkTableMedadata(uint32_t SensorId, int csize, int MaxSize);
@@ -82,7 +84,7 @@ namespace enocean {
 		int  getTableLinkMaxSize(unsigned int DeviceId);
 		int  getTableLinkCurrentSize(unsigned int DeviceId);
 		int  getTableLinkValidSensorIdSize(unsigned int DeviceId);
-		NodeInfo* search(unsigned int  DeviceId);
+		NodeInfo* getNodeInfo(unsigned int  DeviceId);
 		int  getEEP(unsigned int DeviceId);
 		int  getSensorRorg(unsigned int DeviceId);
 		int  getSensorFunc(unsigned int DeviceId);

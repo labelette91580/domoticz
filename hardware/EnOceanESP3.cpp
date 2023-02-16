@@ -3672,7 +3672,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					optbuf[6] = 0x00; // Seurity Level : Send = ignored
 				}
 //				if (pNode == nullptr)
-                if(!NodeIsAlreadyTeachedIn(senderID))
+                if(!m_nodes.IsAlreadyTeachedIn(senderID))
 				{ // Node not found
 					if (ute_request == TEACH_DELETION_REQUEST)
 					{ // Node not found and teach-out request => ignore
@@ -3834,7 +3834,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 
 		case RORG_VLD:
 			{ // VLD telegram, D2-XX-XX, Variable Length Data
-                if(!NodeIsAlreadyTeachedIn(senderID))
+                if(!m_nodes.IsAlreadyTeachedIn(senderID))
 //				if (pNode == nullptr)
 				{
 					Log(LOG_NORM, "VLD msg: Unknown Node %08X, please proceed to teach-in", senderID);
