@@ -10,8 +10,6 @@ public:
 	void getRepeaterLevel();
 	void parsePACKET_RESPONSE(uint8_t* data, uint16_t datalen);
 	void SetNodeTeachInStatus(const uint32_t nodeID, uint32_t TeachInStatus);
-	uint32_t GetNodeTeachInStatus(const uint32_t nodeID);
-	bool NodeIsAlreadyTeachedIn(const uint32_t nodeID);
 	void GetDbValue(const char* tableName, const char* fieldName, const char* whereFieldName, const char* whereFielValue, uint32_t& Value);
 	void SetDbValue(const char* tableName, const char* fieldName, const char* fieldValue, const char* whereFieldName, const char* whereFieldValue);
 	void SetDbValue(const char* tableName, const char* fieldName, uint32_t fieldValue, const char* whereFieldName, const char* whereFielValue);

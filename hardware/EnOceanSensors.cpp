@@ -135,6 +135,19 @@ void T_NODES::setTeachInStatus(uint32_t SensorId, uint32_t pTeachInStatus)
 {
 	(*this)[SensorId].teachin_mode = (TeachinMode)pTeachInStatus;
 }
+uint32_t T_NODES::getTeachInStatus(uint32_t SensorId)
+{
+	NodeInfo* node = getNodeInfo(SensorId);
+	if (node != nullptr)
+		return node->teachin_mode;
+	else
+		return 0;
+}
+
+bool  T_NODES::IsAlreadyTeachedIn(const uint32_t nodeID)
+{
+	return getTeachInStatus(nodeID) != 0;
+}
 void T_NODES::setSensorProfile(uint32_t SensorId, uint32_t pProfile)
 {
 	(*this)[SensorId].Profile = pProfile;
@@ -189,7 +202,7 @@ void T_NODES::printTableLink()
 }
 int  T_NODES::getTableLinkMaxSize(unsigned int DeviceId)
 {
-	NodeInfo* ms = search(DeviceId);
+	NodeInfo* ms = getNodeInfo(DeviceId);
 	if (ms)
 		return  ms->getTableLinkMaxSize();
 	else
@@ -197,7 +210,7 @@ int  T_NODES::getTableLinkMaxSize(unsigned int DeviceId)
 }
 int  T_NODES::getTableLinkCurrentSize(unsigned int DeviceId)
 {
-	NodeInfo* ms = search(DeviceId);
+	NodeInfo* ms = getNodeInfo(DeviceId);
 	if (ms)
 		return  ms->CurrentSize;
 	else
@@ -207,7 +220,7 @@ int T_NODES::getTableLinkValidSensorIdSize(unsigned int DeviceId)
 {
 	return  (*this)[DeviceId].NbValidId;
 }
-NodeInfo* T_NODES::search(unsigned int  DeviceId)
+NodeInfo* T_NODES::getNodeInfo(unsigned int  DeviceId)
 {
 	auto itt = (*this).find(DeviceId);
 	if (itt != end())
@@ -216,7 +229,7 @@ NodeInfo* T_NODES::search(unsigned int  DeviceId)
 }
 int  T_NODES::getEEP(unsigned int DeviceId)
 {
-	NodeInfo* ms = search(DeviceId);
+	NodeInfo* ms = getNodeInfo(DeviceId);
 	if (ms)
 		return  ms->Profile;
 	else
@@ -224,7 +237,7 @@ int  T_NODES::getEEP(unsigned int DeviceId)
 }
 int  T_NODES::getSensorRorg(unsigned int DeviceId)
 {
-	NodeInfo* ms = search(DeviceId);
+	NodeInfo* ms = getNodeInfo(DeviceId);
 	if (ms)
 		return   ms->getSensorRorg();
 	else
@@ -232,7 +245,7 @@ int  T_NODES::getSensorRorg(unsigned int DeviceId)
 }
 int  T_NODES::getSensorFunc(unsigned int DeviceId)
 {
-	NodeInfo* ms = search(DeviceId);
+	NodeInfo* ms = getNodeInfo(DeviceId);
 	if (ms)
 		return  ms->getSensorFunc();
 	else
@@ -240,7 +253,7 @@ int  T_NODES::getSensorFunc(unsigned int DeviceId)
 }
 int  T_NODES::getSensorType(unsigned int DeviceId)
 {
-	NodeInfo* ms = search(DeviceId);
+	NodeInfo* ms = getNodeInfo(DeviceId);
 	if (ms)
 		return  (ms->getSensorType());
 	else
@@ -248,7 +261,7 @@ int  T_NODES::getSensorType(unsigned int DeviceId)
 }
 int T_NODES::FindEmptyEntry(unsigned int  DeviceId)
 {
-	NodeInfo* sensor = search(DeviceId);
+	NodeInfo* sensor = getNodeInfo(DeviceId);
 	if (sensor != 0)
 		for (int i = 0; i < SIZE_LINK_TABLE; i++)
 		{
@@ -260,7 +273,7 @@ int T_NODES::FindEmptyEntry(unsigned int  DeviceId)
 //return true if sensor as a link table 
 bool T_NODES::asLinkTable(unsigned int  DeviceId)
 {
-	NodeInfo* ms = search(DeviceId);
+	NodeInfo* ms = getNodeInfo(DeviceId);
 	if (ms)
 		return ms->asLinkTable();
 	else
@@ -270,7 +283,7 @@ T_LINK_TABLE* T_NODES::getLinkEntry(unsigned int  DeviceId, unsigned int  entry)
 {
 	T_LINK_TABLE* lEntry = 0;
 	if (entry < SIZE_LINK_TABLE) {
-		NodeInfo* sensor = search(DeviceId);
+		NodeInfo* sensor = getNodeInfo(DeviceId);
 		if (sensor)
 			lEntry = &sensor->LinkTable[entry];
 	}
