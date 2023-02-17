@@ -1144,7 +1144,7 @@ static int addMayBeaNode(int devId, int devUnit, int devType, int ii, std::strin
 	}
 	return ii;
 }
-void CEnOceanRMCC::GetNodeList(std::string& HardwareID, Json::Value& root)
+void CEnOceanRMCC::GetNodeList(std::string HardwareID, Json::Value& root)
 {
 	root["status"] = "OK";
 	root["title"] = "EnOceanNodes";

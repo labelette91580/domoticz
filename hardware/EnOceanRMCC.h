@@ -216,7 +216,7 @@ public:
 
 	void TeachIn(std::string & deviceId, std::string & unit, T_LEARN_MODE Device_LRN_Mode);
 
-	void GetNodeList(std::string & hwid, Json::Value & root);
+	void GetNodeList(std::string hwid, Json::Value & root);
 
 	void GetLinkTableList(Json::Value & root, std::string &DeviceId, unsigned int id_chip);
 
