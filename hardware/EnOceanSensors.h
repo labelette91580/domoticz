@@ -57,7 +57,7 @@ namespace enocean {
 		bool UnLockTimeout();
 		void SetUnLockTimeout();
 		void ReSetUnLockTimeout();
-		std::string NodeInfo::Description();
+		std::string Description();
 		static std::string teachin_mode_string(TeachinMode pteachin_mode);
 		std::string teachin_mode_string();
 		void setLinkTableMedadata( int csize, int MaxSize);
