@@ -1754,7 +1754,7 @@ bool  ImperiHome::Request(std::string& request_path, std::string& rep_content)
 	return true;
 }
 
-bool  ImperiHomeRequest(std::string& request_path, std::string& rep_content)
+bool  ImperiHomeRequest(std::string request_path, std::string& rep_content)
 {
 	ImperiHome m_ImperiHome;
 	bool ret = m_ImperiHome.Request(request_path, rep_content);
