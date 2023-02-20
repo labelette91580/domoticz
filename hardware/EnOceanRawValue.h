@@ -2,6 +2,8 @@
 
 #include <stdarg.h>
 
+typedef std::map<unsigned int, std::string > T_DATAFIELD_ENUMERATE_MAP;
+
 namespace enocean
 {
 	// Profile descriptor from eep.xml
@@ -17,7 +19,8 @@ namespace enocean
 
 		std::string ShortCut;
 		std::string description;
-		std::string enumerate;
+		T_DATAFIELD_ENUMERATE_MAP mapEnumerate;
+		std::string               enumerate;
 	std::string toString()
 	{
 		char buf[1024];
@@ -35,6 +38,15 @@ namespace enocean
 			return buf;
 
 	}
+		std::string getEnumerate(int value)
+		{
+			auto strEnum = mapEnumerate.find(value);
+
+			if (strEnum == mapEnumerate.end())
+				return "" ;
+			else
+				return (strEnum->second);
+		}
 
 	};
 
