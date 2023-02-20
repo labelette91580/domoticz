@@ -216,7 +216,7 @@ public:
     FILE*  stdnull = fopen("nul.txt", "w");
 //    stdnull = stdout;
     if(lProfils.size() == 0 ) 
-        parseEEP_xml( "eep.xml", "0x","0x", stdnull,stdnull);
+        parseEEP_xml( "eep.xml", "0x","", stdnull,stdnull);
    }
 };
 

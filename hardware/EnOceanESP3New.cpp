@@ -28,7 +28,7 @@
 
 using namespace enocean;
 
-//#define USE_PROFIL
+#define USE_PROFIL
 #ifdef USE_PROFIL
 #include "EnOceanProfil.h"
 #endif

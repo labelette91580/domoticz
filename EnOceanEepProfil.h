@@ -200,53 +200,53 @@ extern enocean:: T_EEP_CASE_* D20112_CASES [] ;
 // function type :0x00 : Type 0x00 
 
 // TITLE:CMD 1 - Go to Position and Angle
-extern enocean:: T_DATAFIELD D2050X_CMD1 [] ;
+extern enocean:: T_DATAFIELD D20500_CMD1 [] ;
 // Index of field
-#define D2050X_CMD1_POS        0
-#define D2050X_CMD1_ANG        1
-#define D2050X_CMD1_REPO       2
-#define D2050X_CMD1_LOCK       3
-#define D2050X_CMD1_CHN        4
-#define D2050X_CMD1_CMD        5
-#define D2050X_CMD1_NB_DATA    6
-#define D2050X_CMD1_DATA_SIZE  4
+#define D20500_CMD1_POS        0
+#define D20500_CMD1_ANG        1
+#define D20500_CMD1_REPO       2
+#define D20500_CMD1_LOCK       3
+#define D20500_CMD1_CHN        4
+#define D20500_CMD1_CMD        5
+#define D20500_CMD1_NB_DATA    6
+#define D20500_CMD1_DATA_SIZE  4
 
 // TITLE:CMD 2 - Stop
-extern enocean:: T_DATAFIELD D2050X_CMD2 [] ;
+extern enocean:: T_DATAFIELD D20500_CMD2 [] ;
 // Index of field
-#define D2050X_CMD2_CHN        0
-#define D2050X_CMD2_CMD        1
-#define D2050X_CMD2_NB_DATA    2
-#define D2050X_CMD2_DATA_SIZE  1
+#define D20500_CMD2_CHN        0
+#define D20500_CMD2_CMD        1
+#define D20500_CMD2_NB_DATA    2
+#define D20500_CMD2_DATA_SIZE  1
 
 // TITLE:CMD 3 - Query Position and Angle
-extern enocean:: T_DATAFIELD D2050X_CMD3 [] ;
+extern enocean:: T_DATAFIELD D20500_CMD3 [] ;
 // Index of field
-#define D2050X_CMD3_CHN        0
-#define D2050X_CMD3_CMD        1
-#define D2050X_CMD3_NB_DATA    2
-#define D2050X_CMD3_DATA_SIZE  1
+#define D20500_CMD3_CHN        0
+#define D20500_CMD3_CMD        1
+#define D20500_CMD3_NB_DATA    2
+#define D20500_CMD3_DATA_SIZE  1
 
 // TITLE:CMD 4 - Reply Position and Angle
-extern enocean:: T_DATAFIELD D2050X_CMD4 [] ;
+extern enocean:: T_DATAFIELD D20500_CMD4 [] ;
 // Index of field
-#define D2050X_CMD4_POS        0
-#define D2050X_CMD4_ANG        1
-#define D2050X_CMD4_LOCK       2
-#define D2050X_CMD4_CHN        3
-#define D2050X_CMD4_CMD        4
-#define D2050X_CMD4_NB_DATA    5
-#define D2050X_CMD4_DATA_SIZE  4
+#define D20500_CMD4_POS        0
+#define D20500_CMD4_ANG        1
+#define D20500_CMD4_LOCK       2
+#define D20500_CMD4_CHN        3
+#define D20500_CMD4_CMD        4
+#define D20500_CMD4_NB_DATA    5
+#define D20500_CMD4_DATA_SIZE  4
 
 // TITLE:CMD 5 - Set parameters
-extern enocean:: T_DATAFIELD D2050X_CMD5 [] ;
+extern enocean:: T_DATAFIELD D20500_CMD5 [] ;
 // Index of field
-#define D2050X_CMD5_VERT       0
-#define D2050X_CMD5_ROT        1
-#define D2050X_CMD5_AA         2
-#define D2050X_CMD5_CHN        3
-#define D2050X_CMD5_CMD        4
-#define D2050X_CMD5_NB_DATA    5
-#define D2050X_CMD5_DATA_SIZE  5
+#define D20500_CMD5_VERT       0
+#define D20500_CMD5_ROT        1
+#define D20500_CMD5_AA         2
+#define D20500_CMD5_CHN        3
+#define D20500_CMD5_CMD        4
+#define D20500_CMD5_NB_DATA    5
+#define D20500_CMD5_DATA_SIZE  5
 
-extern enocean:: T_EEP_CASE_* D2050X_CASES [] ;
+extern enocean:: T_EEP_CASE_* D20500_CASES [] ;
