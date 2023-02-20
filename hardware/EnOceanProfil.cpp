@@ -5,11 +5,30 @@
 #include "../tinyxpath/tinyxml.h"
 #include "../tinyxpath/xpath_static.h"
 #include "../main/Helper.h"
-
 #include "EnOceanProfil.h"
-
-//#include "eep.h"
-
+unsigned long StrToULong(std::string value)
+{
+	try
+	{
+		std::size_t p = value.find("x");
+		if (p!=std::string::npos)
+		{
+			value[p] = '0';
+			return std::stoul(value, 0, 16);
+		}
+		p = value.find("b");
+		if (p!=std::string::npos)
+		{
+			value[p] = '0';
+			return std::stoul(value, 0, 2);
+		}
+		return std::stoul(value, 0, 10);
+	}
+	catch(...)
+	{
+		return 0 ;
+	}
+}
 std::string  getText(TiXmlElement *l_item , const char * name , const char * defaultText = "" )
 {
   TiXmlElement *l_child = l_item->FirstChildElement(name )  ;
@@ -19,13 +38,10 @@ std::string  getText(TiXmlElement *l_item , const char * name , const char * def
       return text ;
     else
       return defaultText ;
-
   }
   else
     return defaultText ;
-
 }
-
 TiXmlElement*  xmlFindNode (TiXmlElement* l_item, const char * pXmlPath )
 {
 	std::vector<std::string> splitresults;
@@ -48,7 +64,6 @@ TiXmlElement*  xmlFindNode (TiXmlElement* l_item, const char * pXmlPath )
 	}
     return l_item;
 }
-
 std::string  xmlGetNodeText (TiXmlElement* l_item, const char * pXmlPath , const char * defaultText = "")
 {
     const char* text = "";
@@ -73,12 +88,15 @@ std::string  xmlGetNodeAttribute (TiXmlElement* l_item, const char * pXmlPath , 
     }
     return text;
 }
-
-
-
+void replaceChar (std::string & title , char car , char repCar )
+{
+    for (uint32_t i=0;i<title.size();i++ ){
+    if (title[i]==car) 
+      title[i]=repCar;
+    }
+}
 std::string  getEnum(TiXmlElement *l_p , int nbc, std::string & enumerates)
 {
-
   std::string enumerate ;
 char tab[256];
 memset(tab,' ',sizeof(tab));
@@ -86,13 +104,14 @@ if (nbc>=sizeof(tab) )
   nbc=sizeof(tab)-1;
 tab[nbc]=0;
 
-tab[0]=0;
+//tab[0]=0;
 enumerates = "";
+enumerate  = ",{";
 
 TiXmlElement *l_enum  = l_p->FirstChildElement( "enum" );
 if (l_enum==0) 
 {
-  return "\n" ;
+  return "" ;
 }
 
 TiXmlElement *l_item  = l_enum->FirstChildElement( "item" );
@@ -103,34 +122,28 @@ while(l_item)
 
   if (lv==0)
   {
-    enumerate+="\n";
+    enumerate+="}";
     return enumerate ;
   }
 
   if ( l_item->FirstChildElement( "description" ) )
   {
-      std::string value       = getText( l_item, "value" ) ;
+      std::string svalue       = getText( l_item, "value" ) ;
       std::string Description = getText( l_item, "description" ) ;
-      enumerates += value + ":" + Description + ";";
+      replaceChar(Description,'"',' ');
+      enumerates += svalue + ":" + Description + ";";
 
-    enumerate += std_format ( "%s//Value: %s = %s \n",tab, lv->GetText()    , l_item->FirstChildElement( "description" )->GetText()   );
+//    enumerate += std_format ( "%s//Value: %s = %s \n",tab, lv->GetText()    , l_item->FirstChildElement( "description" )->GetText()   );
+      unsigned long  value =  StrToULong( svalue);
+     enumerate += std_format ( "{ %lu , \"%s\" },",value    , Description.c_str()   );
   tab[0]=' ';
   }
   l_item =  l_item->NextSiblingElement("item");
 }
+    enumerate+="}";
 
 return enumerate ;
 }
-
-void replaceBlanc (std::string & title , char car , char repCar )
-{
-    for (uint32_t i=0;i<title.size();i++ ){
-    if (title[i]==car) 
-      title[i]=repCar;
-    }
-
-}
-
 std::string getTab(uint32_t tabLen ,  std::string & word)
 {
   std::string tab;
@@ -139,13 +152,6 @@ std::string getTab(uint32_t tabLen ,  std::string & word)
   return tab ;
 
 }
-
-
-
-
-#define First FirstChildElement
-#define Next  FirstChildElement
-
 
 class Element  
 {
@@ -157,7 +163,6 @@ class Element
   }
   void First()
   {
-    
   }
 
 };
@@ -188,30 +193,29 @@ int axtoi( const char * svalue  )
   return value;
 
 }
-
 int axtoi( std::string  & svalue  )
 {
   return axtoi(svalue.c_str());
-
 }
-
-
 std::string getDataFieldName (int Profil, int caseNb  )
 {
 //                    if ( ( Profil>>16 )!= 0xA5 )
                     return std_format("%06X_CMD%d",Profil,caseNb );
 //                  else
 //                    return std_format("%06X",Profil,caseNb );
-
 }
-void T_PROFIL_MAP::parseEEP_xml(const char * eepXmlFineName , const char * prorg, const char * pfctnum , FILE * out )
+std::string getCaseName (int Profil, int caseNb  )
 {
-
+//                    if ( ( Profil>>16 )!= 0xA5 )
+                    return std_format("%06X_CASE%d",Profil,caseNb );
+//                  else
+//                    return std_format("%06X",Profil,caseNb );
+}
+void T_PROFIL_MAP::parseEEP_xml(const char * eepXmlFineName , const char * prorg, const char * pfctnum , FILE * out , FILE * outext ,const char* spaceName )
+{
 int Rorg ;
 int FuncNumber ;
 int TypeNumber ;
-
-
 std::string rorg ;
 std::string funcNumber ;
 std::string typeNumber ;
@@ -223,8 +227,6 @@ if(!doc.LoadFile()){
       printf( "error #%d %s" , doc.ErrorId() , doc.ErrorDesc() ) ;
       return ;
     }
-
-
 std::vector<std::string> ProfilList  ;
 
 TiXmlElement *l_pRootElement = doc.RootElement();
@@ -233,57 +235,42 @@ if( NULL != l_pRootElement )
 {
     {
         TiXmlElement *l_pprofile = l_pRootElement->FirstChildElement( "profile" );
- 
         TiXmlElement *l_rorg = l_pprofile->FirstChildElement( "rorg" );
-
         while( l_rorg )
         {
           rorg = getText (l_rorg,"number") ;
-
           Rorg = axtoi(rorg);
-
           if (strstr(rorg.c_str(),prorg)!=0)
 //          if (strcmp(rorg,"0xD2")==0)
           {
-            
-
           TiXmlElement *l_pfunc = l_rorg->FirstChildElement( "func" );
           while( l_pfunc )
           {
-             
               funcNumber = getText (l_pfunc,"number") ;
               FuncNumber = axtoi(funcNumber);
-
               functtl = getText (l_pfunc,"title"); 
-
-              fprintf (out,"// function number :%s : %s \n",funcNumber.c_str(),functtl.c_str());
-
-              if (strstr(funcNumber.c_str(),pfctnum)==0)
+              if (    (strstr(pfctnum,funcNumber.c_str())==0)
+                   && (pfctnum != "" )
+                  )
               {
                 l_pfunc = l_pfunc->NextSiblingElement( "func" );
                 continue;
               }
-
+              fprintf (out,"// function number :%s : %s \n",funcNumber.c_str(),functtl.c_str());
+              if(out != outext)
+              fprintf (outext,"// function number :%s : %s \n",funcNumber.c_str(),functtl.c_str());
               TiXmlElement *l_ptype = l_pfunc->FirstChildElement( "type" );
               while( l_ptype )
               {
                 typeNumber    = getText (l_ptype,"number") ;
                 TypeNumber = axtoi(typeNumber);
-
                 typettl       = getText (l_ptype,"title"); 
-                
                 int Profil = Rorg *256 * 256  + FuncNumber * 256 + TypeNumber;
-
-                 AddProfil(Profil,functtl,typettl);
-
-
-                fprintf (out,"// function type :%s : %s \n",typeNumber.c_str(),typettl.c_str());
-
-//	{ 0xA5, 0x02, 0x01, "Temperature Sensor Range -40C to 0C",																	"Temperature.01" },
-
-                fprintf(out, "//{ %s, %s, %s, \"%-80s\" , \"%-80s\" },\n",rorg.c_str(),funcNumber.c_str(),typeNumber.c_str(),functtl.c_str(),typettl.c_str() );
-
-
+                AddProfil(Profil,functtl,typettl);
+              fprintf (out,"// function type :%s : %s \n",typeNumber.c_str(),typettl.c_str());
+              if(out != outext)
+                  fprintf (outext,"// function type :%s : %s \n",typeNumber.c_str(),typettl.c_str());
+              fprintf(out, "//{ %s, %s, %s, \"%-80s\" , \"%-80s\" },\n",rorg.c_str(),funcNumber.c_str(),typeNumber.c_str(),functtl.c_str(),typettl.c_str() );
                 //get ref :
 /*			<ref>
 				<rorg>D2</rorg>
@@ -300,28 +287,24 @@ if( NULL != l_pRootElement )
                   RefProfil = rorg *256 * 256  + func * 256 + type ;
                   getProfil(Profil)->cases = getProfil(RefProfil)->cases ;
                 }
-
-
-
                 TiXmlElement *l_pcase = l_ptype->FirstChildElement( "case" );
                 int caseNb=0;
-
                 while( l_pcase )
                 {
                   caseNb++;
                   TiXmlElement *l_pdatafield = l_pcase->FirstChildElement( "datafield" );
-
                   std::string TitleCase       = getText( l_pcase, "title" ) ;
                   std::string DescriptionCase = getText( l_pcase, "description" ) ;
-
+                  replaceChar(TitleCase,'"',' ');
+                  replaceChar(DescriptionCase,'"',' ');
                   std::string DataFieldName  = getDataFieldName ( Profil,  caseNb  ) ;
-
                   std::vector<std::string> OffsetId ;
-
                   fprintf (out,"\n// TITLE:%s\n",TitleCase.c_str() );
+                  if(out != outext)
+                  fprintf (outext,"\n// TITLE:%s\n",TitleCase.c_str() );
                   fprintf (out,  "// DESC :%s\n",DescriptionCase.c_str() );
-                  fprintf (out,"T_DATAFIELD %s [] = {\n",DataFieldName.c_str() );
-
+                  fprintf (outext,"extern %s T_DATAFIELD %s [] ;\n",spaceName,DataFieldName.c_str() );
+                  fprintf (out,"%s T_DATAFIELD %s [] = {\n",spaceName,DataFieldName.c_str() );
                   int bitoffs=0;
                   int bitsize=0;
                   while( l_pdatafield )
@@ -333,7 +316,7 @@ if( NULL != l_pRootElement )
                     if (!datas.empty()  )
                     {
 
-                      replaceBlanc(datas,'"',' ');
+                      replaceChar(datas,'"',' ');
 
                       std::string Bitoffs="0" ;
                       std::string Bitsize="0" ;
@@ -347,7 +330,7 @@ if( NULL != l_pRootElement )
                       if (shortcut.empty() ){
                         shortcut=datas;
                       }
-                      replaceBlanc(shortcut,'.','_');replaceBlanc(shortcut,' ','_');replaceBlanc(shortcut,'-','_');replaceBlanc(shortcut,'(','_');replaceBlanc(shortcut,')','_');replaceBlanc(shortcut,'/','_');
+                      replaceChar(shortcut,'.','_');replaceChar(shortcut,' ','_');replaceChar(shortcut,'-','_');replaceChar(shortcut,'(','_');replaceChar(shortcut,')','_');replaceChar(shortcut,'/','_');
 
                       //test range
                       std::string RangeMin ="0";
@@ -394,11 +377,13 @@ if( NULL != l_pRootElement )
 
                       char*nptr;
 //                      int tabn = fprintf(out, "{ %2s ,%2s , \"%s\"%s , %3s , %3s , %3s , %3s , \"%s\"}," ,Bitoffs.c_str() , Bitsize.c_str(),shortcut.c_str(),getTab(8,shortcut).c_str(), RangeMin.c_str() ,RangeMax.c_str(),ScaleMin.c_str(),ScaleMax.c_str() , datas.c_str() );
-                      int tabn = fprintf(out, "{ %2s ,%2s , %5.0f , %5.0f , %5.0f , %5.0f , \"%s\"%s , \"%s\"}," ,Bitoffs.c_str() , Bitsize.c_str(), strtod (RangeMin.c_str(), &nptr) ,strtod (RangeMax.c_str(), &nptr),strtod (ScaleMin.c_str(), &nptr),strtod (ScaleMax.c_str(), &nptr) ,shortcut.c_str(),getTab(8,shortcut).c_str(), datas.c_str() );
+                      int tabn = fprintf(out, "{ %2s ,%2s , %5.0f , %5.0f , %5.0f , %5.0f , \"%s\"%s , \"%s\"" ,Bitoffs.c_str() , Bitsize.c_str(), strtod (RangeMin.c_str(), &nptr) ,strtod (RangeMax.c_str(), &nptr),strtod (ScaleMin.c_str(), &nptr),strtod (ScaleMax.c_str(), &nptr) ,shortcut.c_str(),getTab(8,shortcut).c_str(), datas.c_str() );
                       std::string enumerateList="";
                       std::string  enumerate =  getEnum(l_pdatafield,tabn , enumerateList) ;
                       fprintf(out, "%s" , enumerate.c_str());
-//                      fprintf(out, "//enum=%s\n", enumerateList.c_str());
+
+                      fprintf(out, "},\n" );                      
+                      //                      fprintf(out, "//enum=%s\n", enumerateList.c_str());
                       dataf.enumerate = enumerateList;
                       AddDataField (Profil, caseNb-1 ,  dataf );
                       getCase(Profil, caseNb - 1)->setName(TitleCase);
@@ -409,74 +394,52 @@ if( NULL != l_pRootElement )
                     l_pdatafield = l_pdatafield->NextSiblingElement( "datafield" );
                   }
                   fprintf(out,"{  0 , 0 , 0          , 0           }\n" );
-
                   fprintf(out,"};\n\n");
-
-                  fprintf(out,"// Index of field\n");
+                  //end of datafields
+                  fprintf(out,"%sT_EEP_CASE_ %s ={ %s , \"%s\" , \"%s\" } ;\n"  ,spaceName, getCaseName(Profil,caseNb).c_str() ,getDataFieldName(Profil,caseNb).c_str()  ,TitleCase.c_str() ,DescriptionCase.c_str() );
+                  fprintf(outext,"// Index of field\n");
                   for (uint32_t i=0;i<OffsetId.size();i++)
-                    fprintf(out,"#define %s_%-10s %d\n",DataFieldName.c_str(),OffsetId[i].c_str(),i );
-                  fprintf  (out,"#define %s_%-10s %d\n",DataFieldName.c_str(),"NB_DATA",OffsetId.size() );
+                    fprintf(outext,"#define %s_%-10s %d\n",DataFieldName.c_str(),OffsetId[i].c_str(),i );
+                  fprintf  (outext,"#define %s_%-10s %d\n",DataFieldName.c_str(),"NB_DATA",OffsetId.size() );
 
                   bitoffs += bitsize;
                   bitoffs = (bitoffs+7)/8 ;
-                  fprintf(out,"#define %s_%-10s %d\n",DataFieldName.c_str(),"DATA_SIZE",bitoffs );
-
+                  fprintf(outext,"#define %s_%-10s %d\n",DataFieldName.c_str(),"DATA_SIZE",bitoffs );
                   //    Profils.getProfil(Profil)->printCases();
-
                   l_pcase = l_pcase->NextSiblingElement( "case" );
                 }
-
-
-
                 //fin du profile : list des case du profil courant
-                fprintf (out,"\nT_DATAFIELD* %06X_CASES [] = {\n",Profil );
+                fprintf (outext,"\nextern %s T_EEP_CASE_* %06X_CASES [] ;\n",spaceName,Profil );
+                fprintf (out,"\n%s T_EEP_CASE_* %06X_CASES [] = {\n",spaceName,Profil );
                 for (int i=0;i<caseNb;i++)
-                   fprintf(out,"%s ,\n",getDataFieldName(Profil,i+1).c_str() );
-
+                   fprintf(out,"&%s ,\n",getCaseName(Profil,i+1).c_str() );
                 if ( (caseNb==0) && (RefProfil!=0))
                 {
-
                   T_PROFIL_EEP * profil = getProfil (RefProfil);
+                  caseNb = profil->cases.size();
                   for (uint32_t i=0;i<profil->cases.size() ;i++)
-                     fprintf(out,"%s ,\n",getDataFieldName(RefProfil,i+1).c_str() );
+                     fprintf(out,"&%s ,\n",getCaseName(RefProfil,i+1).c_str() );
                 }
-                
                 fprintf (out,"{0 }\n" );
-
                 fprintf(out,"};\n\n");
-                
-                ProfilList.push_back(  std_format ( "{ 0x%06X, %s , %s, %s, %06X_CASES , \"%-80s\" , \"%-80s\" },\n",Profil, rorg.c_str(),funcNumber.c_str(),typeNumber.c_str(), Profil,   functtl.c_str(),typettl.c_str() )   );
-                
+                ProfilList.push_back(  std_format ( "{ 0x%06X, %s , %s, %s, %06X_CASES ,%d, \"%-80s\" , \"%-80s\" },\n",Profil, rorg.c_str(),funcNumber.c_str(),typeNumber.c_str(), Profil, caseNb,  functtl.c_str(),typettl.c_str() )   );
                 l_ptype = l_ptype->NextSiblingElement( "type" );
               }
-
-      
-
               l_pfunc = l_pfunc->NextSiblingElement( "func" );
           }
           }
           l_rorg = l_rorg->NextSiblingElement( "rorg" );
         }
-
-
         fprintf (out,"\n// Profils list \n");
         fprintf (out,"T_PROFIL_LIST Profillist [] = {\n" );
-
         for (uint32_t i=0;i<ProfilList.size();i++)
           fprintf(out, ProfilList[i].c_str() );
-
-        fprintf (out,"{0,0,0,0,0,\"\",\"\" }\n" );
-
+        fprintf (out,"{0,0,0,0,0,0,\"\",\"\" }\n" );
         fprintf (out,"};\n\n" );
-
     }
 }
 }
-
-
-    T_PROFIL_MAP Profils;
-
-
+T_PROFIL_MAP Profils;
 // TITLE:
 T_DATAFIELD A50201 [] = {
 { 28 , 1 ,    0 ,   0 ,   0 ,   0 ,"LRNB"     ,  "LRN Bit"},//Value: 0 = Teach-in telegram 
@@ -499,20 +462,21 @@ void testProfils()
   T_EEP_CASE * Case = Profils.getCase(0xd20101,0) ;
   Case->print();
 }
-
 void testProfils2()
 {
     T_PROFIL_MAP Profils;
-    FILE*  stdnull = fopen("eep.txt", "w");
+    FILE*  stdnull = fopen("EnOceanEepProfil.cpp", "w");
+    FILE*  stdext = fopen("EnOceanEepProfil.h", "w");
 //    FILE*  stdnull = fopen("nul.txt", "w");
 //    stdnull = stdout;
-    Profils.parseEEP_xml( "eep.xml", "0x","0x", stdnull);
+    Profils.parseEEP_xml( "eep.xml", "0xD2","0x01 0x05 ", stdnull,stdext);
 //    parseEEP_xml("0xD2","0x", stdnull);
   T_EEP_CASE * Case = Profils.getCase(0xd20100,0) ;
   Case->print();
    Case = Profils.getCase(0xd20101,0) ;
   Case->print();
   fclose(stdnull);
+  fclose(stdext);
 }
 void testXml()
 {
@@ -522,9 +486,7 @@ if(!doc.LoadFile()){
       printf( "error #%d %s" , doc.ErrorId() , doc.ErrorDesc() ) ;
       return ;
     }
-
 TiXmlElement *l_pRootElement = doc.RootElement();
-
 const char* 
 pXmlPath = "/eep/profile/rorg/number/";
 std::string 

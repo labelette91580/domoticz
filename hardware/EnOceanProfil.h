@@ -208,7 +208,7 @@ public:
      return &lProfils[profil] ;
    }
 
-   void parseEEP_xml(const char* eepXmlFineName, const char* prorg, const char* pfctnum, FILE* out);
+   void parseEEP_xml(const char* eepXmlFineName, const char* prorg, const char* pfctnum, FILE* out, FILE * outext ,const char* spaceName = "enocean::");
 
    void LoadXml()
    {
@@ -216,7 +216,7 @@ public:
     FILE*  stdnull = fopen("nul.txt", "w");
 //    stdnull = stdout;
     if(lProfils.size() == 0 ) 
-        parseEEP_xml( "eep.xml", "0x","0x", stdnull);
+        parseEEP_xml( "eep.xml", "0x","0x", stdnull,stdnull);
    }
 };
 
