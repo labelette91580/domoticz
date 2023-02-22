@@ -2,6 +2,8 @@
 
 #include <stdarg.h>
 
+typedef std::map<unsigned int, std::string > T_DATAFIELD_ENUMERATE_MAP;
+
 namespace enocean
 {
 	// Profile descriptor from eep.xml
@@ -17,7 +19,35 @@ namespace enocean
 
 		std::string ShortCut;
 		std::string description;
-		std::string enumerate;
+		T_DATAFIELD_ENUMERATE_MAP mapEnumerate;
+		std::string               enumerate;
+	std::string toString()
+	{
+		char buf[1024];
+		snprintf(buf, sizeof(buf), "%2d;%2d;%5.2f;%5.2f;%5.2f;%5.2f;%-10s;%s",
+			Offset,
+			Size,
+			RangeMin,
+			RangeMax,
+			ScaleMin,
+			ScaleMax,
+//			ShortCut ,
+//			description );
+			ShortCut.c_str(),
+			description.c_str());
+			return buf;
+
+	}
+		std::string getEnumerate(int value)
+		{
+			auto strEnum = mapEnumerate.find(value);
+
+			if (strEnum == mapEnumerate.end())
+				return "" ;
+			else
+				return (strEnum->second);
+		}
+
 	};
 
 	// Profile descriptor from eep.xml
@@ -40,6 +70,20 @@ namespace enocean
 		int nbCases;
 		std::string FuncTitle;
 		std::string TypeTitle;
+
+  std::string toString() 
+  {
+    char buf[1024] ;
+    snprintf ( buf,sizeof(buf),"%06x;%2x;%2x;%2x;%-10s;%s", 
+   Profil , 
+   Rorg,
+   Func,
+   type,
+	 FuncTitle.c_str(),
+	 TypeTitle.c_str() );
+   return buf;
+
+  }
 	};
 
 	// descriptor for a eep case

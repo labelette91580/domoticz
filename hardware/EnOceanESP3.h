@@ -7,32 +7,17 @@
 #include "DomoticzHardware.h"
 
 #include "EnOceanRawValue.h"
+#include "EnOceanSensors.h"
+#include "EnOceanRMCC.h"
+
 
 // 550 bytes buffer is enough for one ESP3 packet, EnOceanLink 1.8.1.0, eoPacket.h
 #define ESP3_PACKET_BUFFER_SIZE 550
 
-class CEnOceanESP3 : public enocean::CEnOceanEEP, public AsyncSerial, public CDomoticzHardwareBase
+//class CEnOceanESP3 : public enocean::CEnOceanEEP, public AsyncSerial, public CDomoticzHardwareBase 
+class CEnOceanESP3: public  enocean::CEnOceanRMCC 
 {
 public:
-	enum TeachinMode : uint8_t
-	{
-		GENERIC_NODE = 0, // WARNING : Do not change this value !!
-		TEACHEDIN_NODE = 1,
-		VIRTUAL_NODE = 2
-	};
-
-	struct NodeInfo
-	{
-		uint32_t idx;
-		uint32_t nodeID;
-		std::string name;
-		uint16_t manufacturerID;
-		uint8_t RORG;
-		uint8_t func;
-		uint8_t type;
-		std::string description;
-		TeachinMode teachin_mode;
-	};
 
 	CEnOceanESP3(int ID, const std::string &devname, int type);
 	~CEnOceanESP3() override = default;
@@ -48,13 +33,13 @@ public:
 	bool IsLearnModeEnabled();
 	int IsNodeTeachedInJSON(Json::Value &root);
 
-	NodeInfo *GetNodeInfo(const uint32_t nodeID);
+	enocean::NodeInfo *GetNodeInfo(const uint32_t nodeID);
 
 	void TeachInNode(const uint32_t nodeID, const uint16_t manID,
 					 const uint8_t RORG, const uint8_t func, const uint8_t type,
 					 const TeachinMode teachin_mode);
 	void TeachInVirtualNode(const uint32_t nodeID, const uint8_t RORG, const uint8_t func, const uint8_t type);
-	void CheckAndUpdateNodeRORG(NodeInfo *pNode, const uint8_t RORG);
+	void CheckAndUpdateNodeRORG(enocean::NodeInfo *pNode, const uint8_t RORG);
 	void UpdateNode(const uint32_t nodeID, const std::string &name, const uint16_t manID, const uint8_t RORG, const uint8_t func, const uint8_t type, const std::string &description);
 	void DeleteNode(const uint32_t nodeID);
 	std::string GetNodeState(const uint32_t nodeID);
@@ -73,12 +58,14 @@ private:
 	std::string DumpESP3Packet(uint8_t packettype, uint8_t *data, uint16_t datalen, uint8_t *optdata, uint8_t optdatalen);
 	std::string DumpESP3Packet(std::string esp3packet);
 
-	std::string FormatESP3Packet(uint8_t packettype, uint8_t *data, uint16_t datalen, uint8_t *optdata, uint8_t optdatalen);
 	void SendESP3Packet(uint8_t packettype, uint8_t *data, uint16_t datalen, uint8_t *optdata, uint8_t optdatalen);
 	void SendESP3PacketQueued(uint8_t packettype, uint8_t *data, uint16_t datalen, uint8_t *optdata, uint8_t optdatalen);
 
 	void ReadCallback(const char *data, size_t len);
+public:
 	void ParseESP3Packet(uint8_t packettype, uint8_t *data, uint16_t datalen, uint8_t *optdata, uint8_t optdatalen);
+	static std::string FormatESP3Packet(uint8_t packettype, uint8_t *data, uint16_t datalen, uint8_t *optdata, uint8_t optdatalen);
+private:
 	void ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *optdata, uint8_t optdatalen);
 
 	const char *GetPacketTypeLabel(const uint8_t PT);
@@ -105,7 +92,7 @@ private:
 	uint32_t m_retrycntr;
 	std::shared_ptr<std::thread> m_thread;
 
-	std::map<uint32_t, NodeInfo> m_nodes;
+//	enocean::T_NODES m_nodes;
 
 	uint8_t m_buffer[ESP3_PACKET_BUFFER_SIZE];
 	uint32_t m_bufferpos;
@@ -150,4 +137,7 @@ private:
 	void sendVld(unsigned int sID, unsigned int destID, int channel, int value);
 	void sendVld(unsigned int sID, unsigned int destID, unsigned char *data, int DataLen);
 	uint32_t sendVld(unsigned int unitBaseAddr, unsigned int destID, enocean::T_DATAFIELD *OffsetDes, ...);
+
+	#include "EnOceanESP3New.h"
+
 };

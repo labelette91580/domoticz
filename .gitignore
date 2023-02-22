@@ -54,3 +54,8 @@ sqlite3_config.h
 /domoticz.iml
 __pycache__
 /.vs/
+log
+domoticzdoc
+/settempvalue.bat
+/sqlite3.exe
+/settemp.bat

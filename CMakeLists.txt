@@ -216,9 +216,13 @@ hardware/eHouse/EhouseEvents.cpp
 hardware/eHouse/EhouseTcpClient.cpp
 hardware/eHouse/EhouseUdpListener.cpp
 hardware/EnOceanEEP.cpp
+hardware/EnOceanEepProfil.cpp
 hardware/EnOceanESP2.cpp
 hardware/EnOceanESP3.cpp
+hardware/EnOceanESP3New.cpp
 hardware/EnOceanRawValue.cpp
+hardware/EnOceanRMCC.cpp
+hardware/EnOceanSensors.cpp
 hardware/EnphaseAPI.cpp
 hardware/Ec3kMeterTCP.cpp
 hardware/eVehicles/TeslaApi.cpp

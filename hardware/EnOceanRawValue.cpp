@@ -207,7 +207,7 @@ namespace enocean
 		while (OffsetDes->Size != 0)
 		{
 			uint32_t value = GetRawValue(data, OffsetDes);
-			snprintf(line, sizeof(line) - 1, "offset:%2d = %5d (%04X) : %s : %s \n", OffsetDes->Offset, value, value, OffsetDes->ShortCut.c_str(), OffsetDes->description.c_str());
+			snprintf(line, sizeof(line) - 1, "offset:%2d = %5d (%04X)=%-20s : %s : %s \n", OffsetDes->Offset, value, value, OffsetDes->getEnumerate(value).c_str(), OffsetDes->ShortCut.c_str(), OffsetDes->description.c_str());
 			message += line;
 			OffsetDes++;
 		}
