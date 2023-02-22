@@ -341,7 +341,9 @@ private:
 	void RType_CustomLightIcons(WebEmSession & session, const request& req, Json::Value &root);
 	void RType_Plans(WebEmSession & session, const request& req, Json::Value &root);
 	void RType_FloorPlans(WebEmSession & session, const request& req, Json::Value &root);
+public:
 	void RType_Scenes(WebEmSession & session, const request& req, Json::Value &root);
+protected:
 	void RType_CreateEvohomeSensor(WebEmSession & session, const request& req, Json::Value &root);
 	void RType_BindEvohome(WebEmSession & session, const request& req, Json::Value &root);
 	void RType_CreateRFLinkDevice(WebEmSession & session, const request& req, Json::Value &root);
@@ -413,6 +415,7 @@ private:
 	void RType_EnOceanESP3GetNodes(WebEmSession & session, const request& req, Json::Value &root);
 
     void Cmd_TellstickApplySettings(WebEmSession &session, const request &req, Json::Value &root);
+		void ImperihomeServices(WebEmSession & session, const request& req, reply & rep);
 	std::shared_ptr<std::thread> m_thread;
 
 	std::map < std::string, webserver_response_function > m_webcommands;

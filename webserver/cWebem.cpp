@@ -542,6 +542,17 @@ namespace http {
 			return pfunW != myPages_w.end();
 		}
 
+std::string getRootDir(std::string &request_path)
+{
+	std::string rootDir = "";
+	std::vector<std::string> results;
+	StringSplit(request_path.substr(1), "/", results);
+	if (results.size() !=0 )
+	{
+		rootDir = "/" + results[0];
+	}
+	return rootDir;
+}
 		bool cWebem::CheckForPageOverride(WebEmSession & session, request& req, reply& rep)
 		{
 			std::string request_path;
@@ -737,6 +748,11 @@ namespace http {
 			std::string strMimeType = mime_types::extension_to_type(extension);
 
 			auto pfun = myPages.find(request_path);
+
+	//if not found,search roodir
+	if (pfun == myPages.end())
+		pfun = myPages.find(getRootDir(request_path));
+
 			if (pfun != myPages.end())
 			{
 				rep.status = reply::ok;
