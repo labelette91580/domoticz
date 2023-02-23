@@ -462,7 +462,7 @@ void testProfils()
   Profils.AddDataField (0xd20101, 0 , A50201 [2] );
   Profils.print();
   T_EEP_CASE * Case = Profils.getCase(0xd20101,0) ;
-  Case->print();
+  printf("%s\n",Case->toString().c_str() );
 }
 void testProfils2()
 {
@@ -474,9 +474,9 @@ void testProfils2()
     Profils.parseEEP_xml( "eep.xml", "0xD2","0x01 0x05 ", stdnull,stdext);
 //    parseEEP_xml("0xD2","0x", stdnull);
   T_EEP_CASE * Case = Profils.getCase(0xd20100,0) ;
-  Case->print();
+  printf("%s\n",Case->toString().c_str() );
    Case = Profils.getCase(0xd20101,0) ;
-  Case->print();
+  printf("%s\n",Case->toString().c_str() );
   fclose(stdnull);
   fclose(stdext);
 }

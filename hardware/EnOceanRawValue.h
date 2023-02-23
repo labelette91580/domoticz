@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdarg.h>
+#include "Helper.h"
 
 typedef std::map<unsigned int, std::string > T_DATAFIELD_ENUMERATE_MAP;
 
@@ -23,8 +24,8 @@ namespace enocean
 		std::string               enumerate;
 	std::string toString()
 	{
-		char buf[1024];
-		snprintf(buf, sizeof(buf), "%2d;%2d;%5.2f;%5.2f;%5.2f;%5.2f;%-10s;%s",
+		std::string buf ;
+		buf = std_format( "%2d;%2d;%5.2f;%5.2f;%5.2f;%5.2f;%-10s;%s;%s",
 			Offset,
 			Size,
 			RangeMin,
@@ -34,7 +35,9 @@ namespace enocean
 //			ShortCut ,
 //			description );
 			ShortCut.c_str(),
-			description.c_str());
+			description.c_str(),
+			enumerate.c_str()
+			);
 			return buf;
 
 	}
@@ -73,8 +76,8 @@ namespace enocean
 
   std::string toString() 
   {
-    char buf[1024] ;
-    snprintf ( buf,sizeof(buf),"%06x;%2x;%2x;%2x;%-10s;%s", 
+		std::string buf ;
+		buf = std_format( "%06x;%2x;%2x;%2x;%-10s;%s", 
    Profil , 
    Rorg,
    Func,

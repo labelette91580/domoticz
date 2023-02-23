@@ -86,11 +86,13 @@ public:
 	std::string Desc ;
     unsigned int size() { return dataFileds.size(); }
 
-  void print() 
+  std::string toString() 
   {
-     printf ("Case :  %s \n", getName());
+    std::string mes ;
+    mes = std_format ("Case :  %s \n", getName());
     for (unsigned int i=0;i<dataFileds.size();i++)
-      printf("%s\n",this->dataFileds.at(i).toString().c_str() );
+      mes += std_format("%s\n",this->dataFileds.at(i).toString().c_str() );
+    return mes;
   }
   T_DATAFIELD * FindShortCut(const char * shorcut )
   {

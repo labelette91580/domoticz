@@ -586,9 +586,15 @@ static void sendvld(WEB_CMD_ARG)
 		//					unsigned int DeviceId = DeviceIdStringToUInt(sdevicebaseAddr);
 		//                    int siz = Case->dataFileds.size();
 		T_DATAFIELD* dataf = Case->dataFileds.data();
+		pEnocean->Debug(DEBUG_NORM,Case->toString().c_str() );
 		pEnocean->sendDataVld(pEnocean->m_id_chip, DeviceId, dataf, values, NbValues);
 		//					pEnocean->senDatadVld(pEnocean->m_id_chip, DeviceId , Case->Dataf, values,  NbValues);
 		root["status"] = "OK";
+	}
+	else {
+		std::string mes = std_format("case %d for profil %s not found",sprofil.c_str(),scaseNb.c_str());
+		root["message"] = mes ;
+		pEnocean->Log(LOG_ERROR,mes.c_str() );
 	}
 #endif
 }
