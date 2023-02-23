@@ -186,7 +186,7 @@ enocean:: T_EEP_CASE_* D20100_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x01 : Type 0x01 (description: see table) 
@@ -206,7 +206,7 @@ enocean:: T_EEP_CASE_* D20101_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x02 : Type 0x02 (description: see table) 
@@ -226,7 +226,7 @@ enocean:: T_EEP_CASE_* D20102_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x03 : Type 0x03 (description: see table) 
@@ -246,7 +246,7 @@ enocean:: T_EEP_CASE_* D20103_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x04 : Type 0x04 (description: see table) 
@@ -266,7 +266,7 @@ enocean:: T_EEP_CASE_* D20104_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x05 : Type 0x05 (description: see table) 
@@ -286,7 +286,7 @@ enocean:: T_EEP_CASE_* D20105_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x06 : Type 0x06 (description: see table) 
@@ -306,7 +306,7 @@ enocean:: T_EEP_CASE_* D20106_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x07 : Type 0x07 (description: see table) 
@@ -326,7 +326,7 @@ enocean:: T_EEP_CASE_* D20107_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x08 : Type 0x08 (description: see table) 
@@ -346,7 +346,7 @@ enocean:: T_EEP_CASE_* D20108_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x09 : Type 0x09 (description: see table) 
@@ -366,7 +366,7 @@ enocean:: T_EEP_CASE_* D20109_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x0A : Type 0x0A (description: see table) 
@@ -386,7 +386,7 @@ enocean:: T_EEP_CASE_* D2010A_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x0B : Type 0x0B (description: see table) 
@@ -406,7 +406,7 @@ enocean:: T_EEP_CASE_* D2010B_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x0C : Type 0x0C 
@@ -426,7 +426,7 @@ enocean:: T_EEP_CASE_* D2010C_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x0D : Type 0x0D 
@@ -446,7 +446,7 @@ enocean:: T_EEP_CASE_* D2010D_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x0E : Type 0x0E 
@@ -466,7 +466,7 @@ enocean:: T_EEP_CASE_* D2010E_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x0F : Type 0x0F 
@@ -486,7 +486,7 @@ enocean:: T_EEP_CASE_* D2010F_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x10 : Type 0x10 (description: see table) 
@@ -506,7 +506,7 @@ enocean:: T_EEP_CASE_* D20110_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x11 : Type 0x11 (description: see table) 
@@ -526,7 +526,7 @@ enocean:: T_EEP_CASE_* D20111_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function type :0x12 : Type 0x12 
@@ -546,7 +546,7 @@ enocean:: T_EEP_CASE_* D20112_CASES [] = {
 &D20100_CASE11 ,
 &D20100_CASE12 ,
 &D20100_CASE13 ,
-{0 }
+0
 };
 
 // function number :0x05 : Blinds Control for Position and Angle 
@@ -619,7 +619,7 @@ enocean:: T_EEP_CASE_* D2050X_CASES [] = {
 &D2050X_CASE3 ,
 &D2050X_CASE4 ,
 &D2050X_CASE5 ,
-{0 }
+0
 };
 
 

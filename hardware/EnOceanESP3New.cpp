@@ -492,16 +492,22 @@ static void getCases(WEB_CMD_ARG)
 	//return the list of eep cases for the profil 
 	std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())return;
 #ifdef USE_PROFIL
-	Profils.LoadXml();
-	T_PROFIL_EEP* prof = Profils.getProfil(DeviceIdStringToUInt(sprofil));
-	for (unsigned int caseNb = 0; caseNb < prof->cases.size(); caseNb++)
+	if ( Profils.LoadXml() ){
+		pEnocean->Log(LOG_ERROR,"LOG_ERROR","error loading eep xml file");
+		root["status"] = "ERROR";
+	}
+	else 
 	{
-		root["result"][caseNb]["Num"] = caseNb + 1;
-		root["result"][caseNb]["Title"] = prof->cases[caseNb].Title;
-		root["result"][caseNb]["Description"] = prof->cases[caseNb].Desc;
+		T_PROFIL_EEP* prof = Profils.getProfil(DeviceIdStringToUInt(sprofil));
+		for (unsigned int caseNb = 0; caseNb < prof->cases.size(); caseNb++)
+		{
+			root["result"][caseNb]["Num"] = caseNb + 1;
+			root["result"][caseNb]["Title"] = prof->cases[caseNb].Title;
+			root["result"][caseNb]["Description"] = prof->cases[caseNb].Desc;
+		}
+		root["status"] = "OK";
 	}
 #endif				
-	root["status"] = "OK";
 }
 static void getCases2(WEB_CMD_ARG)
 {
@@ -523,16 +529,22 @@ static void getCaseShortCut(WEB_CMD_ARG)
 	std::string sprofil = http::server::request::findValue(&req, "profil"); if (sprofil.empty())	return;
 	std::string scaseNb = http::server::request::findValue(&req, "casenb"); if (scaseNb.empty())	return;
 #ifdef USE_PROFIL
-	Profils.LoadXml();
-	T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
-	for (unsigned int i = 0; i < Case->size(); i++)
+	if ( Profils.LoadXml() ){
+		pEnocean->Log(LOG_ERROR,"LOG_ERROR","error loading eep xml file");
+		root["status"] = "ERROR";
+	}
+	else 
 	{
-		root["result"][i]["Short"] = Case->at(i)->ShortCut;
-		root["result"][i]["Desc"] = Case->at(i)->description;
-		root["result"][i]["Enum"] = Case->at(i)->enumerate;
+		T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
+		for (unsigned int i = 0; i < Case->size(); i++)
+		{
+			root["result"][i]["Short"] = Case->at(i)->ShortCut;
+			root["result"][i]["Desc"] = Case->at(i)->description;
+			root["result"][i]["Enum"] = Case->at(i)->enumerate;
+		}
+		root["status"] = "OK";
 	}
 #endif			
-	root["status"] = "OK";
 }
 static void getCaseShortCut2(WEB_CMD_ARG)
 {

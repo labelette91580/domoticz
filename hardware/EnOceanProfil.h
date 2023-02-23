@@ -208,15 +208,16 @@ public:
      return &lProfils[profil] ;
    }
 
-   void parseEEP_xml(const char* eepXmlFineName, const char* prorg, const char* pfctnum, FILE* out, FILE * outext ,const char* spaceName = "enocean::");
+   bool parseEEP_xml(const char* eepXmlFineName, const char* prorg, const char* pfctnum, FILE* out, FILE * outext ,const char* spaceName = "enocean::");
 
-   void LoadXml()
+   bool LoadXml()
    {
 //    FILE*  stdnull = fopen("eep.txt", "w");
     FILE*  stdnull = fopen("nul.txt", "w");
 //    stdnull = stdout;
     if(lProfils.size() == 0 ) 
-        parseEEP_xml( "eep.xml", "0x","", stdnull,stdnull);
+        return parseEEP_xml( "eep.xml", "0x","", stdnull,stdnull);
+    return false;
    }
 };
 

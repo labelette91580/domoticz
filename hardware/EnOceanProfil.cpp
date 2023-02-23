@@ -211,7 +211,8 @@ std::string getCaseName (int Profil, int caseNb  )
 //                  else
 //                    return std_format("%06X",Profil,caseNb );
 }
-void T_PROFIL_MAP::parseEEP_xml(const char * eepXmlFineName , const char * prorg, const char * pfctnum , FILE * out , FILE * outext ,const char* spaceName )
+//return true if error;
+bool T_PROFIL_MAP::parseEEP_xml(const char * eepXmlFineName , const char * prorg, const char * pfctnum , FILE * out , FILE * outext ,const char* spaceName )
 {
 int Rorg ;
 int FuncNumber ;
@@ -225,7 +226,7 @@ TiXmlDocument doc(eepXmlFineName );
 if(!doc.LoadFile()){
       printf( "erreur lors du chargement");
       printf( "error #%d %s" , doc.ErrorId() , doc.ErrorDesc() ) ;
-      return ;
+      return true;
     }
 std::vector<std::string> ProfilList  ;
 
@@ -420,7 +421,7 @@ if( NULL != l_pRootElement )
                   for (uint32_t i=0;i<profil->cases.size() ;i++)
                      fprintf(out,"&%s ,\n",getCaseName(RefProfil,i+1).c_str() );
                 }
-                fprintf (out,"{0 }\n" );
+                fprintf (out,"0\n" );
                 fprintf(out,"};\n\n");
                 ProfilList.push_back(  std_format ( "{ 0x%06X, %s , %s, %s, %06X_CASES ,%d, \"%-80s\" , \"%-80s\" },\n",Profil, rorg.c_str(),funcNumber.c_str(),typeNumber.c_str(), Profil, caseNb,  functtl.c_str(),typettl.c_str() )   );
                 l_ptype = l_ptype->NextSiblingElement( "type" );
@@ -438,6 +439,7 @@ if( NULL != l_pRootElement )
         fprintf (out,"};\n\n" );
     }
 }
+return false ;
 }
 T_PROFIL_MAP Profils;
 // TITLE:
