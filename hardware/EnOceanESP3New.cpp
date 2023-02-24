@@ -6,8 +6,9 @@
 #include <cmath>
 #include <ctime>
 #include <stdarg.h>
+#include <stdlib.h>
 
-#include <boost/exception/diagnostic_information.hpp>
+//#include <boost/exception/diagnostic_information.hpp>
 
 #include "../main/Logger.h"
 #include "../main/Helper.h"
@@ -585,10 +586,13 @@ static void sendvld(WEB_CMD_ARG)
 		unsigned int DeviceId = DeviceIdStringToUInt(sdevidx);
 		//					unsigned int DeviceId = DeviceIdStringToUInt(sdevicebaseAddr);
 		//                    int siz = Case->dataFileds.size();
-		T_DATAFIELD* dataf = Case->dataFileds.data();
+		T_DATAFIELD* dataf = (T_DATAFIELD* )calloc(sizeof(T_DATAFIELD),Case->dataFileds.size()+1 );
+		memcpy(dataf,Case->dataFileds.data(), sizeof(T_DATAFIELD)*Case->dataFileds.size() );
+
 		pEnocean->Debug(DEBUG_NORM,Case->toString().c_str() );
 		pEnocean->sendDataVld(pEnocean->m_id_chip, DeviceId, dataf, values, NbValues);
 		//					pEnocean->senDatadVld(pEnocean->m_id_chip, DeviceId , Case->Dataf, values,  NbValues);
+		free(dataf);
 		root["status"] = "OK";
 	}
 	else {

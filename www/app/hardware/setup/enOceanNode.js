@@ -282,7 +282,7 @@ EnOceanDeviceSendCreateDialog = function (profil, deviceId) {
 		<tr >
 			<td align="right" style="width:120px"><label ><span data-i18n="Case">Case</span>: </label></td>
 			<td>
-				<select id="CaseCombo" style="width:150px" class ="combobox ui-corner-all">
+				<select id="CaseCombo" style="width:400px" class ="combobox ui-corner-all">
 					<option value="one">one</option>
 				</select>
 			</td>
