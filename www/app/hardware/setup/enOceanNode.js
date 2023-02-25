@@ -218,7 +218,7 @@ EnOceanButtonActionOk = function (profil, deviceId)
 	var bValid = true;
 	if (bValid) {
 
-	    $("#dialog-enoceansend").dialog("close");
+//	    $("#dialog-enoceansend").dialog("close");
 
 	    var payload = {};
 	    var i;
@@ -244,7 +244,7 @@ EnOceanButtonActionOk = function (profil, deviceId)
 EnOceanDeviceSendCreateDialog = function (profil, deviceId) {
     var dialog_buttons = {};
 
-    dialog_buttons[$.t("Ok")] = function () {
+    dialog_buttons[$.t("Send")] = function () {
         EnOceanButtonActionOk(profil, deviceId);
     };
     dialog_buttons[$.t("Cancel")] = function () {
