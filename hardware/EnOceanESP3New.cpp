@@ -500,6 +500,7 @@ static void getCases(WEB_CMD_ARG)
 	else 
 	{
 		T_PROFIL_EEP* prof = Profils.getProfil(DeviceIdStringToUInt(sprofil));
+//		pEnocean->Debug(DEBUG_NORM,prof->toString().c_str() );
 		for (unsigned int caseNb = 0; caseNb < prof->cases.size(); caseNb++)
 		{
 			root["result"][caseNb]["Num"] = caseNb + 1;
@@ -537,6 +538,7 @@ static void getCaseShortCut(WEB_CMD_ARG)
 	else 
 	{
 		T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
+//		pEnocean->Debug(DEBUG_NORM,Case->toString().c_str() );
 		for (unsigned int i = 0; i < Case->size(); i++)
 		{
 			root["result"][i]["Short"] = Case->at(i)->ShortCut;
@@ -589,7 +591,7 @@ static void sendvld(WEB_CMD_ARG)
 		T_DATAFIELD* dataf = (T_DATAFIELD* )calloc(sizeof(T_DATAFIELD),Case->dataFileds.size()+1 );
 		memcpy(dataf,Case->dataFileds.data(), sizeof(T_DATAFIELD)*Case->dataFileds.size() );
 
-		pEnocean->Debug(DEBUG_NORM,Case->toString().c_str() );
+//		pEnocean->Debug(DEBUG_NORM,Case->toString().c_str() );
 		pEnocean->sendDataVld(pEnocean->m_id_chip, DeviceId, dataf, values, NbValues);
 		//					pEnocean->senDatadVld(pEnocean->m_id_chip, DeviceId , Case->Dataf, values,  NbValues);
 		free(dataf);
@@ -860,7 +862,12 @@ void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::
 		for (int i = 0; i < nbSelectedDevice; i++) {
 			arg += http::server::request::findValue(&req, std::to_string(i).c_str()) + "-";
 		}
-		pEnocean->Debug(DEBUG_NORM, "WEBS: Server received cmd:%s Hwid:%s arg:%s Entry=%s ", cmd.c_str(), hwid.c_str(), arg.c_str(), http::server::request::findValue(&req, "entry").c_str());
+
+		std::string params;
+		for (const auto& param : req.parameters)
+			params += param.first +":"+param.second + " , ";
+		//pEnocean->Debug(DEBUG_NORM, "WEBS: Server received cmd:%s Hwid:%s arg:%s Entry=%s ", cmd.c_str(), hwid.c_str(), arg.c_str(), http::server::request::findValue(&req, "entry").c_str());
+		pEnocean->Debug(DEBUG_NORM, "WEBS: params=%s", params.c_str());
 	}
 	//handle command if registered
 	auto pfunction = EnOcean_webcommands.find(cmd);

@@ -131,6 +131,8 @@ while(l_item)
       std::string svalue       = getText( l_item, "value" ) ;
       std::string Description = getText( l_item, "description" ) ;
       replaceChar(Description,'"',' ');
+      replaceChar(Description,':',' ');
+      replaceChar(Description,';',' ');
       enumerates += svalue + ":" + Description + ";";
 
 //    enumerate += std_format ( "%s//Value: %s = %s \n",tab, lv->GetText()    , l_item->FirstChildElement( "description" )->GetText()   );

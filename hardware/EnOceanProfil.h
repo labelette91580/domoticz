@@ -151,17 +151,13 @@ public:
     FuncTitle = pFuncTitle ;
     TypeTitle = pTypeTitle ;
   };
-  void printCase( int CaseNb )
+  std::string toString()
   {
-    printf ("Case : %d : %s \n",CaseNb, cases[CaseNb].getName());
-    for (unsigned int i=0;i<cases[CaseNb].size();i++ )
-      printf ("Case:%d = %s\n",CaseNb,cases[CaseNb].dataFileds[i].toString().c_str() );
-  }
-  void printCases()
-  {
-    printf("Profil:%06X %s %s \n",Profil,FuncTitle.c_str(),TypeTitle.c_str() );
+    std::string str;
+    str = std_format("Profil:%06X %s %s \n",Profil,FuncTitle.c_str(),TypeTitle.c_str() );
     for (unsigned int i=0;i<cases.size();i++ )
-       printCase(i);
+       str+= cases[i].toString();
+    return str;
   }
 
 };
@@ -189,7 +185,7 @@ public:
    {
     for (T_PROFIL_EEP_MAP::iterator itt = lProfils.begin(); itt != lProfils.end(); itt++)
 		{
-      itt->second.printCases();
+      itt->second.toString();
 		}
 
    }
