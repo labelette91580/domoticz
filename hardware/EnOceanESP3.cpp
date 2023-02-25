@@ -3896,6 +3896,16 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					}
 					if (CMD == 0x7)
 					{ // Actuator Measurement Response
+
+						//"Unit",{{ 0 , "Energy [Ws]" },{ 1 , "Energy [Wh]" },{ 2 , "Energy [KWh]" },{ 3 , "Power [W]" },{ 4 , "Power [KW]" },}},
+						typedef enum {
+							EnergyWs  = 0,
+							EnergyWh     ,
+							EnergyKWh    ,
+							PowerW       ,
+							PowerKW      ,
+						}MeasurementUnit;
+
 						std::string mes = printRawDataValues(&data[1], D20100_CMD7);
 						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) Reply Measurement Response\n%s",
 							senderID, pNode->name.c_str(), mes.c_str());
@@ -3907,12 +3917,29 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						std::string sValue = GetDbValue("DeviceStatus", "sValue", "DeviceId", GetEnOceanIDToString(id).c_str());
 						std::vector<std::string> strarray;
 						StringSplit(sValue, ";", strarray);
-						double mtotal = 0;
+						double mtotalInWh = 0;
+						double PowerInstantW=0 ;
+						if (strarray.size() >= 1)
+							PowerInstantW = std::stod(strarray[0]);
 						if (strarray.size() >= 2)
-							mtotal = std::stod(strarray[1]);
-						//add current
-						mtotal += mv;
-						SendKwhMeter(senderID, 1, -1, mv, mtotal / 1000.0, pNode->name, rssi);
+							mtotalInWh = std::stod(strarray[1]);
+
+						//if reception of energie mesearment 
+						switch (unit)
+						{
+							case EnergyWs     : mtotalInWh = mv / 3600.0 ;
+							break;
+							case EnergyWh     : mtotalInWh = mv;
+							break;
+							case EnergyKWh    : mtotalInWh = mv * 1000.0 ;
+							break;
+							case PowerW       : PowerInstantW   = mv ;
+							break;
+							case PowerKW      : PowerInstantW   = mv * 1000.0 ;
+							break;
+						}
+
+						SendKwhMeter(senderID, 1, -1, PowerInstantW , mtotalInWh / 1000.0, pNode->name, rssi);
 						//Value: 0x00 = Energy [Ws]
 						//Value: 0x01 = Energy [Wh]
 						//Value: 0x02 = Energy [KWh]
