@@ -581,6 +581,13 @@ static void sendvld(WEB_CMD_ARG)
 		values[i] = val;
 	}
 #ifdef USE_PROFIL
+	if ( Profils.LoadXml() ){
+		pEnocean->Log(LOG_ERROR,"LOG_ERROR","error loading eep xml file");
+		root["status"] = "ERROR";
+	return;
+	}
+
+
 	T_EEP_CASE* Case = Profils.getCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
 	//T_EEP_CASE_* Case = getProfilCase(DeviceIdStringToUInt(sprofil), std::stoi(scaseNb, nullptr, 0));
 	if (Case)

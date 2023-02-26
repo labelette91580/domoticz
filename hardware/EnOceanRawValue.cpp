@@ -60,6 +60,8 @@ namespace enocean
 
 	bool SetRawValue(uint8_t* data, uint32_t value, T_DATAFIELD* offset)
 	{
+		if(value>= (1<<offset->Size))
+			return false ;
 		return SetRawValue(data, value, offset->Offset, offset->Size);
 	}
 
@@ -102,7 +104,10 @@ namespace enocean
 				return 0; // erreur
 
 			uint32_t par = va_arg(value, int); // va_arg() gives current parameter
-			SetRawValue(data, par, OffsetDes);
+			bool Ok = SetRawValue(data, par, OffsetDes);
+			if (!Ok)
+				return 0; // erreur
+
 			// compute total bit
 			if (OffsetDes->Offset + OffsetDes->Size > total_bits)
 				total_bits = OffsetDes->Offset + OffsetDes->Size;
@@ -170,7 +175,10 @@ namespace enocean
 				return 0;
 			int par = value[i++];
 			// not enough argument
-			SetRawValue(data, par, OffsetDes);
+			bool Ok = SetRawValue(data, par, OffsetDes);
+			if (!Ok)
+				return 0; // erreur
+
 			// compute total bit
 			if (OffsetDes->Offset + OffsetDes->Size > total_bits)
 				total_bits = OffsetDes->Offset + OffsetDes->Size;
@@ -259,7 +267,10 @@ namespace enocean
 			// not enough argument
 			if (par == END_ARG_DATA)
 				return 0;
-			SetRawValue(data, par, OffsetDes);
+			bool Ok =SetRawValue(data, par, OffsetDes);
+			if (!Ok)
+				return 0; // erreur
+
 			// compute total bit
 			if (OffsetDes->Offset + OffsetDes->Size > total_bits)
 				total_bits = OffsetDes->Offset + OffsetDes->Size;
