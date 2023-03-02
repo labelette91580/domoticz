@@ -623,8 +623,8 @@ void CEnOceanESP3::UpdateNode(const uint32_t nodeID,
 
 	if (m_id_base != 0 && nodeID > m_id_base && nodeID <= (m_id_base + 128))
 		pNode->teachin_mode = VIRTUAL_NODE;
-	else
-		pNode->teachin_mode = TEACHEDIN_NODE;
+//	else
+//		pNode->teachin_mode = TEACHEDIN_NODE;
 
 	uint32_t nValue = (pNode->teachin_mode & TEACHIN_MODE_MASK) << TEACHIN_MODE_SHIFT;
 
@@ -2443,7 +2443,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 			// Ignore telegrams addressed to another device
 			if (dstID != ERP1_BROADCAST_TRANSMISSION && dstID != m_id_base && dstID != m_id_chip)
 			{
-				Debug(DEBUG_HARDWARE, "HwdID %d, ignore addressed telegram sent to %08X", m_HwdID, dstID);
+				uint8_t status =  data[datalen - 1] & 0xF;
+				Debug(DEBUG_HARDWARE, "HwdID %d, ignore addressed telegram sent to %08X repeated Repeating bits : %d", m_HwdID, dstID,status);
 				return;
 			}
 
