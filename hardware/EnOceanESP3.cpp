@@ -329,6 +329,7 @@ CEnOceanESP3::CEnOceanESP3(const int ID, const std::string &devname, const int t
 	m_Type = type;
 	m_id_base = 0;
 	m_id_chip = 0;
+	m_bOutputLog = false;
 
 }
 
@@ -3682,9 +3683,9 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						{ // Build and send response
 							buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
-							Debug(DEBUG_NORM, "Send UTE teach-out refused response");
+//							Debug(DEBUG_NORM, "Send UTE teach-out refused response");
 
-							SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+//							SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 						}
 						return;
 					}
@@ -3824,9 +3825,9 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					{ // Build and send response
 						buf[1] |= (GENERAL_REASON & 0x03) << 4;
 
-						Debug(DEBUG_NORM, "Send UTE teach-out refused response");
+//						Debug(DEBUG_NORM, "Send UTE teach-out refused response");
 
-						SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
+//						SendESP3Packet(PACKET_RADIO_ERP1, buf, 13, optbuf, 7);
 					}
 				}
 			}
@@ -3896,15 +3897,6 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					}
 					if (CMD == 0x7)
 					{ // Actuator Measurement Response
-
-						//"Unit",{{ 0 , "Energy [Ws]" },{ 1 , "Energy [Wh]" },{ 2 , "Energy [KWh]" },{ 3 , "Power [W]" },{ 4 , "Power [KW]" },}},
-						typedef enum {
-							EnergyWs  = 0,
-							EnergyWh     ,
-							EnergyKWh    ,
-							PowerW       ,
-							PowerKW      ,
-						}MeasurementUnit;
 
 						std::string mes = printRawDataValues(&data[1], D20100_CMD7);
 						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) Reply Measurement Response\n%s",

@@ -14,6 +14,15 @@
 // 550 bytes buffer is enough for one ESP3 packet, EnOceanLink 1.8.1.0, eoPacket.h
 #define ESP3_PACKET_BUFFER_SIZE 550
 
+	//"Unit",{{ 0 , "Energy [Ws]" },{ 1 , "Energy [Wh]" },{ 2 , "Energy [KWh]" },{ 3 , "Power [W]" },{ 4 , "Power [KW]" },}},
+	typedef enum {
+		EnergyWs  = 0,
+		EnergyWh     ,
+		EnergyKWh    ,
+		PowerW       ,
+		PowerKW      ,
+	}MeasurementUnitEnum;
+
 //class CEnOceanESP3 : public enocean::CEnOceanEEP, public AsyncSerial, public CDomoticzHardwareBase 
 class CEnOceanESP3: public  enocean::CEnOceanRMCC 
 {
