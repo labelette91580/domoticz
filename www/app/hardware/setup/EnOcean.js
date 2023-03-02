@@ -16,6 +16,262 @@ define(['app'], function (app) {
 		const refreshNodeTableAction = ['Delete', 'GetProductId', 'LearnIn', 'ClearTeachInStatus'];
 		const broadcastCmd           = ['SendCode', 'GetProductId', 'Lock', 'UnLock'];
 
+		// Get EnOcean manufacturers table values
+		SortManufacturersByName = function (a, b) {
+			// make sure "Unknown" value comes first
+			if (a.name === "Unknown")
+			    return -1;
+
+			if (b.name === "Unknown")
+			    return 1;
+
+			// Sort all other values aplhabetically
+			var aName = a.name.toLowerCase();
+			var bName = b.name.toLowerCase();
+			return ((aName < bName) ? -1 : ((aName > bName) ? 1 : 0));
+		}
+
+		$.manufacturertbl = [];
+		$.ajax({
+			url: "json.htm?type=command&param=enoceangetmanufacturers",
+			async: false,
+			dataType: "json",
+			success: function (data, status) {
+				if (typeof data.mantbl != "undefined") {
+					data.mantbl.sort(SortManufacturersByName);
+					$.each(data.mantbl, function (i, item) {
+						$.manufacturertbl.push({
+							idx : item.idx,
+							name: item.name,
+						});
+					});
+				}
+			},
+		});
+
+		// Get EnOcean RORG table values
+		$.rorgtbl = [];
+		$.ajax({
+			url: "json.htm?type=command&param=enoceangetrorgs",
+			async: false,
+			dataType: "json",
+			success: function (data, status) {
+				if (typeof data.rorgtbl != "undefined") {
+					$.each(data.rorgtbl, function (i, item) {
+						$.rorgtbl.push({
+							rorg: item.rorg,
+							label: item.label,
+							description: item.description,
+						});
+					});
+				}
+			},
+		});
+
+		// Get EnOcean EEP table values
+		$.eeptbl = [];
+		$.ajax({
+			url: "json.htm?type=command&param=enoceangetprofiles",
+			async: false,
+			dataType: "json",
+			success: function (data, status) {
+				if (typeof data.eeptbl != "undefined") {
+					$.each(data.eeptbl, function (i, item) {
+						$.eeptbl.push({
+							rorg: item.rorg,
+							func: item.func,
+							type: item.type,
+							eep: item.eep,
+							label: item.label,
+							description: item.description,
+						});
+					});
+				}
+			},
+		});
+		ResetNodeParameters = function () {
+			// Reset scope variables
+			$scope.selectednoderorg = 0;
+			$scope.selectednodeeep = "";
+							
+			// Disable node parameters action buttons
+			$("#updatenode").attr("class", "btnstyle3-dis");
+			$("#deletenode").attr("class", "btnstyle3-dis");
+
+			// Reset node parameter controls
+			$("#nodename").val("");
+			$("#nodemanufacturer").html("");
+			$("#nodemanufacturer").val("");
+			$("#noderorg").html("");
+			$("#noderorg").val("");
+			$("#nodeeep").html("");
+			$("#nodeeep").val("");
+			$("#nodeeepdesc").html("");
+			$("#nodedescription").val("");
+
+			// Reset values of node optional parameter controls (reserved for future use)
+			$("#optionalnodeconfigurationpane").hide();
+			$("#nodeconfiguration").html("");
+		};
+
+		RefreshNodeParameters = function (hwdid, nodeid, name, manufacturerid, selectednoderorg, selectednodeeep, description) {
+			// Set scope variables
+			$scope.selectednoderorg = selectednoderorg;
+			$scope.selectednodeeep = selectednodeeep;
+
+			// Enable node action buttons
+			$("#updatenode").attr("class", "btnstyle3");
+			$("#updatenode").attr("href", "javascript:UpdateNode(" + hwdid + ",\"" + nodeid + "\")");
+			$("#deletenode").attr("class", "btnstyle3");
+			$("#deletenode").attr("href", "javascript:DeleteNode(" + hwdid + ",\"" + nodeid + "\")");
+
+			// Populate EnOcean manufacturers combo
+			$("#nodemanufacturer").html("");
+			$.each($.manufacturertbl, function (i, item) {
+				var option = $("<option />");
+				option.attr("value", item.idx).text(item.name);
+				$("#nodemanufacturer").append(option);
+			});
+
+			// Populate EnOcean RORG combo
+			$("#noderorg").html("");
+			$.each($.rorgtbl, function (i, item) {
+
+				// TODO : if node is virtual, put only allowed values in RORG combo
+
+				var option = $("<option />");
+				option.attr("value", item.rorg).text(item.label + " (" + addLeadingZeros(parseInt(item.rorg).toString(16).toUpperCase(), 2) +")");
+				$("#noderorg").append(option);
+			});
+
+			$("#nodename").val(name);
+			$("#nodemanufacturer").val(manufacturerid);
+
+			// Set combo default selected value
+			if (selectednoderorg !== 0)
+				$("#noderorg").val(selectednoderorg);
+			else {
+				var option = $("<option />");
+				option.attr("value", "").text("Select...");
+				$("#noderorg").prepend(option);
+				$("#noderorg").val("");
+			}
+
+			RefreshNodeEEP(selectednoderorg, selectednoderorg, selectednodeeep);
+
+			$("#nodedescription").val(description);
+
+		};
+
+		RefreshNodeEEP = function (rorg, selectednoderorg, selectednodeeep) {
+			if (rorg === 0) {
+				RefreshNodeEEPDescription("");
+				return;
+			}
+			if (selectednoderorg === 0)
+				selectednodeeep = selectednodeeep.replace("00", addLeadingZeros(parseInt(rorg).toString(16).toUpperCase(), 2));
+			
+			// Populate EnOcean EEP combo
+			$("#nodeeep").html("");
+
+			var eepfound = false;
+			$.each($.eeptbl, function (i, item) {
+				if (item.rorg == rorg) {
+
+					// TODO : if node is virtual, put only allowed values in EEP combo
+
+					var option = $("<option />");
+					option.attr("value", item.eep).text(item.eep);
+					$("#nodeeep").append(option);
+
+					if (item.eep === selectednodeeep)
+						eepfound = true;
+				}
+			});
+
+			// Select default combo value
+			if (eepfound) {
+				$("#nodeeep").val(selectednodeeep);
+				RefreshNodeEEPDescription(selectednodeeep);
+			} else {
+				var option = $("<option />");
+				option.attr("value", "").text("Select...");
+				$("#nodeeep").prepend(option);
+				$("#nodeeep").val("");
+				RefreshNodeEEPDescription("");
+			}
+		};
+
+		RefreshNodeEEPDescription = function (eep) {
+			var description = "";
+			$.each($.eeptbl, function (i, item) {
+				if (item.eep === eep) {
+					description = item.description;
+					return;
+				}
+			});
+			$("#nodeeepdesc").html(description);
+		};
+
+		OnChangeNodeRORG = function (combo) {
+			// Once a RORG value has been selected, remove "Select..." option
+			if (combo.value !== "" && combo.options[0].value === "")
+				combo.remove(0);
+			
+			RefreshNodeEEP(combo.value, $scope.selectednoderorg, $scope.selectednodeeep);
+		};
+
+		OnChangeNodeEEP = function (combo) {
+			// Once an EEP value has been selected, remove "Select..." option
+			if (combo.value !== "" && combo.options[0].value === "")
+				combo.remove(0);
+			
+			RefreshNodeEEPDescription(combo.value);
+		};
+
+		UpdateNode = function (hwdid, nodeid) {
+			if ($("#updatenode").attr("class") === "btnstyle3-dis")
+				return;
+
+			var name = $("#nodename").val().trim();
+			if (name === "") {
+				ShowNotify($.t("Please enter a node name!"), 2500, true);
+				return;
+			}
+			var manufacturerid = $("#nodemanufacturer option:selected").val();
+			if (typeof manufacturerid == "undefined") {
+				ShowNotify($.t("Please select a manufacturer!"), 2500, true);
+				return;
+			}
+			var eep = $("#nodeeep option:selected").val();
+			if (typeof eep == "undefined" || eep === "") {
+				ShowNotify($.t("Please select an EnOcean Profile (EEP)!"), 2500, true);
+				return;
+			}
+			var nodeidStr = addLeadingZeros(parseInt(nodeid).toString(16).toUpperCase(), 8);
+			bootbox.confirm($.t("Are you sure you want to update node") + " \'"+ nodeidStr + "\'?", function (confirmed) {
+				if (confirmed) {
+					$.ajax({
+						url: "json.htm?type=command&param=esp3updatenode" +
+							"&hwdid=" + hwdid +
+							"&nodeid=" + nodeid +
+							"&name=" + encodeURIComponent(name) +
+							"&manufacturerid=" + manufacturerid +
+							"&eep=" + encodeURIComponent(eep) +
+							"&description=" + encodeURIComponent($("#nodedescription").val().trim()),
+						async: true,
+						dataType: "json",
+						success: function (data, status) {
+							RefreshNodesTable();
+						},
+						error: function (result, status, error) {
+							ShowNotify($.t("Problem updating node") + " \'" + nodeidStr + "\'!", 2500, true);
+						},
+					});
+				}
+			});
+		};
+
 		getNodeName = function (node) {
 			return node ? node.nodeName : '';
 		};
@@ -303,12 +559,20 @@ define(['app'], function (app) {
 		                        //		                        "Name": item.Name,
 		                        //"State": item.State,
 		                        //"NodeID"  : item.ID,
-		                        "DeviceID": item.DeviceID,
+								"DeviceID"	: item.DeviceID,
+								"nodeid"	: item.nodeid,
+								"name"		: item.name,
+								"manufacturerid": item.manufacturerid,
+								"rorg": item.rorg,
+								"eep": item.eep,
+								"description": item.description,
+//								"teachinmode": item.teachinmode,
+
 		                        "0": item.DeviceID,
 		                        "1": item.Unit,
 		                        "2": item.Name,
 		                        "3": item.Description,
-		                        "4": item.Manufacturer_name,
+		                        "4": item.manufacturername,
 		                        "5": item.Profile,
 		                        "6": item.TypeName,
 		                        "7": item.TeachInStatus,
@@ -327,7 +591,9 @@ define(['app'], function (app) {
 		    $("#nodestable tbody").on('click', 'tr', function () {
 		        $('#updelclr #nodedelete').attr("class", "btnstyle3-dis");
 		        if ($(this).hasClass('row_selected')) {
-		            //$(this).removeClass('row_selected');
+		            $(this).removeClass('row_selected');
+					// Reset values of node parameter controls					
+					ResetNodeParameters();
 
 		            /*		            $('#updelclr #nodeupdate').attr("class", "btnstyle3-dis");
                                         $("#hardwarecontent #configuration").html("");
@@ -338,7 +604,24 @@ define(['app'], function (app) {
 		        else {
 		            var oTable = $('#nodestable').dataTable();
 		            oTable.$('tr.row_selected').removeClass('row_selected');
-		            $(this).addClass('row_selected');
+					$(this).addClass('row_selected');
+
+					var selectedrow = fnGetSelected(oTable);
+					if (selectedrow.length !== 0) {
+						var data = oTable.fnGetData(selectedrow[0]);
+
+						// Set values of node parameter controls					
+						RefreshNodeParameters(
+							$.hwid,
+							data["nodeid"],
+							data["name"],
+							data["manufacturerid"],
+							data["rorg"],
+							data["eep"],
+							data["description"],
+							);
+					}
+
 
 		        }
 				

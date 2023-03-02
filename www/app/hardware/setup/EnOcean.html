@@ -119,17 +119,39 @@
             </tr>
         </thead>
     </table>
-    <table id="updelclr" border="0" cellpadding="0" cellspacing="0" width="100%" style="display:none;">
-        <tr>
-            <td>
-                <a class="btnstyle3-dis" id="nodeupdate" data-i18n="Update">Update</a>&nbsp;&nbsp;&nbsp;
-                <a class="btnstyle3-dis" id="nodedelete" data-i18n="Delete">Delete</a>
-            </td>
-            <td align="right">
-                <a class="btnstyle3" id="nodelistrefresh" data-i18n="Refresh" onclick="RefreshOpenZWaveNodeTable();">Refresh</a>
-            </td>
-        </tr>
-    </table>
+	<table class="display" id="nodeparameters" border="0" cellpadding="0" cellspacing="0">
+		<tr>
+			<td align="right" style="width:115px"><label for="nodename"><span data-i18n="Name">Name</span>:</label></td>
+			<td><input type="text" id="nodename" name="nodename" style="width:385px;" class="text ui-widget-content ui-corner-all"></td>
+			<td align="right" style="width:115px"><label for="nodemanufacturer"><span data-i18n="Manufacturer">Manufacturer</span>:</label></td>
+			<td><select id="nodemanufacturer" ng-model="data.singleselect" style="width:405px;" class="combobox ui-corner-all"></select></td>
+		</tr>
+		<tr>
+			<td align="right" style="width:115px"><span data-i18n="EnOcean Profile">EnOcean Profile</span>:</td>
+			<td>
+				<label for="noderorg"><span data-i18n="RORG">RORG</span>: </label>
+				<select id="noderorg" onChange="OnChangeNodeRORG(this);" style="width:90px; margin-right:1em;" class="combobox ui-corner-all"></select>
+				<label for="nodeeep"><span data-i18n="EEP">EEP</span>: </label>
+				<select id="nodeeep" onChange="OnChangeNodeEEP(this);" style="width:90px; margin-right:1em;" class="combobox ui-corner-all"></select>
+				<span id="nodeeepdesc"></span>
+			</td>
+			<td align="right" style="width:115px"><label for="nodedescription"><span data-i18n="Description"></span>:</label></td>
+			<td><input type="text" id="nodedescription" name="nodedescription" style="width:385px;" class="text ui-widget-content ui-corner-all"></td>
+		</tr>
+	</table>
+	<table class="display" id="nodestableactions" border="0" cellpadding="0" cellspacing="0" width="100%">
+		<tr>
+			<td>
+				<a class="btnstyle3-dis" id="updatenode" data-i18n="Update">Update</a>&nbsp;&nbsp;&nbsp;
+				<a class="btnstyle3-dis" id="deletenode" data-i18n="Delete">Delete</a>
+			</td>
+			<td align="right">
+				<a class="btnstyle3" id="refreshnodetable" data-i18n="Refresh" onclick="RefreshNodesTable();">Refresh</a>
+			</td>
+		</tr>
+	</table>
+    <br>
+
     <table id="TableLink" border="0" cellpadding="0" cellspacing="0" width="100%">
         <tr>
             <td>
@@ -160,7 +182,6 @@
             </td>
         </tr>
     </table>
-    <br>
     <div id="configuration">
         <table class="display" id="inboundlinktable" border="0" cellpadding="0" cellspacing="0" width="100%">
             <thead>

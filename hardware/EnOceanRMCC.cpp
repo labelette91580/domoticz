@@ -1167,10 +1167,10 @@ void CEnOceanRMCC::GetNodeList(std::string HardwareID, Json::Value& root)
 				int type = atoi(sd[3].c_str());
 				uint32_t profil = RorgFuncTypeToProfile(rorg, func, type);
 				root["result"][ii]["Profile"] = std_format("%02X%02X%02X", rorg , func , type );
-				root["result"][ii]["Manufacturer"] = sd[4];
+				root["result"][ii]["manufacturerid"] = sd[4];
 				std::string man = GetManufacturerName(atoi(sd[4].c_str()));
 				if (man[0] == '>') man = "Unkown";
-				root["result"][ii]["Manufacturer_name"] = man;
+				root["result"][ii]["manufacturername"] = man;
 				root["result"][ii]["TeachInStatus"] = NodeInfo::teachin_mode_string((TeachinMode)std::stoi(sd[5]));
 				std::string typ = GetEEPLabel(rorg, func, type);
 				if (typ[0] == '>') typ = "Unkown";
@@ -1184,6 +1184,20 @@ void CEnOceanRMCC::GetNodeList(std::string HardwareID, Json::Value& root)
 				root["result"][ii]["SubType"] = "";
 				root["result"][ii]["SwitchType"] = "";
 				root["result"][ii]["TypeName"] = "";
+
+				root["result"][ii]["rorg"] = rorg;
+				root["result"][ii]["func"] = func;
+				root["result"][ii]["type"] = type;
+				root["result"][ii]["nodeid"] = DeviceIdStringToUInt(sd[0]);
+
+				char szEEPStr[20];
+				sprintf(szEEPStr, "%02X-%02X-%02X", rorg, func, type);
+				root["result"][ii]["eep"] = szEEPStr;
+				//root["result"][ii]["name"] = node.name;
+				//root["result"][ii]["description"] = node.description;
+				//root["result"][ii]["teachinmode"] = node.teachin_mode;
+
+
 				if (!sd[6].empty())
 					ii = addNodeToList(root, sd[6], sd[7], sd[8], sd[9], ii);
 				uint32_t    NodeId = std::stoul(sd[00].c_str(), 0, 16);

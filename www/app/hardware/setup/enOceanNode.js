@@ -192,6 +192,7 @@ EnOceanDeviceSendDialogOpen = function (hwid, profil, deviceId , baseAddr) {
 	$.t = tt;
 	$.profil = profil;
 	$.devIdx = deviceId;
+//	$.devIdx = "FFFFFFFF";
 	$.hwid  = hwid;
 	$.baseAddr  = baseAddr;
 
@@ -241,8 +242,8 @@ EnOceanSendActuatorSetMeasurement = function (profil, deviceId,  Resetmeasuremen
 }
 EnOceanSendEnergyPowerMeasurement = function (profil, deviceId ) 
 {
-	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 0, 0, 1, 1, 70, 75);
-//	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 1, 0, 1, 3, 60, 65);
+	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 0, 0, 16, 1, 60, 50);
+	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 1, 0, 16, 3, 60, 50);
 
 }
 EnOceanButtonActionOk = function (profil, deviceId) 
