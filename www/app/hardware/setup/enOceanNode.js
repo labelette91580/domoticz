@@ -93,6 +93,11 @@ function EnOceanRefreshDeviceComboWithList(ComboName, List, clear) {
             $('<option />', {value: val, text: List[val]}).appendTo(Combo);
         }
 //        $('<option />', {value: "", text: ""}).appendTo(Combo);
+//		var ComboObject = Combo.get( 0 );
+		// Create a new 'change' event
+//		var event = new Event('change');
+		// Dispatch it.
+//		ComboObject.dispatchEvent(event);
 }
 
 //enumerate  value:description;
@@ -129,7 +134,9 @@ function EnOceanComboChange() {
 
 		enumList = splitEnumerate($.shortCuts[i].Enum);
 		if (Object.keys(enumList).length>0){
-		    $("#dialog-enoceansend  #Short" + i + " #value  #ValParam"  ).val(Object.keys(enumList)[0]);
+			$("#dialog-enoceansend  #Short" + i + " #value  #ValParam").val(Object.keys(enumList)[0]);
+			$("#dialog-enoceansend  #Short" + i + " #DesParam"+i).val(Object.values(enumList)[0]);
+
 //			$("#dialog-enoceansend  #Short" + i + " #value  #ShortInput").val(Object.keys(enumList)[0]);
 			}
 			else{
@@ -210,7 +217,34 @@ EnOceanDeviceSendDialogOpen = function (hwid, profil, deviceId , baseAddr) {
 	$("#dialog-enoceansend").dialog("open");
 };
 
+EnOceanSendActuatorSetMeasurement = function (profil, deviceId,  Resetmeasurement, measurementType , IOchannel , MeasurementDelta, MeasurementUnit , MaxSendMessageTimeInSec , MinSendMessageTimeInSec ) 
+{
+	    var payload = {};
+	    var i;
+		payload[0] = 5;                          // "Command ID",{{ 5 , "ID 05" },}},
+		payload[1] = 1;                          // "Report measurement",{{ 0 , "Report measurement: query only" },{ 1 , "Report measurement: query / auto reporting" },}},
+		payload[2] = Resetmeasurement;           // "Reset measurement",{{ 0 , "Reset measurement: not active" },{ 1 , "Reset measurement: trigger signal" },}},
+		payload[3] = measurementType;            // "Measurement mode",{{ 0 , "Energy measurement" },{ 1 , "Power measurement" },}},
+		payload[4] = IOchannel;                  // "I/O channel",{}},
+		payload[5] = MeasurementDelta & 0xF;     // "Measurement delta to be reported (LSB)"},
+		payload[6] = MeasurementDelta >> 4;     // "Measurement delta to be reported (MSB)"},
+		payload[7] = MeasurementUnit;            // "Unit",{{ 0 , "Energy [Ws]" },{ 1 , "Energy [Wh]" },{ 2 , "Energy [KWh]" },{ 3 , "Power [W]" },{ 4 , "Power [KW]" },}},
+		payload[8] = MaxSendMessageTimeInSec / 10; // "Maximum time between two subsequent actuator messages",{}},
+		payload[9] = MinSendMessageTimeInSec; // "Minimum time between two subsequent actuator messages",{}},
 
+        payload["profil"]= profil;
+        payload["casenb"]= 4 ; //SetMeasurement  cmd=5
+        payload["devidx"]= deviceId ;
+        payload["baseAddr"]= $.baseAddr ;
+			
+        result = SendCmd($.devIdx, "sendvld",payload );
+}
+EnOceanSendEnergyPowerMeasurement = function (profil, deviceId ) 
+{
+	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 0, 0, 1, 1, 70, 75);
+//	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 1, 0, 1, 3, 60, 65);
+
+}
 EnOceanButtonActionOk = function (profil, deviceId) 
 {
     var caseNb =  $("#dialog-enoceansend  #CaseCombo").val();
@@ -249,7 +283,11 @@ EnOceanDeviceSendCreateDialog = function (profil, deviceId) {
     };
     dialog_buttons[$.t("Cancel")] = function () {
         $(this).dialog("close");
+	};
+    dialog_buttons[$.t("SetMeasurement")] = function () {
+        EnOceanSendEnergyPowerMeasurement(profil, deviceId);
     };
+
     $("#dialog-enoceansend").dialog({
         autoOpen: false,
         width: 'auto',
@@ -294,121 +332,161 @@ EnOceanDeviceSendCreateDialog = function (profil, deviceId) {
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam0\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none; padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam0" name="DesParam0" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short1">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam1\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none; padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam1" name="DesParam0" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short2">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0;padding: .2em; "   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam2\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0;padding: .2em; "   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam2" name="DesParam2" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short3">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0;padding: .2em; "   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam3\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0;padding: .2em; "   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam3" name="DesParam0" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short4">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam4\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam4" name="DesParam" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short5">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam5\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam5" name="DesParam5" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short6">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam6\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam6" name="DesParam6" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short7">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam7\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam7" name="DesParam7" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short8">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam8\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam8" name="DesParam8" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
         <tr id="Short9">
           <td align="right" style="width:60px"><label id="LblParam" >Param1 </label></td>
 		  <td>
 			<div id="value" class ="text ui-widget-content ui-corner-all"   style="position:relative; border:none;  width:150px;  background-color:white; "  >
-				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
+				<select id="ShortCombo" class ="combobox ui-corner-all" onchange="this.nextElementSibling.value=this.value;$(\'#DesParam9\').val(this.options[this.selectedIndex].innerHTML);"  style="position:absolute; top:0px; left:0px; border:none; width:150px; margin:0; padding: .2em;"   >
 					<option value="one">one</option>
 				</select>
 				<input id="ValParam" class ="text ui-widget-content ui-corner-all" type="text" name="format" value="" style="position:absolute; top:0px; left:0px; width:130px; padding:0px;  border:none;padding: .2em;"  />
 			</div>
 		</td>
-		<td><textarea id="DesParam" name="DesParam" rows="4" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea></td>
+		<td>
+			<textarea id="DesParam" name="DesParam" rows="3" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+			<br/>
+			<textarea id="DesParam9" name="DesParam9" rows="1" style="width: 356px; padding: .2em;" class ="text ui-widget-content ui-corner-all"></textarea>
+		</td>
         </tr>
 		</table>
     </form>
