@@ -1,3 +1,10 @@
+	typedef enum {
+	 EnergyMeasurement = 0,
+	 PowerMeasurement  = 1, 
+	}MeasurementTypeEnum;
+
+	bool configureActuatorSetMeasurement(uint32_t nodeID, bool Resetmeasurement, MeasurementTypeEnum measurementType, int IOchannel, int MeasurementDelta, MeasurementUnitEnum MeasurementUnit, int MaxSendMessageTimeInSec, int MinSendMessageTimeInSec);
+
 public:
 	uint32_t sendDataVld(unsigned int unitBaseAddr, unsigned int destID, enocean::T_DATAFIELD* OffsetDes, int* values, int NbValues);
 	//new

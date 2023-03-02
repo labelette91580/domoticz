@@ -22,6 +22,7 @@
 
 #include "hardwaretypes.h"
 #include "EnOceanESP3.h"
+#include "EnOceanEepProfil.h"
 
 #include "EnOceanRMCC.h"
 //#include "eep-d2.h"
@@ -1079,4 +1080,22 @@ extern http::server::CWebServerHelper m_webservers;
 void CEnOceanESP3::registerWebServerEntry(void)
 {
 	m_webservers.RegisterRType("enocean", RType_OpenEnOcean );
+}
+
+bool CEnOceanESP3::configureActuatorSetMeasurement(uint32_t nodeID , bool Resetmeasurement, MeasurementTypeEnum measurementType , int IOchannel , int MeasurementDelta, MeasurementUnitEnum MeasurementUnit , int MaxSendMessageTimeInSec , int MinSendMessageTimeInSec )
+{
+
+return sendVld(m_id_chip, nodeID, D20100_CMD5, 
+5,                          // "Command ID",{{ 5 , "ID 05" },}},
+1,                          // "Report measurement",{{ 0 , "Report measurement: query only" },{ 1 , "Report measurement: query / auto reporting" },}},
+Resetmeasurement,           // "Reset measurement",{{ 0 , "Reset measurement: not active" },{ 1 , "Reset measurement: trigger signal" },}},
+measurementType,            // "Measurement mode",{{ 0 , "Energy measurement" },{ 1 , "Power measurement" },}},
+IOchannel,                  // "I/O channel",{}},
+MeasurementDelta & 0xF,     // "Measurement delta to be reported (LSB)"},
+MeasurementDelta >> 4 ,     // "Measurement delta to be reported (MSB)"},
+MeasurementUnit,            // "Unit",{{ 0 , "Energy [Ws]" },{ 1 , "Energy [Wh]" },{ 2 , "Energy [KWh]" },{ 3 , "Power [W]" },{ 4 , "Power [KW]" },}},
+MaxSendMessageTimeInSec/10, // "Maximum time between two subsequent actuator messages",{}},
+MinSendMessageTimeInSec   , // "Minimum time between two subsequent actuator messages",{}},
+ END_ARG_DATA);
+
 }
