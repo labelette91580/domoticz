@@ -508,9 +508,11 @@ bool CLogger::NotificationLogsEnabled()
 {
 	return m_bEnableErrorsToNotificationSystem;
 }
-void CLogger::SetFilter(const std::string  &pFilter)
+void CLogger::SetFilter(const std::string  &Filter)
 {
 	std::vector<std::string> FilterList;
+	std::string  pFilter = Filter;
+	stdreplace(pFilter,"$$"," ");
 	_log.Debug(DEBUG_NORM, "debugfilter:%s", pFilter.c_str());
 	FilterStringList.clear();
 	KeepStringList.clear();
