@@ -222,7 +222,8 @@ EnOceanSendActuatorSetMeasurement = function (profil, deviceId,  Resetmeasuremen
 {
 	    var payload = {};
 	    var i;
-		payload[0] = 5;                          // "Command ID",{{ 5 , "ID 05" },}},
+		var cmd = 5;							// "Command ID",{{ 5 , "ID 05" },}},
+		payload[0] = cmd;                          
 		payload[1] = 1;                          // "Report measurement",{{ 0 , "Report measurement: query only" },{ 1 , "Report measurement: query / auto reporting" },}},
 		payload[2] = Resetmeasurement;           // "Reset measurement",{{ 0 , "Reset measurement: not active" },{ 1 , "Reset measurement: trigger signal" },}},
 		payload[3] = measurementType;            // "Measurement mode",{{ 0 , "Energy measurement" },{ 1 , "Power measurement" },}},
@@ -234,18 +235,31 @@ EnOceanSendActuatorSetMeasurement = function (profil, deviceId,  Resetmeasuremen
 		payload[9] = MinSendMessageTimeInSec; // "Minimum time between two subsequent actuator messages",{}},
 
         payload["profil"]= profil;
-        payload["casenb"]= 4 ; //SetMeasurement  cmd=5
+        payload["casenb"]= cmd-1 ; //SetMeasurement  cmd=5
         payload["devidx"]= deviceId ;
         payload["baseAddr"]= $.baseAddr ;
 			
         result = SendCmd($.devIdx, "sendvld",payload );
 }
-EnOceanSendEnergyPowerMeasurement = function (profil, deviceId ) 
+EnOceanSendQuerytMeasurement = function (profil, deviceId,   measurementType ) 
 {
-	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 0, 0, 16, 1, 60, 50);
-	EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 1, 0, 16, 3, 60, 50);
+	    var payload = {};
+	    var i;
+		var cmd =  6 ;
+		payload[0] = cmd;                          
+		payload[1] = measurementType;            // "Measurement mode",{{ 0 , "Energy measurement" },{ 1 , "Power measurement" },}},
+		payload[2] = 0              ;           
 
+        payload["profil"]= profil;
+        payload["casenb"]= cmd-1 ; //SetMeasurement  cmd=6
+        payload["devidx"]= deviceId ;
+        payload["baseAddr"]= $.baseAddr ;
+			
+        result = SendCmd($.devIdx, "sendvld",payload );
 }
+
+
+
 EnOceanButtonActionOk = function (profil, deviceId) 
 {
     var caseNb =  $("#dialog-enoceansend  #CaseCombo").val();
@@ -286,7 +300,12 @@ EnOceanDeviceSendCreateDialog = function (profil, deviceId) {
         $(this).dialog("close");
 	};
     dialog_buttons[$.t("SetMeasurement")] = function () {
-        EnOceanSendEnergyPowerMeasurement(profil, deviceId);
+		EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 0, 0, 16, 1, 80, 70);
+		setTimeout(() => { EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 1, 0, 16, 3, 60, 50);  }, 1000);
+		    };
+    dialog_buttons[$.t("QueryMeasurement")] = function () {
+		EnOceanSendQuerytMeasurement($.profil, $.devIdx, 0);
+		setTimeout(() => { EnOceanSendQuerytMeasurement($.profil, $.devIdx, 1); }, 1000);
     };
 
     $("#dialog-enoceansend").dialog({
