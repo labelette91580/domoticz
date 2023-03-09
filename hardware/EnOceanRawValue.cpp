@@ -60,7 +60,7 @@ namespace enocean
 
 	bool SetRawValue(uint8_t* data, uint32_t value, T_DATAFIELD* offset)
 	{
-		if(value>= (1<<offset->Size))
+		if(value>= (1UL<<offset->Size))
 			return false ;
 		return SetRawValue(data, value, offset->Offset, offset->Size);
 	}

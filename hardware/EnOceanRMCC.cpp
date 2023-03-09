@@ -1133,7 +1133,7 @@ static int addNodeToList(Json::Value& root, std::string& Name, std::string& Type
 	}
 	return ii;
 }
-static int addMayBeaNode(int devId, int devUnit, int devType, int ii, std::string& HardwareID, Json::Value& root, char* DeviceIdfmt)
+static int addMayBeaNode(int devId, int devUnit, int devType, int ii, std::string& HardwareID, Json::Value& root, const char* DeviceIdfmt)
 {
 	std::vector<std::vector<std::string> > result2;
 	char sId[32];
