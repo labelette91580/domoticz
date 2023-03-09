@@ -1759,7 +1759,7 @@ bool  ImperiHomeRequest(std::string request_path, std::string& rep_content)
 	ImperiHome m_ImperiHome;
 	bool ret = m_ImperiHome.Request(request_path, rep_content);
 	if (ret)
-		//		if (!_log.IsDebugStringFiltered("IMPA"))
+		if (!_log.CheckIfMessageIsFiltered("IMPA"))
 		//    if(_log.IsDebugLevelEnabled("IMPA"))
 		if (rep_content.length())
 		{
