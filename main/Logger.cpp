@@ -520,9 +520,9 @@ void CLogger::SetFilter(const std::string  &Filter)
 	for (size_t i = 0; i < FilterList.size(); i++)
 	{
 		if (FilterList[i][0] == '+')
-			KeepStringList.push_back(FilterList[i].substr(1));
+			KeepStringList.push_back(std::regex(FilterList[i].substr(1)));
 		else
-			FilterStringList.push_back(FilterList[i]);
+			FilterStringList.push_back(std::regex(FilterList[i]));
 	}
 }
 
@@ -530,18 +530,27 @@ void CLogger::SetFilter(const std::string  &Filter)
 //
 bool CLogger::CheckIfMessageIsFiltered(const char *cbuffer)
 {
+	std::string mlog = std::string(cbuffer);
+	return CheckIfMessageIsFiltered(mlog);
+}
+bool CLogger::CheckIfMessageIsFiltered(const std::string& mlog)
+{
 	bool filtered = false; //default not filtered
 
 	//search if the log shall be filter
 	for (size_t i = 0; i < FilterStringList.size(); i++)
 	{
-		if ( FilterStringList[i] == "all" )
-		{
-			filtered = true;
-			break;
-		}
-
-		if (strstr(cbuffer, FilterStringList[i].c_str()) != 0)
+		//if ( FilterStringList[i] == std::regex("all") )
+//		{
+//			filtered = true;
+//			break;
+//		}
+		std::smatch m; 
+		std::regex_search(mlog, m, FilterStringList[i]); 
+	
+	//		if (std::regex_match (std::string(cbuffer), std::regex(FilterStringList[i]) ))
+		//if (strstr(cbuffer, FilterStringList[i].c_str()) != 0)
+		if (m.size())
 		{
 			filtered = true;
 			break;
@@ -552,7 +561,10 @@ bool CLogger::CheckIfMessageIsFiltered(const char *cbuffer)
 	{
 		for (size_t i = 0; i < KeepStringList.size(); i++)
 		{
-			if (strstr(cbuffer, KeepStringList[i].c_str()) != 0)
+//			if (strstr(cbuffer, KeepStringList[i].c_str()) != 0)
+			std::smatch m; 
+		    std::regex_search(mlog, m, KeepStringList[i]); 
+			if (m.size())
 			{
 				filtered = false;
 				break;
