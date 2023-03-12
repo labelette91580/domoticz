@@ -300,8 +300,8 @@ EnOceanDeviceSendCreateDialog = function (profil, deviceId) {
         $(this).dialog("close");
 	};
     dialog_buttons[$.t("SetMeasurement")] = function () {
-		EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 0, 0, 16, 1, 60, 50);
-		setTimeout(() => { EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 1, 0, 16, 3, 60, 50);  }, 2000);
+		EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 0, 0, 16, 1, 300, 60);
+		setTimeout(() => { EnOceanSendActuatorSetMeasurement($.profil, $.devIdx, 0, 1, 0, 16, 3, 300, 60);  }, 2000);
 	};
     dialog_buttons[$.t("QueryMeasurement")] = function () {
 		EnOceanSendQuerytMeasurement($.profil, $.devIdx, 0);
