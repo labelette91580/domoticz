@@ -4,6 +4,7 @@
 #include <list>
 #include <string>
 #include <fstream>
+#include <regex>
 
 enum _eLogLevel : uint32_t
 {
@@ -100,6 +101,7 @@ class CLogger
 
 	void SetFilter(const std::string &pFilter);
 	bool CheckIfMessageIsFiltered(const char* cbuffer);
+	bool CheckIfMessageIsFiltered(const std::string& cbuffer);
       private:
 	uint32_t m_log_flags = 0;
 	uint32_t m_debug_flags = 0;
@@ -118,7 +120,8 @@ class CLogger
 	bool m_bEnableErrorsToNotificationSystem;
 	time_t m_LastLogNotificationsSend;
 	std::stringstream m_sequencestring;
-	std::vector<std::string> FilterStringList; //list of keyword to filter
-	std::vector<std::string> KeepStringList;   //list of keyword to keep
+	std::vector<std::regex> FilterStringList; //list of keyword to filter
+	std::vector<std::regex> KeepStringList;
+	//list of keyword to keep
 };
 extern CLogger _log;
