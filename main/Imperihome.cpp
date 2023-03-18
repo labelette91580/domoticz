@@ -87,7 +87,7 @@ private:
 	void manageTypeGeneral(TSqlRowQuery* row, Json::Value& params);
 	void ManageHisto(std::string& device, std::string& value, std::string& histo, std::string& from, std::string& to, std::string& rep_content);
 	void getDeviceCamera();
-	void getGraphic(std::string& idx, std::string TableName, std::string FieldName, std::string KeyName, time_t DateStart, time_t  DateEnd, std::string& rep_content);
+	void getGraphic(std::string& idx, std::string TableName, std::string FieldName, std::string KeyName, time_t DateStart, time_t  DateEnd, std::string& rep_content, double CoefA, double CoefB);
 	void         setRoomId(std::string& DeviceRowID, std::string RoomId);
 	std::string  getRoomId(std::string& DeviceRowID);
 	void clearRoomIds();
@@ -140,6 +140,9 @@ typedef struct {
 	std::string KeyName;		//key value name
 	std::string Table;			//table name
 	std::string Field;			//field name
+	double		coefA;
+	double		coefB;
+
 }T_GRAPHIC;
 
 //this table give the Table Name / field Name for the short log in order to get the graphic values
@@ -147,37 +150,37 @@ typedef struct {
 
 // used to display graphycal 
 T_GRAPHIC GraphicTable[] = {
-	//ISS device type       Json Key Name     Sql Table NAme       Sql field Name
+	//ISS device type       Json Key Name     Sql Table NAme       Sql field Name       coefA          CoefB
 	//DeviceTypeEnum
-	{ DevDimmer             ,""              ,""                  ,""                  },
-	{ DevSwitch             ,""              ,""                  ,""                  },
-	{ DevTemperature        ,PKEYVALUE       ,"TEMPERATURE"       ,"Temperature"       },
-	{ DevCamera             ,""              ,""                  ,""                  },
-	{ DevCO2                ,""              ,""                  ,""                  },
-	{ DevShutter            ,""              ,""                  ,""                  },
-	{ DevDoor               ,""              ,""                  ,""                  },
-	{ DevFlood              ,""              ,""                  ,""                  },
-	{ DevMotion             ,""              ,""                  ,""                  },
-	{ DevSmoke              ,""              ,""                  ,""                  },
-	{ DevElectricity        ,"Watts"         ,"Meter"             ,"Usage"             },
-	{ DevGenericSensor      ,""              ,""                  ,""                  },
-	{ DevHygrometry         ,PKEYVALUE       ,"TEMPERATURE"       ,"Humidity"          },
-	{ DevLuminosity         ,PKEYVALUE       ,"Meter"             ,"Value"             },
-	{ DevLock               ,""              ,""                  ,""                  },
-	{ DevMultiSwitch        ,""              ,""                  ,""                  },
-	{ DevNoise              ,""              ,""                  ,""                  },
-	{ DevPressure           ,PKEYVALUE       ,"TEMPERATURE"       ,"Barometer"         },
-	{ DevRain               ,"Value"         ,"Rain"              ,"Rate"              },
-	{ DevRain               ,"Accumulation"  ,"Rain"              ,"Rate"              },
-	{ DevScene              ,""              ,""                  ,"Total"             },
-	{ DevUV                 ,"Value"         ,"UV"                ,"Level"             },
-	{ DevWind               ,"Speed"         ,"Wind"              ,"Speed"             },
-	{ DevWind               ,"Direction"     ,"Wind"              ,"Direction"         },
-	{ DevCO2Alert           ,""              ,""                  ,""                  },
-	{ DevThermostat         ,""              ,""                  ,""                  },
-	{ DevRGBLight           ,""              ,""                  ,""                  },
-	{ DevTempHygro          ,"temp"          ,"TEMPERATURE"       ,"Temperature"       },
-	{ DevTempHygro          ,"hygro"         ,"TEMPERATURE"       ,"Humidity"          },
+	{ DevDimmer             ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevSwitch             ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevTemperature        ,PKEYVALUE       ,"TEMPERATURE"       ,"Temperature"       , 1.0         , 0.0      },
+	{ DevCamera             ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevCO2                ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevShutter            ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevDoor               ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevFlood              ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevMotion             ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevSmoke              ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevElectricity        ,"Watts"         ,"Meter"             ,"Usage"             , 1.0         , 0.0      },
+	{ DevGenericSensor      ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevHygrometry         ,PKEYVALUE       ,"TEMPERATURE"       ,"Humidity"          , 1.0         , 0.0      },
+	{ DevLuminosity         ,PKEYVALUE       ,"Meter"             ,"Value"             , 1.0         , 0.0      },
+	{ DevLock               ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevMultiSwitch        ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevNoise              ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevPressure           ,PKEYVALUE       ,"TEMPERATURE"       ,"Barometer"         , 1.0         , 0.0      },
+	{ DevRain               ,"Value"         ,"Rain"              ,"Rate"              , 0.01        , 0.0      },
+	{ DevRain               ,"Accumulation"  ,"Rain"              ,"Total"             , 1.0         , 0.0      },
+	{ DevScene              ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevUV                 ,"Value"         ,"UV"                ,"Level"             , 1.0         , 0.0      },
+	{ DevWind               ,"Speed"         ,"Wind"              ,"Speed"             , 1.0         , 0.0      },
+	{ DevWind               ,"Direction"     ,"Wind"              ,"Direction"         , 1.0         , 0.0      },
+	{ DevCO2Alert           ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevThermostat         ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevRGBLight           ,""              ,""                  ,""                  , 1.0         , 0.0      },
+	{ DevTempHygro          ,"temp"          ,"TEMPERATURE"       ,"Temperature"       , 1.0         , 0.0      },
+	{ DevTempHygro          ,"hygro"         ,"TEMPERATURE"       ,"Humidity"          , 1.0         , 0.0      },
 };
 
 //get DomoticzHardwareBase object from device Idx :deviceidx in device status table
@@ -324,12 +327,13 @@ void ImperiHome::ManageHisto(std::string& device, std::string& value, std::strin
 		DateEndSec = atol(to.c_str());
 
 		for (int i = 0; i < sizeof(GraphicTable) / sizeof(T_GRAPHIC); i++) {
-			if ((GraphicTable[i].IssType == IssType) && (GraphicTable[i].KeyName == value))
+			if ((GraphicTable[i].IssType == IssType) && (stricmp(GraphicTable[i].KeyName.c_str(), value.c_str())==0))
 			{
-				getGraphic(ID, GraphicTable[i].Table, GraphicTable[i].Field, value, DateStartSec, DateEndSec, rep_content);
+				getGraphic(ID, GraphicTable[i].Table, GraphicTable[i].Field, value, DateStartSec, DateEndSec, rep_content,GraphicTable[i].coefA ,GraphicTable[i].coefB );
 				return;
 			}
 		}
+		_log.Log(LOG_ERROR, "IMPE: Graphic Devices:%s not found ", device.c_str());
 	}
 
 }
@@ -515,7 +519,7 @@ void ImperiHome::manageTypeGeneral(TSqlRowQuery* row, Json::Value& params)
 		//							root["result"][ii]["Voltage"] = std::stof(sValue.c_str());
 		break;
 	case  sTypePressure:
-		SetKey(PKEYVALUE, sValueGlb[0], "bar", false);
+		SetKey(PKEYVALUE, sValueGlb[0], "bar", true);
 		updateRoot(dID, dName, DevPressure);
 
 		//							sprintf(szData, "%.1f Bar", std::stof(sValue.c_str()));
@@ -783,16 +787,16 @@ void ImperiHome::DeviceContent(std::string& rep_content)
 		case pTypeTEMP_HUM:
 			//DevTempHygro
 			SetKey("temp", sValueGlb[0], "°C", true);
-			SetKey("hygro", sValueGlb[1], "%", false);
+			SetKey("hygro", sValueGlb[1], "%", true);
 			updateRoot(dID, dName, DevTempHygro);
 			break;
 		case pTypeTEMP_HUM_BARO:
 			//DevTempHygro
 			SetKey("temp", sValueGlb[0], "°C", true);
-			SetKey("hygro", sValueGlb[1], "%", false);
+			SetKey("hygro", sValueGlb[1], "%", true);
 			updateRoot(dID, dName, DevTempHygro);
 			//baro
-			SetKey(PKEYVALUE, sValueGlb[3], "mbar", false);
+			SetKey(PKEYVALUE, sValueGlb[3], "mbar", true);
 			updateRoot(dID, dName, DevPressure);
 			break;
 		case pTypeTEMP_BARO:
@@ -800,15 +804,15 @@ void ImperiHome::DeviceContent(std::string& rep_content)
 			SetKey(PKEYVALUE, sValueGlb[0], "°C", true);
 			updateRoot(dID, dName, DevTemperature);
 			//baro
-			SetKey(PKEYVALUE, sValueGlb[1], "mbar", false);
+			SetKey(PKEYVALUE, sValueGlb[1], "mbar", true);
 			updateRoot(dID, dName, DevPressure);
 			break;
 		case pTypeUV:
 			//UVI
-			SetKey(PKEYVALUE, sValueGlb[0], "", false);
+			SetKey(PKEYVALUE, sValueGlb[0], "", true);
 			updateRoot(dID, dName, DevUV);
 			//temperature
-			SetKey(PKEYVALUE, sValueGlb[1], "°C", false);
+			SetKey(PKEYVALUE, sValueGlb[1], "°C", true);
 			updateRoot(dID, dName, DevTemperature);
 			break;
 		case pTypeWIND:
@@ -828,14 +832,14 @@ void ImperiHome::DeviceContent(std::string& rep_content)
 			updateRoot(dID, dName, DevWind);
 			break;
 		case pTypeRAIN:
-			SetKey("Value", sValueGlb[0], "mm/h", false);
-			SetKey("Accumulation", sValueGlb[1], "mm", false);
+			SetKey("Value", sValueGlb[0], "mm/h", true);
+			SetKey("Accumulation", sValueGlb[1], "mm", true);
 			updateRoot(dID, dName, DevRain);
 			break;
 		case pTypeCURRENTENERGY://CM180i
 		case pTypePOWER:
 			//data= I1;I2;I3
-			SetKey("Watts", sValueGlb[0], "W", false);
+			SetKey("Watts", sValueGlb[0], "W", true);
 			updateRoot(dID, dName, DevElectricity);
 			/*            if (sValueGlb.size()>=2){
 						  SetKey("Watts"     ,sValueGlb[1] ,"W" ,false );
@@ -892,7 +896,7 @@ void ImperiHome::DeviceContent(std::string& rep_content)
 			updateRoot(dID, dName, LightType(row, params));
 			break;
 		case pTypeLux:
-			SetKey(PKEYVALUE, sValueGlb[0], "lux", false);
+			SetKey(PKEYVALUE, sValueGlb[0], "lux", true);
 			updateRoot(dID, dName, DevLuminosity);
 			break;
 		case pTypeUsage:
@@ -1810,7 +1814,7 @@ time_t DateAsciiToTime_t(std::string& DateStr)
 	return mktime(&tmTime);
 }
 
-void ImperiHome::getGraphic(std::string& idx, std::string TableName, std::string FieldName, std::string KeyName, time_t DateStart, time_t  DateEnd, std::string& rep_content)
+void ImperiHome::getGraphic(std::string& idx, std::string TableName, std::string FieldName, std::string KeyName, time_t DateStart, time_t  DateEnd, std::string& rep_content, double CoefA, double CoefB)
 {
 	char DateStartStr[40];
 	char DateEndStr[40];
@@ -1837,6 +1841,8 @@ void ImperiHome::getGraphic(std::string& idx, std::string TableName, std::string
 
 		if (KeyName == "temp")
 			tvalue = ConvertTemperature(tvalue, m_sql.m_tempsign[0]);
+
+		tvalue = tvalue * CoefA + CoefB ;
 		char tv[14];
 		sprintf(tv, "%3.1f", tvalue);
 		if (i > 0)
