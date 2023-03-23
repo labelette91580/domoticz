@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <string>
+#include <string.h>
 #include <json/json.h>
 #include <boost/asio.hpp> 
 
@@ -42,8 +43,8 @@ enum DeviceTypeEnum
 	DevCO2Alert,
 	DevThermostat,
 	DevRGBLight, // RGB(W) Light (dimmable)
-	DevTempHygro		   // Temperature and Hygrometry combined sensor
-
+	DevTempHygro,		   // Temperature and Hygrometry combined sensor
+	DevSize
 };
 
 //index of field in sql query
@@ -162,7 +163,7 @@ T_GRAPHIC GraphicTable[] = {
 	{ DevFlood              ,""              ,""                  ,""                  , 1.0         , 0.0      },
 	{ DevMotion             ,""              ,""                  ,""                  , 1.0         , 0.0      },
 	{ DevSmoke              ,""              ,""                  ,""                  , 1.0         , 0.0      },
-	{ DevElectricity        ,"Watts"         ,"Meter"             ,"Usage"             , 1.0         , 0.0      },
+	{ DevElectricity        ,"watts"         ,"Meter"             ,"Usage"             , 1.0         , 0.0      },
 	{ DevGenericSensor      ,""              ,""                  ,""                  , 1.0         , 0.0      },
 	{ DevHygrometry         ,PKEYVALUE       ,"TEMPERATURE"       ,"Humidity"          , 1.0         , 0.0      },
 	{ DevLuminosity         ,PKEYVALUE       ,"Meter"             ,"Value"             , 1.0         , 0.0      },
@@ -170,12 +171,12 @@ T_GRAPHIC GraphicTable[] = {
 	{ DevMultiSwitch        ,""              ,""                  ,""                  , 1.0         , 0.0      },
 	{ DevNoise              ,""              ,""                  ,""                  , 1.0         , 0.0      },
 	{ DevPressure           ,PKEYVALUE       ,"TEMPERATURE"       ,"Barometer"         , 1.0         , 0.0      },
-	{ DevRain               ,"Value"         ,"Rain"              ,"Rate"              , 0.01        , 0.0      },
-	{ DevRain               ,"Accumulation"  ,"Rain"              ,"Total"             , 1.0         , 0.0      },
+	{ DevRain               ,"value"         ,"Rain"              ,"Rate"              , 0.01        , 0.0      },
+	{ DevRain               ,"accumulation"  ,"Rain"              ,"Total"             , 1.0         , 0.0      },
 	{ DevScene              ,""              ,""                  ,""                  , 1.0         , 0.0      },
-	{ DevUV                 ,"Value"         ,"UV"                ,"Level"             , 1.0         , 0.0      },
-	{ DevWind               ,"Speed"         ,"Wind"              ,"Speed"             , 1.0         , 0.0      },
-	{ DevWind               ,"Direction"     ,"Wind"              ,"Direction"         , 1.0         , 0.0      },
+	{ DevUV                 ,"value"         ,"UV"                ,"Level"             , 1.0         , 0.0      },
+	{ DevWind               ,"speed"         ,"Wind"              ,"Speed"             , 1.0         , 0.0      },
+	{ DevWind               ,"direction"     ,"Wind"              ,"Direction"         , 1.0         , 0.0      },
 	{ DevCO2Alert           ,""              ,""                  ,""                  , 1.0         , 0.0      },
 	{ DevThermostat         ,""              ,""                  ,""                  , 1.0         , 0.0      },
 	{ DevRGBLight           ,""              ,""                  ,""                  , 1.0         , 0.0      },
@@ -183,6 +184,33 @@ T_GRAPHIC GraphicTable[] = {
 	{ DevTempHygro          ,"hygro"         ,"TEMPERATURE"       ,"Humidity"          , 1.0         , 0.0      },
 };
 
+
+bool DevGraphable[DevSize];
+
+void InitDevGraphable()
+{
+	memset(DevGraphable,0,sizeof(DevGraphable));
+	for (unsigned int devNum=0;devNum<DevSize;devNum++)
+	{
+		for (unsigned int i = 0; i < sizeof(GraphicTable) / sizeof(T_GRAPHIC); i++) 
+		{
+			if (GraphicTable[i].IssType == devNum)
+			{
+				if (!GraphicTable[i].KeyName.empty())
+				{
+					DevGraphable[devNum]=true;
+				}
+			}
+		}
+	}
+}
+bool isDevGraphable(unsigned int devNum)
+{
+	if (devNum<DevSize)
+		return DevGraphable[devNum];
+	else
+		return false;
+}
 //get DomoticzHardwareBase object from device Idx :deviceidx in device status table
 CDomoticzHardwareBase* GetDeviceHardwareFromDeviceId(const std::string& deviceidx)
 {
@@ -326,14 +354,15 @@ void ImperiHome::ManageHisto(std::string& device, std::string& value, std::strin
 		DateStartSec = atol(from.c_str());
 		DateEndSec = atol(to.c_str());
 
+		stdlower(value);
 		for (int i = 0; i < sizeof(GraphicTable) / sizeof(T_GRAPHIC); i++) {
-			if ((GraphicTable[i].IssType == IssType) && (stricmp(GraphicTable[i].KeyName.c_str(), value.c_str())==0))
+			if ((GraphicTable[i].IssType == IssType) && (GraphicTable[i].KeyName ==  value ))
 			{
 				getGraphic(ID, GraphicTable[i].Table, GraphicTable[i].Field, value, DateStartSec, DateEndSec, rep_content,GraphicTable[i].coefA ,GraphicTable[i].coefB );
 				return;
 			}
 		}
-		_log.Log(LOG_ERROR, "IMPE: Graphic Devices:%s not found ", device.c_str());
+		_log.Log(LOG_ERROR, "IMPE: Graphic Devices:%s value %s not found ", device.c_str(), value.c_str());
 	}
 
 }
@@ -451,7 +480,7 @@ void ImperiHome::SetKeys(const char* KeyName, ...)
 	va_start(value, KeyName);
 	const char* KeyValue = va_arg(value, char*);
 	const char* Unit = va_arg(value, char*);
-	bool graphable = va_arg(value, bool);
+	int graphable = va_arg(value, int);
 
 	SetKey(KeyName, KeyValue, Unit, graphable);
 
@@ -462,7 +491,7 @@ void ImperiHome::SetKeys(const char* KeyName, ...)
 			return;
 		const char* KeyValue = va_arg(value, char*);
 		const char* Unit = va_arg(value, char*);
-		bool graphable = va_arg(value, bool);
+		int graphable = va_arg(value, int);
 
 		SetKey(KeyName, KeyValue, Unit, graphable);
 	}
