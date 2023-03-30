@@ -49,7 +49,7 @@ define(['app'], function (app) {
 
 					    var sdate = fline[0];
 					    var stime = fline[1];
-
+						var loglength=1000;
 					    for (i = 0; i < lines.length; i++) {
 					        var lmessage = "";
 					        if (i == 0) {
@@ -64,16 +64,16 @@ define(['app'], function (app) {
 					            mclass: logclass,
 					            text: lmessage
 					        });
-					        if ($scope.logitems.length >= 300)
-					            $scope.logitems.splice(0, ($scope.logitems.length - 300));
+					        if ($scope.logitems.length >= loglength)
+					            $scope.logitems.splice(0, ($scope.logitems.length - loglength));
 					        if (item.level == LOG_ERROR) {
 					            //Error
 					            $scope.logitems_error = $scope.logitems_error.concat({
 					                mclass: logclass,
 					                text: lmessage
 					            });
-					            if ($scope.logitems_error.length >= 300)
-					                $scope.logitems_error.splice(0, ($scope.logitems_error.length - 300));
+					            if ($scope.logitems_error.length >= loglength)
+					                $scope.logitems_error.splice(0, ($scope.logitems_error.length - loglength));
                             }
 					        else if (item.level == LOG_STATUS) {
 					            //Status
@@ -81,8 +81,8 @@ define(['app'], function (app) {
 					                mclass: logclass,
 					                text: lmessage
 					            });
-					            if ($scope.logitems_status.length >= 300)
-					                $scope.logitems_status.splice(0, ($scope.logitems_status.length - 300));
+					            if ($scope.logitems_status.length >= loglength)
+					                $scope.logitems_status.splice(0, ($scope.logitems_status.length - loglength));
                             }
 					        else if (item.level == LOG_DEBUG) {
 					            //Debug
@@ -90,8 +90,8 @@ define(['app'], function (app) {
 					                mclass: logclass,
 					                text: lmessage
 					            });
-					            if ($scope.logitems_debug.length >= 300)
-					                $scope.logitems_debug.splice(0, ($scope.logitems_debug.length - 300));
+					            if ($scope.logitems_debug.length >= loglength)
+					                $scope.logitems_debug.splice(0, ($scope.logitems_debug.length - loglength));
                             }
                         }
 					});
