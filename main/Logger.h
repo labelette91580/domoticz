@@ -122,6 +122,7 @@ class CLogger
 	std::stringstream m_sequencestring;
 	std::vector<std::regex> FilterStringList; //list of keyword to filter
 	std::vector<std::regex> KeepStringList;
+	std::vector<std::regex> Filter2StringList; //list of keyword to filter after Keep pass
 	//list of keyword to keep
 };
 extern CLogger _log;
