@@ -861,9 +861,12 @@ void ImperiHome::DeviceContent(std::string& rep_content)
 			updateRoot(dID, dName, DevWind);
 			break;
 		case pTypeRAIN:
-			SetKey("Value", sValueGlb[0], "mm/h", true);
+			{
+			float rate = atof(sValueGlb[0].c_str()) / 100 ;
+			SetKey("Value", std_format("%.1f", rate), "mm/h", true);
 			SetKey("Accumulation", sValueGlb[1], "mm", true);
 			updateRoot(dID, dName, DevRain);
+			}
 			break;
 		case pTypeCURRENTENERGY://CM180i
 		case pTypePOWER:
