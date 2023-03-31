@@ -4394,6 +4394,18 @@ std::vector<std::vector<std::string>> CSQLHelper::safe_query(const char *fmt, ..
 	return results;
 }
 
+//return string vector in csv line format with separator ';'
+std::string std_vector_to_string(std::vector<std::string> & values)
+{
+					std::string ss;
+					for(unsigned  it = 0; it<values.size() ;it++)
+					{ 
+						if(it != 0 ) ss+=";";
+						ss += values[it];
+					}
+					return ss;
+}
+
 std::vector<std::vector<std::string> > CSQLHelper::query(const std::string& szQuery)
 {
 	if (!m_dbase)
@@ -4406,9 +4418,18 @@ std::vector<std::vector<std::string> > CSQLHelper::query(const std::string& szQu
 
 	sqlite3_stmt* statement;
 	std::vector<std::vector<std::string> > results;
-    _log.Debug(DEBUG_SQL, "Query:%s", szQuery.c_str());
+
+	bool filter = true;
+	if (_log.IsDebugLevelEnabled(DEBUG_SQL))
+	{
+		filter = _log.CheckIfMessageIsFiltered(szQuery.c_str());
+		if (!filter)
+			_log.Debug(DEBUG_SQL, "Query:%s", szQuery.c_str());
+	}
+
 	if (sqlite3_prepare_v2(m_dbase, szQuery.c_str(), -1, &statement, nullptr) == SQLITE_OK)
 	{
+		std::string logDebug ;
 		int cols = sqlite3_column_count(statement);
 		while (true)
 		{
@@ -4426,6 +4447,11 @@ std::vector<std::vector<std::string> > CSQLHelper::query(const std::string& szQu
 					else
 						values.push_back(value);
 				}
+				if (!filter){
+					if (!logDebug.empty())
+						logDebug += "\n";
+					logDebug += std_vector_to_string(values) ;
+				}
 				if (!values.empty())
 					results.push_back(values);
 			}
@@ -4434,6 +4460,9 @@ std::vector<std::vector<std::string> > CSQLHelper::query(const std::string& szQu
 				break;
 			}
 		}
+		if ( (!filter) && (!logDebug.empty()) )
+			_log.Debug(DEBUG_SQL, "SQLA:%s", logDebug.c_str());
+
 		sqlite3_finalize(statement);
 	}
 
