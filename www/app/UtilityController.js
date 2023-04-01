@@ -379,6 +379,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				else if ((item.Type == "Energy") || (item.Type == "Current/Energy") || (item.Type == "Power") || (item.SubType == "kWh")) {
 					if (typeof item.CounterToday != 'undefined') {
 						status += $.t("Today") + ': ' + item.CounterToday;
+						status += $.t(" Total") + ': ' + item.Data;
 					}
 				}
 				else if (item.SubType == "Percentage") {
@@ -715,6 +716,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 								}
 								if (typeof item.CounterToday != 'undefined') {
 									status += $.t("Today") + ': ' + item.CounterToday;
+									status += $.t(" Total") + ': ' + item.Data;
 								}
 							}
 							else if (item.Type == "Air Quality") {

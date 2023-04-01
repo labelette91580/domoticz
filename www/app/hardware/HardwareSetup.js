@@ -1,7 +1,7 @@
 define([
     'app',
     'hardware/setup/BleBox',
-    'hardware/setup/EnOceanESP3',
+//    'hardware/setup/EnOceanESP3',
     'hardware/setup/Kodi',
     'hardware/setup/MySensors',
     'hardware/setup/PanasonicTV',
@@ -9,6 +9,7 @@ define([
     'hardware/setup/WakeOnLan',
     'hardware/setup/MQTT-AD',
     'hardware/setup/ZWave',
+    'hardware/setup/EnOcean',
 ], function (app) {
     app.controller('HardwareSetupController', function ($routeParams, domoticzApi) {
         var vm = this;

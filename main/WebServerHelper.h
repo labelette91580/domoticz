@@ -28,6 +28,7 @@ namespace http {
 			void GetJSonDevices(Json::Value &root, const std::string &rused, const std::string &rfilter, const std::string &order, const std::string &rowid, const std::string &planID,
 					    const std::string &floorID, bool bDisplayHidden, bool bDisplayDisabled, bool bFetchFavorites, time_t LastUpdate, const std::string &username,
 					    const std::string &hardwareid = "");
+			void RegisterRType(const char* idname, const http::server::CWebServer::webserver_response_function& ResponseFunction);
 			// called from CSQLHelper
 			void ReloadCustomSwitchIcons();
 			std::string our_listener_port;
