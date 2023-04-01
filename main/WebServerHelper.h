@@ -23,6 +23,7 @@ namespace http {
 			void LoadUsers();
 			void ClearUserPasswords();
 			void ReloadTrustedNetworks();
+			void RType_Scenes(Json::Value &root);//called from imperihome
 			// called from OTGWBase()
 			void GetJSonDevices(Json::Value &root, const std::string &rused, const std::string &rfilter, const std::string &order, const std::string &rowid, const std::string &planID,
 					    const std::string &floorID, bool bDisplayHidden, bool bDisplayDisabled, bool bFetchFavorites, time_t LastUpdate, const std::string &username,
