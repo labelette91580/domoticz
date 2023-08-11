@@ -176,7 +176,6 @@ static const STR_TABLE_SINGLE HardwareTypeTable[] = {
 	{ HTYPE_OpenThermGateway, "OpenTherm Gateway USB", "OpenTherm" },
 	{ HTYPE_TeleinfoMeter, "Teleinfo EDF", "TeleInfo" },
 	{ HTYPE_OpenThermGatewayTCP, "OpenTherm Gateway with LAN interface", "OpenTherm" },
-	{ HTYPE_OpenZWave, "OpenZWave USB", "OpenZWave" },
 	{ HTYPE_LimitlessLights, "Limitless/AppLamp/Mi Light with LAN/WiFi interface", "Limitless" },
 	{ HTYPE_System, "Motherboard sensors", "HardwareMonitor" },
 	{ HTYPE_EnOceanESP2, "EnOcean USB (ESP2)", "EnOcean" },
@@ -242,7 +241,7 @@ static const STR_TABLE_SINGLE HardwareTypeTable[] = {
 	{ HTYPE_BleBox, "BleBox devices", "BleBox" },
 	{ HTYPE_Ec3kMeterTCP, "Energy Count 3000/ NETBSEM4/ La Crosse RT-10 LAN", "Ec3kMeter" },
 	{ HTYPE_OpenWeatherMap, "Open Weather Map", "OpenWeatherMap" },
-	{ HTYPE_RESERVED_FOR_YOU_1, "", "" },
+	{ HTYPE_AlfenEveCharger, "Alfen Eve Charger LAN", "Alfen" },
 	{ HTYPE_RaspberryTSL2561, "I2C sensor TSL2561 Illuminance", "I2C TSL2561" },
 	{ HTYPE_Daikin, "Daikin Airconditioning with LAN (HTTP) interface", "Daikin" },
 	{ HTYPE_HEOS, "HEOS by DENON", "HEOS" },
@@ -262,7 +261,7 @@ static const STR_TABLE_SINGLE HardwareTypeTable[] = {
 	{ HTYPE_SysfsGpio, "Generic sysfs GPIO", "sysfs" },
 	{ HTYPE_Rtl433, "Rtl433 RTL-SDR receiver", "RTL433" },
 	{ HTYPE_OnkyoAVTCP, "Onkyo AV Receiver (LAN)", "Onkyo AV" },
-	{ HTYPE_RESERVED_FOR_YOU_2, "", "" },
+	{ HTYPE_EneverPriceFeeds, "Enever Dutch Electricity/Gas Price Feed", "Enever" },
 	{ HTYPE_USBtinGateway, "USBtin Can Gateway", "USBtin" },
 	{ HTYPE_EnphaseAPI, "Enphase Envoy with LAN (HTTP) interface", "Enphase" },
 	{ HTYPE_RaspberryMCP23017, "I2C sensor GPIO 16bit expander MCP23017", "I2C GPIO" },
@@ -782,11 +781,7 @@ const char* RFX_Type_SubType_Desc(const unsigned char dType, const unsigned char
 		{ pTypeGeneral, sTypeBaro, "Barometer" },
 		{ pTypeGeneral, sTypeSetPoint, "Setpoint" },
 		{ pTypeGeneral, sTypeTemperature, "Temperature" },
-		{ pTypeGeneral, sTypeZWaveClock, "Thermostat Clock" },
 		{ pTypeGeneral, sTypeTextStatus, "Text" },
-		{ pTypeGeneral, sTypeZWaveThermostatMode, "Thermostat Mode" },
-		{ pTypeGeneral, sTypeZWaveThermostatFanMode, "Thermostat Fan Mode" },
-		{ pTypeGeneral, sTypeZWaveThermostatOperatingState, "Thermostat Operating State" },
 		{ pTypeGeneral, sTypeAlert, "Alert" },
 		{ pTypeGeneral, sTypeSoundLevel, "Sound Level" },
 		{ pTypeGeneral, sTypeUV, "UV" },
@@ -795,7 +790,6 @@ const char* RFX_Type_SubType_Desc(const unsigned char dType, const unsigned char
 		{ pTypeGeneral, sTypeKwh, "kWh" },
 		{ pTypeGeneral, sTypeWaterflow, "Waterflow" },
 		{ pTypeGeneral, sTypeCustom, "Custom Sensor" },
-		{ pTypeGeneral, sTypeZWaveAlarm, "Alarm" },
 		{ pTypeGeneral, sTypeManagedCounter, "Managed Counter" },
 
 		{ pTypeThermostat, sTypeThermSetpoint, "SetPoint" },
@@ -982,65 +976,6 @@ const char* Media_Player_States(const _eMediaStatus Status)
 	};
 	return findTableIDSingle1(Table, Status);
 }
-
-const char* ZWave_Clock_Days(const unsigned char Day)
-{
-	static const STR_TABLE_SINGLE Table[] = {
-		{ 0, "Monday" }, { 1, "Tuesday" },  { 2, "Wednesday" }, { 3, "Thursday" },
-		{ 4, "Friday" }, { 5, "Saturday" }, { 6, "Sunday" },	{ 0, nullptr, nullptr },
-	};
-	return findTableIDSingle1(Table, Day);
-}
-/*
-const char *ZWave_Thermostat_Modes[] =
-{
-"Off",
-"Heat",
-"Cool",
-"Auto",
-"Aux Heat",
-"Resume",
-"Fan Only",
-"Furnace",
-"Dry Air",
-"Moist Air",
-"Auto Changeover",
-"Heat Econ",
-"Cool Econ",
-"Away",
-"Unknown",
-NULL
-};
-*/
-const char *ZWave_Thermostat_Fan_Modes[]
-= { "Auto Low", "On Low", "Auto High", "On High", "Unknown 4", "Unknown 5", "Circulate", "Unknown", nullptr };
-
-int Lookup_ZWave_Thermostat_Modes(const std::vector<std::string>& Modes, const std::string& sMode)
-{
-	int ii = 0;
-	for (const auto &mode : Modes)
-	{
-		if (mode == sMode)
-			return ii;
-		ii++;
-	}
-	return -1;
-}
-
-int Lookup_ZWave_Thermostat_Fan_Modes(const std::string& sMode)
-{
-	int ii = 0;
-	while (ZWave_Thermostat_Fan_Modes[ii] != nullptr)
-	{
-		if (ZWave_Thermostat_Fan_Modes[ii] == sMode)
-		{
-			return ii;
-		}
-		ii++;
-	}
-	return -1;
-}
-
 
 void GetLightStatus(
 	const unsigned char dType,
@@ -3925,7 +3860,6 @@ bool IsSerialDevice(const _eHardwareTypes htype)
 	case HTYPE_S0SmartMeterUSB:
 	case HTYPE_OpenThermGateway:
 	case HTYPE_TeleinfoMeter:
-	case HTYPE_OpenZWave:
 	case HTYPE_EnOceanESP2:
 	case HTYPE_EnOceanESP3:
 	case HTYPE_Meteostick:
@@ -3986,6 +3920,7 @@ bool IsNetworkDevice(const _eHardwareTypes htype)
 	case HTYPE_OctoPrint:
 	case HTYPE_TeleinfoMeterTCP:
 	case HTYPE_MQTTAutoDiscovery:
+	case HTYPE_AlfenEveCharger:
 		return true;
 	default:
 		return false;

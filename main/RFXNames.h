@@ -115,7 +115,7 @@ enum _eHardwareTypes {
 	HTYPE_OpenThermGateway,		//18
 	HTYPE_TeleinfoMeter,		//19
 	HTYPE_OpenThermGatewayTCP,	//20
-	HTYPE_OpenZWave,			//21
+	HTYPE_FREETOUSE,			//21
 	HTYPE_LimitlessLights,		//22
 	HTYPE_System,				//23
 	HTYPE_EnOceanESP2,			//24
@@ -178,7 +178,7 @@ enum _eHardwareTypes {
 	HTYPE_Ec3kMeterTCP,			//81
 	HTYPE_BleBox,          		//82
 	HTYPE_OpenWeatherMap,  		//83
-	HTYPE_RESERVED_FOR_YOU_1,	//84
+	HTYPE_AlfenEveCharger,		//84
 	HTYPE_RaspberryTSL2561,		//85
 	HTYPE_Daikin,				//86
 	HTYPE_HEOS,					//87
@@ -199,7 +199,7 @@ enum _eHardwareTypes {
 	HTYPE_SysfsGpio,			//102
 	HTYPE_Rtl433,				//103
 	HTYPE_OnkyoAVTCP,			//104
-	HTYPE_RESERVED_FOR_YOU_2,	//105
+	HTYPE_EneverPriceFeeds,		//105
 	HTYPE_EVOHOME_TCP,			//106
 	HTYPE_USBtinGateway,		//107
 	HTYPE_EnphaseAPI,			//108
@@ -279,10 +279,6 @@ const char* Notification_Type_Label(int nType);
 const char* Get_Moisture_Desc(int moisture);
 const char* Get_Alert_Desc(int level);
 const char* Media_Player_States(_eMediaStatus Status);
-const char* ZWave_Clock_Days(unsigned char Day);
-extern const char* ZWave_Thermostat_Fan_Modes[];
-int Lookup_ZWave_Thermostat_Modes(const std::vector<std::string>& Modes, const std::string& sMode);
-int Lookup_ZWave_Thermostat_Fan_Modes(const std::string& sMode);
 
 void GetLightStatus(unsigned char dType, unsigned char dSubType, _eSwitchType switchtype, unsigned char nValue, const std::string& sValue, std::string& lstatus, int& llevel, bool& bHaveDimmer,
 	int& maxDimLevel, bool& bHaveGroupCmd);

@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include <iostream>
 #include "Scheduler.h"
-#include "localtime_r.h"
 #include "Logger.h"
 #include "Helper.h"
 #include "SQLHelper.h"
@@ -975,7 +974,7 @@ void CScheduler::DeleteExpiredTimers()
 			szDate,
 			szTime
 			);
-		iExpiredTimers += result.size();
+		iExpiredTimers += static_cast<int>(result.size());
 	}
 
 	// Check SceneTimers
@@ -992,7 +991,7 @@ void CScheduler::DeleteExpiredTimers()
 			szDate,
 			szTime
 			);
-		iExpiredTimers += result.size();
+		iExpiredTimers += static_cast<int>(result.size());
 	}
 
 	if (iExpiredTimers > 0) {

@@ -26,7 +26,6 @@
 
 #include "mainworker.h"
 #include "Helper.h"
-#include "localtime_r.h"
 #include "EventSystem.h"
 #include "HTMLSanitizer.h"
 #include "json_helper.h"
@@ -2892,13 +2891,6 @@ namespace http
 					root["result"][ii]["val"] = NTYPE_USAGE;
 					root["result"][ii]["text"] = Notification_Type_Desc(NTYPE_USAGE, 0);
 					root["result"][ii]["ptag"] = Notification_Type_Desc(NTYPE_USAGE, 1);
-					ii++;
-				}
-				if ((dType == pTypeGeneral) && (dSubType == sTypeZWaveAlarm))
-				{
-					root["result"][ii]["val"] = NTYPE_VALUE;
-					root["result"][ii]["text"] = Notification_Type_Desc(NTYPE_VALUE, 0);
-					root["result"][ii]["ptag"] = Notification_Type_Desc(NTYPE_VALUE, 1);
 					ii++;
 				}
 				if ((dType == pTypeRego6XXValue) && (dSubType == sTypeRego6XXStatus))

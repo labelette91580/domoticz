@@ -6,7 +6,6 @@
 #include <stdarg.h>
 #include "mainworker.h"
 #include "Helper.h"
-#include "localtime_r.h"
 #include "EventSystem.h"
 #include "HTMLSanitizer.h"
 #include "dzVents.h"
@@ -23,6 +22,7 @@
 #include "../hardware/EnOceanESP2.h"
 #include "../hardware/EnOceanESP3.h"
 #include "../hardware/EnphaseAPI.h"
+#include "../hardware/AlfenEve.h"
 #ifdef WITH_GPIO
 #include "../hardware/Gpio.h"
 #include "../hardware/GpioPin.h"
@@ -34,9 +34,6 @@
 #include "../hardware/Meteorologisk.h"
 #include "../hardware/MySensorsBase.h"
 #include "../hardware/OpenWeatherMap.h"
-#ifdef WITH_OPENZWAVE
-#include "../hardware/OpenZWave.h"
-#endif
 #include "../hardware/OTGWBase.h"
 #include "../hardware/RFLinkBase.h"
 #include "../hardware/RFXBase.h"
@@ -118,9 +115,6 @@ namespace http
 			m_pWebEm = nullptr;
 			m_bDoStop = false;
 			m_failcount = 0;
-#ifdef WITH_OPENZWAVE
-			m_ZW_Hwidx = -1;
-#endif
 		}
 
 		CWebServer::~CWebServer()
@@ -376,7 +370,6 @@ namespace http
 			m_pWebEm->RegisterActionCode("setopenthermsettings", [this](auto&& session, auto&& req, auto&& redirect_uri) { SetOpenThermSettings(session, req, redirect_uri); });
 
 			m_pWebEm->RegisterActionCode("reloadpiface", [this](auto&& session, auto&& req, auto&& redirect_uri) { ReloadPiFace(session, req, redirect_uri); });
-			m_pWebEm->RegisterActionCode("setcurrentcostmetertype", [this](auto&& session, auto&& req, auto&& redirect_uri) { SetCurrentCostUSBType(session, req, redirect_uri); });
 			m_pWebEm->RegisterActionCode("restoredatabase", [this](auto&& session, auto&& req, auto&& redirect_uri) { RestoreDatabase(session, req, redirect_uri); });
 			m_pWebEm->RegisterActionCode("sbfspotimportolddata", [this](auto&& session, auto&& req, auto&& redirect_uri) { SBFSpotImportOldData(session, req, redirect_uri); });
 
@@ -639,67 +632,16 @@ namespace http
 			RegisterCommandCode("rclientslog", [this](auto&& session, auto&& req, auto&& root) { Cmd_RemoteWebClientsLog(session, req, root); });
 			RegisterCommandCode("setused", [this](auto&& session, auto&& req, auto&& root) { Cmd_SetUsed(session, req, root); });
 
+			// Migrated ActionCodes to regular commands
+			RegisterCommandCode("setccmetertype", [this](auto&& session, auto&& req, auto&& root) { Cmd_SetCurrentCostUSBType(session, req, root); });
+
 			RegisterCommandCode("clearuserdevices", [this](auto&& session, auto&& req, auto&& root) { Cmd_ClearUserDevices(session, req, root); });
 
 			//MQTT-AD
 			RegisterCommandCode("mqttadgetconfig", [this](auto&& session, auto&& req, auto&& root) { Cmd_MQTTAD_GetConfig(session, req, root); });
 			RegisterCommandCode("mqttupdatenumber", [this](auto&& session, auto&& req, auto&& root) { Cmd_MQTTAD_UpdateNumber(session, req, root); });
-#ifdef WITH_OPENZWAVE
-			// ZWave
-			RegisterCommandCode("updatezwavenode", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveUpdateNode(session, req, root); });
-			RegisterCommandCode("deletezwavenode", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveDeleteNode(session, req, root); });
-			RegisterCommandCode("zwaveinclude", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveInclude(session, req, root); });
-			RegisterCommandCode("zwaveexclude", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveExclude(session, req, root); });
 
-			RegisterCommandCode("zwaveisnodeincluded", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveIsNodeIncluded(session, req, root); });
-			RegisterCommandCode("zwaveisnodeexcluded", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveIsNodeExcluded(session, req, root); });
-			RegisterCommandCode("zwaveisnodereplaced", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveIsNodeReplaced(session, req, root); });
-			RegisterCommandCode("zwaveishasnodefaileddone", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveIsHasNodeFailedDone(session, req, root); });
-
-			RegisterCommandCode("zwavesoftreset", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveSoftReset(session, req, root); });
-			RegisterCommandCode("zwavehardreset", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveHardReset(session, req, root); });
-			RegisterCommandCode("zwavenetworkheal", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveNetworkHeal(session, req, root); });
-			RegisterCommandCode("zwavenodeheal", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveNodeHeal(session, req, root); });
-			RegisterCommandCode("zwavenetworkinfo", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveNetworkInfo(session, req, root); });
-			RegisterCommandCode("zwaveremovegroupnode", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveRemoveGroupNode(session, req, root); });
-			RegisterCommandCode("zwaveaddgroupnode", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveAddGroupNode(session, req, root); });
-			RegisterCommandCode("zwavegroupinfo", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveGroupInfo(session, req, root); });
-			RegisterCommandCode("zwavecancel", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveCancel(session, req, root); });
-			RegisterCommandCode("applyzwavenodeconfig", [this](auto&& session, auto&& req, auto&& root) { Cmd_ApplyZWaveNodeConfig(session, req, root); });
-			RegisterCommandCode("zwavehasnodefailed", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveHasNodeFailed(session, req, root); });
-			RegisterCommandCode("zwavereplacefailednode", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveReplaceFailedNode(session, req, root); });
-			RegisterCommandCode("requestzwavenodeconfig", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveRequestNodeConfig(session, req, root); });
-			RegisterCommandCode("requestzwavenodeinfo", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveRequestNodeInfo(session, req, root); });
-			RegisterCommandCode("zwavestatecheck", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveStateCheck(session, req, root); });
-			RegisterCommandCode("zwavereceiveconfigurationfromothercontroller",
-				[this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveReceiveConfigurationFromOtherController(session, req, root); });
-			RegisterCommandCode("zwavesendconfigurationtosecondcontroller",
-				[this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveSendConfigurationToSecondaryController(session, req, root); });
-			RegisterCommandCode("zwavetransferprimaryrole", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveTransferPrimaryRole(session, req, root); });
-			RegisterCommandCode("zwavestartusercodeenrollmentmode", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveSetUserCodeEnrollmentMode(session, req, root); });
-			RegisterCommandCode("zwavegetusercodes", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveGetNodeUserCodes(session, req, root); });
-			RegisterCommandCode("zwaveremoveusercode", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveRemoveUserCode(session, req, root); });
-			RegisterCommandCode("zwavegetbatterylevels", [this](auto&& session, auto&& req, auto&& root) { Cmd_ZWaveGetBatteryLevels(session, req, root); });
-
-			m_pWebEm->RegisterPageCode("/zwavegetconfig.php", [this](auto&& session, auto&& req, auto&& rep) { ZWaveGetConfigFile(session, req, rep); });
-
-			m_pWebEm->RegisterPageCode("/ozwcp/poll.xml", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPPollXml(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/cp.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPIndex(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/confparmpost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPNodeGetConf(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/refreshpost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPNodeGetValues(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/valuepost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPNodeSetValue(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/buttonpost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPNodeSetButton(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/admpost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPAdminCommand(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/nodepost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPNodeChange(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/thpost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPTestHeal(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/topopost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPGetTopo(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/statpost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPGetStats(session, req, rep); });
-			m_pWebEm->RegisterPageCode("/ozwcp/grouppost.html", [this](auto&& session, auto&& req, auto&& rep) { ZWaveCPSetGroup(session, req, rep); });
-			//
-			RegisterCommandCode("getopenzwavenodes", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetOpenZWaveNodes(session, req, root); });
-#endif
 			// EnOcean helpers cmds
-
 			RegisterCommandCode("enoceangetmanufacturers", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetManufacturers(session, req, root); });
 			RegisterCommandCode("enoceangetrorgs", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetRORGs(session, req, root); });
 			RegisterCommandCode("enoceangetprofiles", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetProfiles(session, req, root); });
@@ -851,21 +793,69 @@ namespace http
 				{
 					altrtype = "getscenes";
 				}
+				else if (rtype.compare("notifications") == 0)
+				{
+					altrtype = "getnotifications";
+				}
+				else if (rtype.compare("scenelog") == 0)
+				{
+					altrtype = "getscenelog";
+				}
+				else if (rtype.compare("mobiles") == 0)
+				{
+					altrtype = "getmobiles";
+				}
+				else if (rtype.compare("cameras") == 0)
+				{
+					altrtype = "getcameras";
+				}
+				else if (rtype.compare("cameras_user") == 0)
+				{
+					altrtype = "getcameras_user";
+				}
+				else if (rtype.compare("schedules") == 0)
+				{
+					altrtype = "getschedules";
+				}
+				else if (rtype.compare("timers") == 0)
+				{
+					altrtype = "gettimers";
+				}
+				else if (rtype.compare("scenetimers") == 0)
+				{
+					altrtype = "getscenetimers";
+				}
+				else if (rtype.compare("setpointtimers") == 0)
+				{
+					altrtype = "getsetpointtimers";
+				}
 				else if (rtype.compare("plans") == 0)
 				{
 					altrtype = "getplans";
+				}
+				else if (rtype.compare("floorplans") == 0)
+				{
+					altrtype = "getfloorplans";
+				}
+				else if (rtype.compare("lightlog") == 0)
+				{
+					altrtype = "getlightlog";
+				}
+				else if (rtype.compare("textlog") == 0)
+				{
+					altrtype = "gettextlog";
 				}
 				else if (rtype.compare("graph") == 0)
 				{
 					altrtype = "graph";
 				}
-				else if (rtype.compare("notifications") == 0)
-				{
-					altrtype = "getnotifications";
-				}
 				else if (rtype.compare("createdevice") == 0)
 				{
 					altrtype = "createdevice";
+				}
+				else if (rtype.compare("setused") == 0)
+				{
+					altrtype = "setused";
 				}
 
 				if (!altrtype.empty())
@@ -873,13 +863,13 @@ namespace http
 					auto pf = m_webcommands.find(altrtype);
 					if (pf != m_webcommands.end())
 					{
+						_log.Log(LOG_NORM, "[WebServer] Deprecated RType (%s) for API request. Handled via fallback (%s), please use correct API Command! (%s)", rtype.c_str(), altrtype.c_str(), req.host_remote_address.c_str());
 						pf->second(session, req, root);
 					}
-					_log.Log(LOG_STATUS, "[WebServer] Depricated RType (%s) for API request. Handled via fallback (%s), please use correct API Command! (%s)", rtype.c_str(), altrtype.c_str(), req.host_remote_address.c_str());
 				}
 				else
 				{
-					_log.Log(LOG_STATUS, "[WebServer] Depricated RType (%s) for API request. Call ignored, please use correct API Command! (%s)", rtype.c_str(), req.host_remote_address.c_str());
+					_log.Log(LOG_STATUS, "[WebServer] Deprecated RType (%s) for API request. Call ignored, please use correct API Command! (%s)", rtype.c_str(), req.host_remote_address.c_str());
 				}
 
 			}
@@ -1079,10 +1069,6 @@ namespace http
 				}
 #endif
 #endif
-#ifndef WITH_OPENZWAVE
-				if (ii == HTYPE_OpenZWave)
-					bDoAdd = false;
-#endif
 #ifndef WITH_GPIO
 				if (ii == HTYPE_RaspberryGPIO)
 				{
@@ -1209,12 +1195,16 @@ namespace http
 						mode1 = atoi(modeqStr.c_str());
 					}
 				}
-
-				if (htype == HTYPE_ECODEVICES || htype == HTYPE_TeleinfoMeterTCP)
+				else if (htype == HTYPE_ECODEVICES || htype == HTYPE_TeleinfoMeterTCP)
 				{
 					// EcoDevices and Teleinfo always have decimals. Chances to have a P1 and a EcoDevice/Teleinfo
 					//  device on the same Domoticz instance are very low as both are national standards (NL and FR)
 					m_sql.UpdatePreferencesVar("SmartMeterType", 0);
+				}
+				else if (htype == HTYPE_AlfenEveCharger)
+				{
+					if ((password.empty()))
+						return;
 				}
 			}
 			else if (htype == HTYPE_DomoticzInternal)
@@ -1433,6 +1423,9 @@ namespace http
 			else if (htype == HTYPE_VirtualThermostat)
 			{
 				// all fine here!
+			else if (htype == HTYPE_EneverPriceFeeds)
+			{
+				// All fine here
 			}
 			else
 				return;
@@ -1582,19 +1575,31 @@ namespace http
 						return; // need to have a serial port
 				}
 			}
-			else if ((htype == HTYPE_RFXLAN) || (htype == HTYPE_P1SmartMeterLAN) || (htype == HTYPE_YouLess) || (htype == HTYPE_OpenThermGatewayTCP) || (htype == HTYPE_LimitlessLights) ||
-				(htype == HTYPE_SolarEdgeTCP) || (htype == HTYPE_WOL) || (htype == HTYPE_S0SmartMeterTCP) || (htype == HTYPE_ECODEVICES) || (htype == HTYPE_Mochad) ||
-				(htype == HTYPE_MySensorsTCP) || (htype == HTYPE_MySensorsMQTT) || (htype == HTYPE_MQTT) || (htype == HTYPE_MQTTAutoDiscovery) || (htype == HTYPE_TTN_MQTT) || (htype == HTYPE_FRITZBOX) ||
-				(htype == HTYPE_ETH8020) || (htype == HTYPE_Sterbox) || (htype == HTYPE_KMTronicTCP) || (htype == HTYPE_KMTronicUDP) || (htype == HTYPE_SOLARMAXTCP) ||
-				(htype == HTYPE_RelayNet) || (htype == HTYPE_SatelIntegra) || (htype == HTYPE_eHouseTCP) || (htype == HTYPE_RFLINKTCP) ||
-				(htype == HTYPE_Comm5TCP || (htype == HTYPE_Comm5SMTCP) || (htype == HTYPE_CurrentCostMeterLAN)) || (htype == HTYPE_NefitEastLAN) ||
-				(htype == HTYPE_DenkoviHTTPDevices) || (htype == HTYPE_DenkoviTCPDevices) || (htype == HTYPE_Ec3kMeterTCP) || (htype == HTYPE_MultiFun) ||
-				(htype == HTYPE_ZIBLUETCP) || (htype == HTYPE_OnkyoAVTCP) || (htype == HTYPE_OctoPrint) || (htype == HTYPE_TeleinfoMeterTCP) ||
-				(htype == HTYPE_RFLINKMQTT))
+			else if (IsNetworkDevice(htype))
 			{
 				// Lan
 				if (address.empty())
 					return;
+
+				if (htype == HTYPE_MySensorsMQTT || htype == HTYPE_MQTT || htype == HTYPE_MQTTAutoDiscovery)
+				{
+					std::string modeqStr = request::findValue(&req, "mode1");
+					if (!modeqStr.empty())
+					{
+						mode1 = atoi(modeqStr.c_str());
+					}
+				}
+				else if (htype == HTYPE_ECODEVICES || htype == HTYPE_TeleinfoMeterTCP)
+				{
+					// EcoDevices and Teleinfo always have decimals. Chances to have a P1 and a EcoDevice/Teleinfo
+					//  device on the same Domoticz instance are very low as both are national standards (NL and FR)
+					m_sql.UpdatePreferencesVar("SmartMeterType", 0);
+				}
+				else if (htype == HTYPE_AlfenEveCharger)
+				{
+					if ((password.empty()))
+						return;
+				}
 			}
 			else if (htype == HTYPE_DomoticzInternal)
 			{
@@ -1811,6 +1816,10 @@ namespace http
 			else if (htype == HTYPE_RFLINKMQTT)
 			{
 				//all fine here!
+			}
+			else if (htype == HTYPE_EneverPriceFeeds)
+			{
+				// all fine here!
 			}
 			else
 				return;
@@ -2304,15 +2313,20 @@ namespace http
 			root["status"] = "OK";
 			root["title"] = "GetUnusedPlanDevices";
 			std::string sunique = request::findValue(&req, "unique");
-			if (sunique.empty())
+			std::string sactplan = request::findValue(&req, "actplan");
+			if (
+				sunique.empty()
+				|| sactplan.empty()
+				)
 				return;
-			int iUnique = (sunique == "true") ? 1 : 0;
+			const int iActPlan = atoi(sactplan.c_str());
+			const bool iUnique = (sunique == "true") ? true : false;
 			int ii = 0;
 
 			std::vector<std::vector<std::string>> result;
 			std::vector<std::vector<std::string>> result2;
-			result = m_sql.safe_query("SELECT T1.[ID], T1.[Name], T1.[Type], T1.[SubType], T2.[Name] AS HardwareName FROM DeviceStatus as T1, Hardware as T2 WHERE (T1.[Used]==1) AND "
-				"(T2.[ID]==T1.[HardwareID]) ORDER BY T2.[Name], T1.[Name]");
+			result = m_sql.safe_query("SELECT T1.[ID], T1.[Name], T1.[Type], T1.[SubType], T2.[Name] AS HardwareName FROM DeviceStatus as T1, Hardware as T2 "
+				"WHERE (T1.[Used]==1) AND (T2.[ID]==T1.[HardwareID]) ORDER BY T2.[Name], T1.[Name]");
 			if (!result.empty())
 			{
 				for (const auto& sd : result)
@@ -2320,8 +2334,8 @@ namespace http
 					bool bDoAdd = true;
 					if (iUnique)
 					{
-						result2 = m_sql.safe_query("SELECT ID FROM DeviceToPlansMap WHERE (DeviceRowID=='%q') AND (DevSceneType==0)", sd[0].c_str());
-						bDoAdd = (result2.empty());
+						result2 = m_sql.safe_query("SELECT ID FROM DeviceToPlansMap WHERE (DeviceRowID=='%q') AND (DevSceneType==0) AND (PlanID==%d)", sd[0].c_str(), iActPlan);
+						bDoAdd = result2.empty();
 					}
 					if (bDoAdd)
 					{
@@ -2343,7 +2357,7 @@ namespace http
 					bool bDoAdd = true;
 					if (iUnique)
 					{
-						result2 = m_sql.safe_query("SELECT ID FROM DeviceToPlansMap WHERE (DeviceRowID=='%q') AND (DevSceneType==1)", sd[0].c_str());
+						result2 = m_sql.safe_query("SELECT ID FROM DeviceToPlansMap WHERE (DeviceRowID=='%q') AND (DevSceneType==1) AND (PlanID==%d)", sd[0].c_str(), iActPlan);
 						bDoAdd = (result2.empty());
 					}
 					if (bDoAdd)
@@ -2910,7 +2924,11 @@ namespace http
 							if (pos != std::string::npos)
 							{
 								std::string shortfile = filename.substr(0, pos);
-								root["result"]["templates"][iFile++] = shortfile;
+								root["result"]["templates"][iFile]["file"] = shortfile;
+								stdreplace(shortfile, "_", " ");
+								root["result"]["templates"][iFile]["name"] = shortfile;
+								iFile++;
+								continue;
 							}
 							// Same thing for URLs
 							pos = filename.find(".url");
@@ -2926,6 +2944,7 @@ namespace http
 									getline(urlfile, url);
 									urlfile.close();
 									// Pass URL in results
+									stdreplace(shortfile, "_", " ");
 									root["result"]["urls"][shortfile] = url;
 								}
 							}
@@ -4076,6 +4095,15 @@ namespace http
 				m_pWebEm->SetWebTheme(SelectedTheme);
 				cntSettings++;
 
+				//Update the Max kWh value
+				rnvalue = 6000;
+				if (m_sql.GetPreferencesVar("MaxElectricPower", rnvalue))
+				{
+					if (rnvalue < 1)
+						rnvalue = 6000;
+					m_sql.m_max_kwh_usage = rnvalue;
+				}
+
 				/* To wrap up everything */
 				m_notifications.ConfigFromGetvars(req, true);
 				m_notifications.LoadConfig();
@@ -4732,10 +4760,6 @@ namespace http
 								(!((dType == pTypeGeneral) && (dSubType == sTypeSoilMoisture))) && (!((dType == pTypeGeneral) && (dSubType == sTypeLeafWetness))) &&
 								(!((dType == pTypeGeneral) && (dSubType == sTypePercentage))) && (!((dType == pTypeGeneral) && (dSubType == sTypeWaterflow))) &&
 								(!((dType == pTypeGeneral) && (dSubType == sTypeCustom))) && (!((dType == pTypeGeneral) && (dSubType == sTypeFan))) &&
-								(!((dType == pTypeGeneral) && (dSubType == sTypeSoundLevel))) && (!((dType == pTypeGeneral) && (dSubType == sTypeZWaveClock))) &&
-								(!((dType == pTypeGeneral) && (dSubType == sTypeZWaveThermostatMode))) &&
-								(!((dType == pTypeGeneral) && (dSubType == sTypeZWaveThermostatFanMode))) &&
-								(!((dType == pTypeGeneral) && (dSubType == sTypeZWaveThermostatOperatingState))) &&
 								(!((dType == pTypeGeneral) && (dSubType == sTypeDistance))) && (!((dType == pTypeGeneral) && (dSubType == sTypeCounterIncremental))) &&
 								(!((dType == pTypeGeneral) && (dSubType == sTypeManagedCounter))) && (!((dType == pTypeGeneral) && (dSubType == sTypeKwh))) &&
 								(dType != pTypeCURRENT) && (dType != pTypeCURRENTENERGY) && (dType != pTypeENERGY) && (dType != pTypePOWER) && (dType != pTypeP1Power) &&
@@ -4763,11 +4787,6 @@ namespace http
 						else if (rfilter == "baro")
 						{
 							if ((dType != pTypeTEMP_HUM_BARO) && (dType != pTypeTEMP_BARO))
-								continue;
-						}
-						else if (rfilter == "zwavealarms")
-						{
-							if (!((dType == pTypeGeneral) && (dSubType == sTypeZWaveAlarm)))
 								continue;
 						}
 					}
@@ -4981,21 +5000,6 @@ namespace http
 						bHasTimers = m_sql.HasTimers(sd[0]);
 
 						bHaveTimeout = false;
-#ifdef WITH_OPENZWAVE
-						if (pHardware != nullptr)
-						{
-							if (pHardware->HwdType == HTYPE_OpenZWave)
-							{
-								COpenZWave* pZWave = dynamic_cast<COpenZWave*>(pHardware);
-								unsigned long ID;
-								std::stringstream s_strid;
-								s_strid << std::hex << sd[1];
-								s_strid >> ID;
-								int nodeID = (ID & 0x0000FF00) >> 8;
-								bHaveTimeout = pZWave->HasNodeFailed(nodeID);
-							}
-						}
-#endif
 						root["result"][ii]["HaveTimeout"] = bHaveTimeout;
 
 						std::string lstatus;
@@ -6563,133 +6567,6 @@ namespace http
 								root["result"][ii]["ForecastStr"] = BMP_Forecast_Desc(forecast);
 							}
 						}
-						else if (dSubType == sTypeZWaveClock)
-						{
-							std::vector<std::string> tstrarray;
-							StringSplit(sValue, ";", tstrarray);
-							int day = 0;
-							int hour = 0;
-							int minute = 0;
-							if (tstrarray.size() == 3)
-							{
-								day = atoi(tstrarray[0].c_str());
-								hour = atoi(tstrarray[1].c_str());
-								minute = atoi(tstrarray[2].c_str());
-							}
-							sprintf(szData, "%s %02d:%02d", ZWave_Clock_Days(day), hour, minute);
-							root["result"][ii]["DayTime"] = sValue;
-							root["result"][ii]["Data"] = szData;
-							root["result"][ii]["HaveTimeout"] = bHaveTimeout;
-							root["result"][ii]["TypeImg"] = "clock";
-						}
-						else if (dSubType == sTypeZWaveThermostatMode)
-						{
-							strcpy(szData, "");
-							root["result"][ii]["Mode"] = nValue;
-							root["result"][ii]["TypeImg"] = "mode";
-							root["result"][ii]["HaveTimeout"] = bHaveTimeout;
-							std::string modes;
-							// Add supported modes
-#ifdef WITH_OPENZWAVE
-							if (pHardware)
-							{
-								if (pHardware->HwdType == HTYPE_OpenZWave)
-								{
-									COpenZWave* pZWave = dynamic_cast<COpenZWave*>(pHardware);
-									unsigned long ID;
-									std::stringstream s_strid;
-									s_strid << std::hex << sd[1];
-									s_strid >> ID;
-									std::vector<std::string> vmodes = pZWave->GetSupportedThermostatModes(ID);
-									int smode = 0;
-									char szTmp[200];
-									for (const auto& mode : vmodes)
-									{
-										// Value supported
-										sprintf(szTmp, "%d;%s;", smode, mode.c_str());
-										modes += szTmp;
-										smode++;
-									}
-
-									if (!vmodes.empty())
-									{
-										if (nValue < (int)vmodes.size())
-										{
-											sprintf(szData, "%s", vmodes[nValue].c_str());
-										}
-									}
-								}
-							}
-#endif
-							root["result"][ii]["Data"] = szData;
-							root["result"][ii]["Modes"] = modes;
-						}
-						else if (dSubType == sTypeZWaveThermostatFanMode)
-						{
-							sprintf(szData, "%s", ZWave_Thermostat_Fan_Modes[nValue]);
-							root["result"][ii]["Data"] = szData;
-							root["result"][ii]["Mode"] = nValue;
-							root["result"][ii]["TypeImg"] = "mode";
-							root["result"][ii]["HaveTimeout"] = bHaveTimeout;
-							// Add supported modes (add all for now)
-							bool bAddedSupportedModes = false;
-							std::string modes;
-							// Add supported modes
-#ifdef WITH_OPENZWAVE
-							if (pHardware)
-							{
-								if (pHardware->HwdType == HTYPE_OpenZWave)
-								{
-									COpenZWave* pZWave = dynamic_cast<COpenZWave*>(pHardware);
-									unsigned long ID;
-									std::stringstream s_strid;
-									s_strid << std::hex << sd[1];
-									s_strid >> ID;
-									modes = pZWave->GetSupportedThermostatFanModes(ID);
-									bAddedSupportedModes = !modes.empty();
-								}
-							}
-#endif
-							if (!bAddedSupportedModes)
-							{
-								int smode = 0;
-								while (ZWave_Thermostat_Fan_Modes[smode] != nullptr)
-								{
-									sprintf(szTmp, "%d;%s;", smode, ZWave_Thermostat_Fan_Modes[smode]);
-									modes += szTmp;
-									smode++;
-								}
-							}
-							root["result"][ii]["Modes"] = modes;
-						}
-						else if (dSubType == sTypeZWaveThermostatOperatingState)
-						{
-							strcpy(szData, "");
-							root["result"][ii]["State"] = nValue;
-							root["result"][ii]["TypeImg"] = "Fan";
-							root["result"][ii]["HaveTimeout"] = bHaveTimeout;
-							if (nValue == 1)
-							{
-								sprintf(szData, "%s", "Cooling");
-							}
-							else if (nValue == 2)
-							{
-								sprintf(szData, "%s", "Heating");
-							}
-							else
-							{
-								sprintf(szData, "%s", "Idle");
-							}
-							root["result"][ii]["Data"] = szData;
-						}
-						else if (dSubType == sTypeZWaveAlarm)
-						{
-							sprintf(szData, "Event: 0x%02X (%d)", nValue, nValue);
-							root["result"][ii]["Data"] = szData;
-							root["result"][ii]["TypeImg"] = "Alert";
-							root["result"][ii]["Level"] = nValue;
-							root["result"][ii]["HaveTimeout"] = false;
-						}
 						else if (dSubType == sTypeCounterIncremental)
 						{
 							std::string ValueQuantity = options["ValueQuantity"];
@@ -6820,8 +6697,6 @@ namespace http
 									dvalue = static_cast<double>(atof(splitresults[0].c_str()));
 								}
 							}
-							root["result"][ii]["Data"] = root["result"][ii]["Counter"];
-
 							root["result"][ii]["SwitchTypeVal"] = metertype;
 							root["result"][ii]["HaveTimeout"] = bHaveTimeout;
 							root["result"][ii]["TypeImg"] = "counter";
@@ -7511,10 +7386,6 @@ namespace http
 		{
 			root["title"] = "gethardware";
 
-#ifdef WITH_OPENZWAVE
-			m_ZW_Hwidx = -1;
-#endif
-
 			std::vector<std::vector<std::string>> result;
 			result = m_sql.safe_query("SELECT ID, Name, Enabled, Type, Address, Port, SerialPort, Username, Password, Extra, Mode1, Mode2, Mode3, Mode4, Mode5, Mode6, DataTimeout, "
 				"LogLevel FROM Hardware ORDER BY ID ASC");
@@ -7591,14 +7462,11 @@ namespace http
 							EnphaseAPI* pMyHardware = dynamic_cast<EnphaseAPI*>(pHardware);
 							root["result"][ii]["version"] = pMyHardware->m_szSoftwareVersion;
 						}
-#ifdef WITH_OPENZWAVE
-						else if (pHardware->HwdType == HTYPE_OpenZWave)
-						{ // Special case for openzwave (status for nodes queried)
-							COpenZWave* pOZWHardware = dynamic_cast<COpenZWave*>(pHardware);
-							root["result"][ii]["version"] = pOZWHardware->GetVersionLong();
-							root["result"][ii]["NodesQueried"] = (pOZWHardware->m_awakeNodesQueried || pOZWHardware->m_allNodesQueried);
+						else if (pHardware->HwdType == HTYPE_AlfenEveCharger)
+						{
+							AlfenEve* pMyHardware = dynamic_cast<AlfenEve*>(pHardware);
+							root["result"][ii]["version"] = pMyHardware->m_szSoftwareVersion;
 						}
-#endif
 					}
 					ii++;
 				}
@@ -8691,54 +8559,6 @@ namespace http
 					m_mainworker.SetSetPoint(idx, static_cast<float>(atof(setPoint.c_str())), mode, until);
 				else
 					m_mainworker.SetSetPoint(idx, static_cast<float>(atof(setPoint.c_str())));
-			}
-			else if (!clock.empty())
-			{
-				int urights = 3;
-				if (bHaveUser)
-				{
-					int iUser = FindUser(session.username.c_str());
-					if (iUser != -1)
-					{
-						urights = static_cast<int>(m_users[iUser].userrights);
-						_log.Log(LOG_STATUS, "User: %s initiated a SetClock command", m_users[iUser].Username.c_str());
-					}
-				}
-				if (urights < 1)
-					return;
-				m_mainworker.SetClock(idx, clock);
-			}
-			else if (!tmode.empty())
-			{
-				int urights = 3;
-				if (bHaveUser)
-				{
-					int iUser = FindUser(session.username.c_str());
-					if (iUser != -1)
-					{
-						urights = static_cast<int>(m_users[iUser].userrights);
-						_log.Log(LOG_STATUS, "User: %s initiated a Thermostat Mode command", m_users[iUser].Username.c_str());
-					}
-				}
-				if (urights < 1)
-					return;
-				m_mainworker.SetZWaveThermostatMode(idx, atoi(tmode.c_str()));
-			}
-			else if (!fmode.empty())
-			{
-				int urights = 3;
-				if (bHaveUser)
-				{
-					int iUser = FindUser(session.username.c_str());
-					if (iUser != -1)
-					{
-						urights = static_cast<int>(m_users[iUser].userrights);
-						_log.Log(LOG_STATUS, "User: %s initiated a Thermostat Fan Mode command", m_users[iUser].Username.c_str());
-					}
-				}
-				if (urights < 1)
-					return;
-				m_mainworker.SetZWaveThermostatFanMode(idx, atoi(fmode.c_str()));
 			}
 
 			if (!strunit.empty())
@@ -10317,21 +10137,22 @@ namespace http
 						int lastHour = 0;
 						time_t lastTime = 0;
 
+						int method = 0;
+						std::string sMethod = request::findValue(&req, "method");
+						if (!sMethod.empty())
+							method = atoi(sMethod.c_str());
+
 						if (bIsManagedCounter)
 						{
 							result = m_sql.safe_query("SELECT Usage, Date FROM %s WHERE (DeviceRowID==%" PRIu64 ") ORDER BY Date ASC", dbasetable.c_str(), idx);
 							bHaveFirstValue = true;
 							bHaveFirstRealValue = true;
+							method = 1;
 						}
 						else
 						{
 							result = m_sql.safe_query("SELECT Value, Date FROM %s WHERE (DeviceRowID==%" PRIu64 ") ORDER BY Date ASC", dbasetable.c_str(), idx);
 						}
-
-						int method = 0;
-						std::string sMethod = request::findValue(&req, "method");
-						if (!sMethod.empty())
-							method = atoi(sMethod.c_str());
 
 						if (!result.empty())
 						{
@@ -10480,12 +10301,23 @@ namespace http
 									ParseSQLdatetime(atime, ntime, stime, -1);
 									if (bHaveFirstRealValue)
 									{
-										int64_t curValue = actValue - ulLastValue;
+										int64_t curValue;
+										float tlaps = 1;
 
-										float tdiff = static_cast<float>(difftime(atime, lastTime));
-										if (tdiff == 0)
-											tdiff = 1;
-										float tlaps = 3600.0F / tdiff;
+										if (!bIsManagedCounter)
+										{
+											curValue = actValue - ulLastValue;
+											float tdiff;
+											tdiff = static_cast<float>(difftime(atime, lastTime));
+											if (tdiff == 0)
+												tdiff = 1;
+											tlaps = 3600.0F / tdiff;
+										}
+										else
+										{
+											curValue = actValue;
+										}
+										
 										curValue *= int(tlaps);
 
 										root["result"][ii]["d"] = sd[1].substr(0, 16);

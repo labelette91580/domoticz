@@ -11,7 +11,6 @@
 #include <iomanip>
 #include "RFXtrx.h"
 #include "RFXNames.h"
-#include "localtime_r.h"
 #include "Logger.h"
 #include "mainworker.h"
 #include "../main/json_helper.h"
@@ -448,16 +447,6 @@ constexpr auto sqlCreateEventRules =
 "[SequenceNo] INTEGER NOT NULL, "
 "FOREIGN KEY (EMID) REFERENCES EventMaster(ID));";
 
-constexpr auto sqlCreateZWaveNodes =
-"CREATE TABLE IF NOT EXISTS [ZWaveNodes] ("
-"[ID] INTEGER PRIMARY KEY, "
-"[HardwareID] INTEGER NOT NULL, "
-"[HomeID] INTEGER NOT NULL, "
-"[NodeID] INTEGER NOT NULL, "
-"[Name] VARCHAR(100) DEFAULT Unknown, "
-"[ProductDescription] VARCHAR(100) DEFAULT Unknown, "
-"[PollTime] INTEGER DEFAULT 0);";
-
 constexpr auto sqlCreateWOLNodes =
 "CREATE TABLE IF NOT EXISTS [WOLNodes] ("
 "[ID] INTEGER PRIMARY KEY, "
@@ -814,7 +803,6 @@ bool CSQLHelper::OpenDatabase()
 	query(sqlCreateSharedDevicesTrigger);
 	query(sqlCreateEventMaster);
 	query(sqlCreateEventRules);
-	query(sqlCreateZWaveNodes);
 	query(sqlCreateWOLNodes);
 	query(sqlCreatePercentage);
 	query(sqlCreatePercentage_Calendar);
@@ -1981,8 +1969,7 @@ bool CSQLHelper::OpenDatabase()
 				<< "([Type] = " << HTYPE_Wunderground << ") OR "
 				<< "([Type] = " << HTYPE_DarkSky << ") OR "
 				<< "([Type] = " << HTYPE_VisualCrossing << ") OR "
-				<< "([Type] = " << HTYPE_AccuWeather << ") OR "
-				<< "([Type] = " << HTYPE_OpenZWave << ")"
+				<< "([Type] = " << HTYPE_AccuWeather << ") "
 				<< ")";
 			result = query(szQuery.str());
 			if (!result.empty())
@@ -2003,8 +1990,7 @@ bool CSQLHelper::OpenDatabase()
 			std::vector<std::vector<std::string> > result;
 			szQuery << "SELECT ID FROM Hardware WHERE ( "
 				<< "([Type] = " << HTYPE_DavisVantage << ") OR "
-				<< "([Type] = " << HTYPE_TE923 << ") OR "
-				<< "([Type] = " << HTYPE_OpenZWave << ")"
+				<< "([Type] = " << HTYPE_TE923 << ") "
 				<< ")";
 			result = query(szQuery.str());
 			if (!result.empty())
@@ -2460,31 +2446,6 @@ bool CSQLHelper::OpenDatabase()
 					query(szQuery2.str());
 				}
 			}
-
-			//Patch for ZWave, change device type from sTypeColor_RGB_W to sTypeColor_RGB_W_Z
-			szQuery2.clear();
-			szQuery2.str("");
-			szQuery2 << "SELECT ID FROM Hardware WHERE ([Type]==" << HTYPE_OpenZWave << ")";
-			result = query(szQuery2.str());
-			if (!result.empty())
-			{
-				for (const auto &sd : result)
-				{
-					szQuery2.clear();
-					szQuery2.str("");
-					szQuery2 << "SELECT ID FROM DeviceStatus WHERE ([Type]=" << (int)pTypeColorSwitch << ") AND (SubType=" << (int)sTypeColor_RGB_W << ") AND (HardwareID=" << sd[0] << ")";
-					result2 = query(szQuery2.str());
-
-					for (const auto &sd : result2)
-					{
-						//Change device type
-						szQuery2.clear();
-						szQuery2.str("");
-						szQuery2 << "UPDATE DeviceStatus SET SubType=" << (int)sTypeColor_RGB_W_Z << " WHERE (ID=" << sd[0] << ")";
-						query(szQuery2.str());
-					}
-				}
-			}
 		}
 		if (dbversion < 125)
 		{
@@ -2670,17 +2631,6 @@ bool CSQLHelper::OpenDatabase()
 		}
 		if (dbversion < 135)
 		{
-			//OpenZWave COMMAND_CLASS_METER new index, need to delete the cache!
-			std::vector<std::string> root_files_;
-			DirectoryListing(root_files_, szUserDataFolder + "Config", false, true);
-			for (const auto &file : root_files_)
-			{
-				if (file.find("ozwcache_0x") != std::string::npos)
-				{
-					std::string dfile = szUserDataFolder + "Config/" + file;
-					std::remove(dfile.c_str());
-				}
-			}
 		}
 		if (dbversion < 136)
 		{
@@ -3471,32 +3421,7 @@ bool CSQLHelper::OpenDatabase()
 		nValue = 1;
 	}
 	m_bAcceptNewHardware = (nValue == 1);
-	if ((!GetPreferencesVar("ZWavePollInterval", nValue)) || (nValue == 0))
-	{
-		UpdatePreferencesVar("ZWavePollInterval", 60);
-	}
-	if (!GetPreferencesVar("ZWaveEnableDebug", nValue))
-	{
-		UpdatePreferencesVar("ZWaveEnableDebug", 0);
-	}
-	if ((!GetPreferencesVar("ZWaveNetworkKey", sValue)) || (sValue.empty()))
-	{
-		sValue = "0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10";
-		UpdatePreferencesVar("ZWaveNetworkKey", sValue);
-	}
-	//Double check network_key
-	std::vector<std::string> splitresults;
-	StringSplit(sValue, ",", splitresults);
-	if (splitresults.size() != 16)
-	{
-		sValue = "0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10";
-		UpdatePreferencesVar("ZWaveNetworkKey", sValue);
-	}
 
-	if (!GetPreferencesVar("ZWaveEnableNightlyNetworkHeal", nValue))
-	{
-		UpdatePreferencesVar("ZWaveEnableNightlyNetworkHeal", 0);
-	}
 	if (!GetPreferencesVar("BatteryLowNotification", nValue))
 	{
 		UpdatePreferencesVar("BatteryLowNotification", 0); //default disabled
@@ -5158,6 +5083,115 @@ uint64_t CSQLHelper::GetDeviceIndex(const int HardwareID, const std::string& ID,
 	return std::stoull(result[0].at(0));
 }
 
+uint64_t CSQLHelper::UpdateManagedValueInt(
+	const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType,
+	const unsigned char signallevel, const unsigned char batterylevel, const int nValue, const char* sValue, std::string& devname,
+	const bool bUseOnOffAction,
+	const char* User
+)
+{
+	uint64_t ulID = 0;
+
+	std::vector<std::vector<std::string> > result;
+	result = safe_query("SELECT ID, Name, Used, SwitchType, nValue, sValue, LastUpdate, Options FROM DeviceStatus WHERE (HardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, ID, unit, devType, subType);
+	if (result.empty())
+	{
+		//Device not found, create it
+		ulID = InsertDevice(HardwareID, ID, unit, devType, subType, 0, nValue, sValue, devname, signallevel, batterylevel);
+
+		if (ulID == (uint64_t)-1)
+		{
+			return -1;
+		}
+	}
+	else
+	{
+		ulID = std::stoull(result[0][0]);
+		devname = result[0][1];
+	}
+
+	std::string sLastUpdate = TimeToString(nullptr, TF_DateTime);
+
+	bool bOK = false;
+
+	std::vector<std::string> parts, parts2;
+	StringSplit(sValue, ";", parts);
+	if (parts.size() == 11)
+	{
+		// is last part date only, or date with hour with space?
+		StringSplit(parts[10], " ", parts2);
+		bool shortLog = false;
+		if (parts2.size() > 1) {
+			shortLog = true;
+		}
+		// second part is date only, or date with hour with space
+		// In DeviceStatus table, index 0 = Usage 1,  1 = Usage 2, 2 = Delivery 1,  3 = Delivery 2, 4 = Usage current, 5 = Delivery current
+		// In MultiMeter table, index 0 = Usage 1, 1 = Delivery 1, 2 = Usage current, 3 = Delivery current, 4 = Usage 2, 5 = Delivery 2
+		// In MultiMeter_Calendar table, same as Multimeter table + counter1, counter2, counter3 and counter4 when shortlog is False
+		UpdateCalendarMeter(HardwareID, ID, unit, devType, subType,
+			shortLog,
+			true,
+			parts[10].c_str(),
+			std::stoll(parts[0]),
+			std::stoll(parts[2]),
+			std::stoll(parts[4]),
+			std::stoll(parts[5]),
+			std::stoll(parts[1]),
+			std::stoll(parts[3]),
+			std::stoll(parts[6]),
+			std::stoll(parts[7]),
+			std::stoll(parts[8]),
+			std::stoll(parts[9])
+		);
+		bOK = true;
+	}
+	if (parts.size() == 7)
+	{
+		// is last part date only, or date with hour with space?
+		StringSplit(parts[6], " ", parts2);
+		bool shortLog = false;
+		if (parts2.size() > 1) {
+			shortLog = true;
+		}
+		// In DeviceStatus table, index 0 = Usage 1,  1 = Usage 2, 2 = Delivery 1,  3 = Delivery 2, 4 = Usage current, 5 = Delivery current
+		// In MultiMeter table, index 0 = Usage 1, 1 = Delivery 1, 2 = Usage current, 3 = Delivery current, 4 = Usage 2, 5 = Delivery 2
+		// In MultiMeter_Calendar table, same as Multimeter table + counter1, counter2, counter3 and counter4 when shortlog is False
+		UpdateCalendarMeter(HardwareID, ID, unit, devType, subType,
+			shortLog,
+			true,
+			parts[6].c_str(),
+			std::stoll(parts[0]),
+			std::stoll(parts[2]),
+			std::stoll(parts[4]),
+			std::stoll(parts[5]),
+			std::stoll(parts[1]),
+			std::stoll(parts[3])
+		);
+		bOK = true;
+	}
+	if (parts.size() == 3)
+	{
+		StringSplit(parts[2], " ", parts2);
+		// second part is date only, or date with hour with space
+		bool shortLog = false;
+		if (parts2.size() > 1) {
+			shortLog = true;
+		}
+		UpdateCalendarMeter(HardwareID, ID, unit, devType, subType,
+			shortLog,
+			false,
+			parts[2].c_str(),
+			std::stoll(parts[0]),
+			std::stoll(parts[1])
+		);
+		bOK = true;
+	}
+	if (!bOK)
+		return -1;
+	safe_query("UPDATE DeviceStatus SET LastUpdate='%q', sValue='%q' WHERE (ID = %" PRIu64 ")", sLastUpdate.c_str(), sValue, ulID);
+	return ulID;
+}
+
 uint64_t CSQLHelper::UpdateValueInt(
         const int HardwareID, const char *ID, const unsigned char unit, const unsigned char devType, const unsigned char subType,
         const unsigned char signallevel, const unsigned char batterylevel, const int nValue, const char *sValue, std::string &devname,
@@ -5169,14 +5203,34 @@ uint64_t CSQLHelper::UpdateValueInt(
 		return -1;
 
 	uint64_t ulID = 0;
+	std::string sOption;
+	std::map<std::string, std::string> options;
+
+	bool bIsManagedCounter = (devType == pTypeGeneral && subType == sTypeManagedCounter);
+
+	std::vector<std::vector<std::string> > result;
+	result = safe_query("SELECT ID, Name, Used, SwitchType, nValue, sValue, LastUpdate, Options FROM DeviceStatus WHERE (HardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, ID, unit, devType, subType);
+
+	if (!result.empty())
+	{
+		sOption = result[0][7];
+		options = BuildDeviceOptions(sOption);
+
+		if (options["AddDBLogEntry"] == "true")
+		{
+			bIsManagedCounter = true;
+		}
+	}
+	if (bIsManagedCounter)
+		return UpdateManagedValueInt(HardwareID, ID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
+
+
 	bool bDeviceUsed = false;
 	bool bSameDeviceStatusValue = false;
 	int nValueBeforeUpdate = -1;
 	std::string sValueBeforeUpdate;
 	_eSwitchType stype = STYPE_OnOff;
 
-	std::vector<std::vector<std::string> > result;
-	result = safe_query("SELECT ID, Name, Used, SwitchType, nValue, sValue, LastUpdate, Options FROM DeviceStatus WHERE (HardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, ID, unit, devType, subType);
 	if (result.empty())
 	{
 		//Insert
@@ -5202,8 +5256,6 @@ uint64_t CSQLHelper::UpdateValueInt(
 	{
 		//Update
 		ulID = std::stoull(result[0][0]);
-		std::string sOption = result[0][7];
-		auto options = BuildDeviceOptions(sOption);
 		devname = result[0][1];
 		bDeviceUsed = atoi(result[0][2].c_str()) != 0;
 		stype = (_eSwitchType)atoi(result[0][3].c_str());
@@ -5284,85 +5336,6 @@ uint64_t CSQLHelper::UpdateValueInt(
 					(nValue == nValueBeforeUpdate) &&
 					(sValue == sValueBeforeUpdate)
 					);
-			}
-
-			if ((devType == pTypeGeneral && subType == sTypeManagedCounter) || (options["AddDBLogEntry"] == "true"))
-			{
-				std::vector<std::string> parts, parts2;
-				StringSplit(sValue, ";", parts);
-				if (parts.size() == 11)
-				{
-					// is last part date only, or date with hour with space?
-					StringSplit(parts[10], " ", parts2);
-					bool shortLog = false;
-					if (parts2.size() > 1) {
-						shortLog = true;
-					}
-					// second part is date only, or date with hour with space
-					// In DeviceStatus table, index 0 = Usage 1,  1 = Usage 2, 2 = Delivery 1,  3 = Delivery 2, 4 = Usage current, 5 = Delivery current
-					// In MultiMeter table, index 0 = Usage 1, 1 = Delivery 1, 2 = Usage current, 3 = Delivery current, 4 = Usage 2, 5 = Delivery 2
-					// In MultiMeter_Calendar table, same as Multimeter table + counter1, counter2, counter3 and counter4 when shortlog is False
-					UpdateCalendarMeter(HardwareID, ID, unit, devType, subType,
-						shortLog,
-						true,
-						parts[10].c_str(),
-						std::stoll(parts[0]),
-						std::stoll(parts[2]),
-						std::stoll(parts[4]),
-						std::stoll(parts[5]),
-						std::stoll(parts[1]),
-						std::stoll(parts[3]),
-						std::stoll(parts[6]),
-						std::stoll(parts[7]),
-						std::stoll(parts[8]),
-						std::stoll(parts[9])
-					);
-					result = safe_query("UPDATE DeviceStatus SET LastUpdate='%q' WHERE (ID = %" PRIu64 ")", sLastUpdate.c_str(), ulID);
-					return ulID;
-				}
-				if (parts.size() == 7)
-				{
-					// is last part date only, or date with hour with space?
-					StringSplit(parts[6], " ", parts2);
-					bool shortLog = false;
-					if (parts2.size() > 1) {
-						shortLog = true;
-					}
-					// In DeviceStatus table, index 0 = Usage 1,  1 = Usage 2, 2 = Delivery 1,  3 = Delivery 2, 4 = Usage current, 5 = Delivery current
-					// In MultiMeter table, index 0 = Usage 1, 1 = Delivery 1, 2 = Usage current, 3 = Delivery current, 4 = Usage 2, 5 = Delivery 2
-					// In MultiMeter_Calendar table, same as Multimeter table + counter1, counter2, counter3 and counter4 when shortlog is False
-					UpdateCalendarMeter(HardwareID, ID, unit, devType, subType,
-						shortLog,
-						true,
-						parts[6].c_str(),
-						std::stoll(parts[0]),
-						std::stoll(parts[2]),
-						std::stoll(parts[4]),
-						std::stoll(parts[5]),
-						std::stoll(parts[1]),
-						std::stoll(parts[3])
-					);
-					result = safe_query("UPDATE DeviceStatus SET LastUpdate='%q' WHERE (ID = %" PRIu64 ")", sLastUpdate.c_str(), ulID);
-					return ulID;
-				}
-				if (parts.size() == 3)
-				{
-					StringSplit(parts[2], " ", parts2);
-					// second part is date only, or date with hour with space
-					bool shortLog = false;
-					if (parts2.size() > 1) {
-						shortLog = true;
-					}
-					UpdateCalendarMeter(HardwareID, ID, unit, devType, subType,
-						shortLog,
-						false,
-						parts[2].c_str(),
-						std::stoll(parts[0]),
-						std::stoll(parts[1])
-					);
-					result = safe_query("UPDATE DeviceStatus SET LastUpdate='%q' WHERE (ID = %" PRIu64 ")", sLastUpdate.c_str(), ulID);
-					return ulID;
-				}
 			}
 
 			result = safe_query(
@@ -7348,13 +7321,6 @@ void CSQLHelper::AddCalendarUpdateMeter()
 			continue;
 		std::vector<std::string> sd = result[0];
 
-		std::string sOptions = sd[7];
-		std::map<std::string, std::string> options = BuildDeviceOptions(sOptions);
-		// We don't want to update meter if externally managed
-		if (options["DisableLogAutoUpdate"] == "true")
-		{
-			continue;
-		}
 		std::string devname = sd[0];
 		//int hardwareID= atoi(sd[1].c_str());
 		//std::string DeviceID=sd[2];
@@ -7363,6 +7329,19 @@ void CSQLHelper::AddCalendarUpdateMeter()
 		unsigned char subType = atoi(sd[5].c_str());
 		_eSwitchType switchtype = (_eSwitchType)atoi(sd[6].c_str());
 		_eMeterType metertype = (_eMeterType)switchtype;
+		std::string sOptions = sd[7];
+		std::map<std::string, std::string> options = BuildDeviceOptions(sOptions);
+
+		bool bIsManagedCounter = (devType == pTypeGeneral && subType == sTypeManagedCounter);
+
+		// We don't want to update meter if externally managed
+		if (
+			(bIsManagedCounter)
+			|| (options["DisableLogAutoUpdate"] == "true")
+			)
+		{
+			continue;
+		}
 
 		float tGasDivider = GasDivider;
 
@@ -7560,14 +7539,6 @@ void CSQLHelper::AddCalendarUpdateMultiMeter()
 			continue;
 		std::vector<std::string> sd = result[0];
 
-		std::string sOptions = sd[7];
-		std::map<std::string, std::string> options = BuildDeviceOptions(sOptions);
-		// We don't want to update meter if externally managed
-		if (options["DisableLogAutoUpdate"] == "true")
-		{
-			continue;
-		}
-
 		std::string devname = sd[0];
 		//int hardwareID= atoi(sd[1].c_str());
 		//std::string DeviceID=sd[2];
@@ -7576,6 +7547,19 @@ void CSQLHelper::AddCalendarUpdateMultiMeter()
 		unsigned char subType = atoi(sd[5].c_str());
 		//_eSwitchType switchtype=(_eSwitchType) atoi(sd[6].c_str());
 		//_eMeterType metertype=(_eMeterType)switchtype;
+
+		std::string sOptions = sd[7];
+		std::map<std::string, std::string> options = BuildDeviceOptions(sOptions);
+
+		bool bIsManagedCounter = (devType == pTypeGeneral && subType == sTypeManagedCounter);
+		// We don't want to update meter if externally managed
+		if (
+			(bIsManagedCounter)
+			|| (options["DisableLogAutoUpdate"] == "true")
+			)
+		{
+			continue;
+		}
 
 		result = safe_query(
 			"SELECT MIN(Value1), MAX(Value1), MIN(Value2), MAX(Value2), MIN(Value3), MAX(Value3), MIN(Value4), MAX(Value4), MIN(Value5), MAX(Value5), MIN(Value6), MAX(Value6) FROM MultiMeter WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<='%q 00:00:00')",
@@ -7961,7 +7945,6 @@ void CSQLHelper::DeleteHardware(const std::string& idx)
 		DeleteDevices(devs2delete);
 	}
 	//also delete all records in other tables
-	safe_query("DELETE FROM ZWaveNodes WHERE (HardwareID=='%q')", idx.c_str());
 	safe_query("DELETE FROM EnOceanNodes WHERE (HardwareID=='%q')", idx.c_str());
 	safe_query("DELETE FROM MySensors WHERE (HardwareID=='%q')", idx.c_str());
 	safe_query("DELETE FROM WOLNodes WHERE (HardwareID=='%q')", idx.c_str());
@@ -8285,8 +8268,7 @@ void CSQLHelper::DeleteDateRange(const char *ID, const std::string &fromDate, co
 
 void CSQLHelper::DeleteDataPoint(const char* ID, const std::string& Date)
 {
-
-	char szDateEnd[100];
+	std::string sDataEnd = Date;
 	if (Date.find(':') != std::string::npos)
 	{
 		time_t now = mytime(nullptr);
@@ -8296,12 +8278,9 @@ void CSQLHelper::DeleteDataPoint(const char* ID, const std::string& Date)
 		time_t cEndTime;
 		ParseSQLdatetime(cEndTime, tLastUpdate, Date, tLastUpdate.tm_isdst);
 		tLastUpdate.tm_min += 2;
-		sprintf(szDateEnd, "%04d-%02d-%02d %02d:%02d:%02d", tLastUpdate.tm_year + 1900, tLastUpdate.tm_mon + 1, tLastUpdate.tm_mday, tLastUpdate.tm_hour, tLastUpdate.tm_min, tLastUpdate.tm_sec);
-
-		DeleteDateRange(ID, Date.c_str(), szDateEnd);
+		sDataEnd = std_format("%04d-%02d-%02d %02d:%02d:%02d", tLastUpdate.tm_year + 1900, tLastUpdate.tm_mon + 1, tLastUpdate.tm_mday, tLastUpdate.tm_hour, tLastUpdate.tm_min, tLastUpdate.tm_sec);
 	}
-	else
-		DeleteDateRange(ID, Date.c_str(), Date.c_str() );
+	DeleteDateRange(ID, Date, sDataEnd);
 }
 
 void CSQLHelper::AddTaskItem(const _tTaskItem& tItem, const bool cancelItem)
