@@ -1,5 +1,6 @@
 define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
-	app.controller('UtilityController', function ($scope, $rootScope, $location, $http, $interval, $route, $routeParams, deviceApi, permissions, livesocket) {
+define(['app', 'livesocket'], function (app) {
+	app.controller('UtilityController', function ($scope, $rootScope, $location, $http, $interval, $route, $routeParams, deviceApi, domoticzApi, permissions, livesocket) {
 		var $element = $('#main-view #utilitycontent').last();
 		
 		$.strPad = function (i, l, s) {
@@ -28,7 +29,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 			
 			//Get Custom icons
 			$.ajax({
-				url: "json.htm?type=custom_light_icons",
+				url: "json.htm?type=command&param=custom_light_icons",
 				async: false,
 				dataType: 'json',
 				success: function (data) {
@@ -518,7 +519,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 		//We only call this once. After this the widgets are being updated automatically by used of the 'jsonupdate' broadcast event.
 		RefreshUtilities = function () {
 			var roomPlanId = $routeParams.room || window.myglobals.LastPlanSelected;
-			livesocket.getJson("json.htm?type=devices&filter=utility&used=true&order=[Order]&lastupdate=" + $.LastUpdateTime + "&plan=" + roomPlanId, function (data) {
+			livesocket.getJson("json.htm?type=command&param=getdevices&filter=utility&used=true&order=[Order]&lastupdate=" + $.LastUpdateTime + "&plan=" + roomPlanId, function (data) {
 				if (typeof data.ServerTime != 'undefined') {
 					$rootScope.SetTimeAndSun(data.Sunrise, data.Sunset, data.ServerTime);
 				}
@@ -549,7 +550,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 			var roomPlanId = $routeParams.room || window.myglobals.LastPlanSelected;
 
 			$.ajax({
-				url: "json.htm?type=devices&filter=utility&used=true&order=[Order]&plan=" + roomPlanId,
+				url: "json.htm?type=command&param=getdevices&filter=utility&used=true&order=[Order]&plan=" + roomPlanId,
 				async: false,
 				dataType: 'json',
 				success: function (data) {
@@ -1052,7 +1053,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 			WatchDescriptions();
 
 			if ($scope.config.AllowWidgetOrdering == true) {
-				if (permissions.hasPermission("Admin")) {
+				if (permissions.hasPermission("User")) {
 					if (window.myglobals.ismobileint == false) {
 						$element.find(".span4").draggable({
 							drag: function () {
@@ -1087,6 +1088,22 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 			return false;
 		}
 
+		function populatemetertypes() {
+            domoticzApi.sendCommand('getmetertypes', {})
+                .then(function (data) {
+                    if ( data.status === 'OK' ) {
+						$("#dialog-editmeterdevice #combometertype").html("");
+						$.each(data.result, function (stcode, stdesc) {
+							if (stdesc != null) {
+								var option = $('<option />');
+								option.attr('value', stcode).text(stdesc);
+								$("#dialog-editmeterdevice #combometertype").append(option);
+							}
+						});
+                    }
+                });
+        }
+
 		init();
 
 		function init() {
@@ -1117,6 +1134,8 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				$.myglobals.WeekdayStr.push($(this).text());
 			});
 
+			populatemetertypes();
+
 			$scope.$on('device_update', function (event, deviceData) {
 				RefreshItem(deviceData);
 			});
@@ -1131,7 +1150,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 					var CustomImage = $.ddData[cval].value;
 					$(this).dialog("close");
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + $.devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 						'&name=' + encodeURIComponent($("#dialog-editutilitydevice #devicename").val()) +
 						'&customimage=' + CustomImage +
 						'&description=' + encodeURIComponent($("#dialog-editutilitydevice #devicedescription").val()) +
@@ -1150,7 +1169,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editutilitydevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editutilitydevice #devicedescription").val()) +
 							'&used=false',
@@ -1200,7 +1219,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				var CustomImage = $.ddData[cval].value;
 
 				$.ajax({
-					url: "json.htm?type=setused&idx=" + $.devIdx +
+					url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 					'&name=' + encodeURIComponent($("#dialog-editcustomsensordevice #devicename").val()) +
 					'&description=' + encodeURIComponent($("#dialog-editcustomsensordevice #devicedescription").val()) +
 					'&switchtype=0' +
@@ -1219,7 +1238,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editcustomsensordevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editcustomsensordevice #devicedescription").val()) +
 							'&used=false',
@@ -1263,7 +1282,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 					
 					$(this).dialog("close");
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + $.devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 						'&name=' + encodeURIComponent($("#dialog-editdistancedevice #devicename").val()) +
 						'&description=' + encodeURIComponent($("#dialog-editdistancedevice #devicedescription").val()) +
 						'&switchtype=' + $("#dialog-editdistancedevice #combometertype").val() +
@@ -1283,7 +1302,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editdistancedevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editdistancedevice #devicedescription").val()) +
 							'&used=false',
@@ -1336,7 +1355,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 					}
 					$(this).dialog("close");
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + $.devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 						'&name=' + encodeURIComponent($("#dialog-editmeterdevice #devicename").val()) +
 						'&description=' + encodeURIComponent($("#dialog-editmeterdevice #devicedescription").val()) +
 						'&switchtype=' + meterType +
@@ -1359,7 +1378,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editmeterdevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editmeterdevice #devicedescription").val()) +
 							'&used=false',
@@ -1402,7 +1421,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 					var CustomImage = $.ddData[cval].value;
 					$(this).dialog("close");
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + $.devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 						'&name=' + encodeURIComponent($("#dialog-editenergydevice #devicename").val()) +
 						'&description=' + encodeURIComponent($("#dialog-editenergydevice #devicedescription").val()) +
 						'&switchtype=' + $("#dialog-editenergydevice #combometertype").val() + '&EnergyMeterMode=' + $("#dialog-editenergydevice input:radio[name=EnergyMeterMode]:checked").val() +
@@ -1422,7 +1441,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editenergydevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editenergydevice #devicedescription").val()) +
 							'&used=false',
@@ -1467,7 +1486,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 					var CustomImage = $.ddData[cval].value;
 					$(this).dialog("close");
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + $.devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 						'&name=' + encodeURIComponent($("#dialog-editsetpointdevice #devicename").val()) +
 						'&description=' + encodeURIComponent($("#dialog-editsetpointdevice #devicedescription").val()) +
 						'&setpoint=' + $("#dialog-editsetpointdevice #setpoint").val() +
@@ -1488,7 +1507,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editsetpointdevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editsetpointdevice #devicedescription").val()) +
 							'&used=false',
@@ -1534,7 +1553,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 					bootbox.alert($.t('Setting the Clock is not finished yet!'));
 					var daytimestr = $("#dialog-editthermostatclockdevice #comboclockday").val() + ";" + $("#dialog-editthermostatclockdevice #clockhour").val() + ";" + $("#dialog-editthermostatclockdevice #clockminute").val();
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + $.devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 						'&name=' + encodeURIComponent($("#dialog-editthermostatclockdevice #devicename").val()) +
 						'&description=' + encodeURIComponent($("#dialog-editthermostatclockdevice #devicedescription").val()) +
 						'&clock=' + encodeURIComponent(daytimestr) +
@@ -1554,7 +1573,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editthermostatclockdevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editthermostatclockdevice #devicedescription").val()) +
 							'&used=false',
@@ -1599,7 +1618,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 						modestr = "&fmode=" + $("#dialog-editthermostatmode #combomode").val();
 					}
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + $.devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 						'&name=' + encodeURIComponent($("#dialog-editthermostatmode #devicename").val()) +
 						'&description=' + encodeURIComponent($("#dialog-editthermostatmode #devicedescription").val()) +
 						modestr +
@@ -1618,7 +1637,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 				bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 					if (result == true) {
 						$.ajax({
-							url: "json.htm?type=setused&idx=" + $.devIdx +
+							url: "json.htm?type=command&param=setused&idx=" + $.devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editthermostatmode #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editthermostatmode #devicedescription").val()) +
 							'&used=false',

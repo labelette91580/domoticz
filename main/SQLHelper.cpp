@@ -41,7 +41,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#define DB_VERSION 161
+#define DB_VERSION 163
 
 #define DEFAULT_ADMINUSER "admin"
 #define DEFAULT_ADMINPWD "domoticz"
@@ -263,6 +263,7 @@ constexpr auto sqlCreateUsers =
 "[Active] INTEGER NOT NULL DEFAULT 0, "
 "[Username] VARCHAR(200) NOT NULL, "
 "[Password] VARCHAR(200) NOT NULL, "
+"[MFAsecret] VARCHAR(200) NULL, "
 "[Rights] INTEGER DEFAULT 255, "
 "[TabsEnabled] INTEGER DEFAULT 255, "
 "[RemoteSharing] INTEGER DEFAULT 0);";
@@ -420,7 +421,14 @@ constexpr auto sqlCreateSharedDevices =
 "[ID] INTEGER PRIMARY KEY,  "
 "[SharedUserID] BIGINT NOT NULL, "
 "[DeviceRowID] BIGINT NOT NULL, "
-"[Favorite] INTEGER DEFAULT 0);";
+"[Favorite] INTEGER DEFAULT 0, "
+"[Order] INTEGER BIGINT(10) default 0);";
+
+constexpr auto sqlCreateSharedDevicesTrigger =
+"CREATE TRIGGER IF NOT EXISTS shareddevicesupdate AFTER INSERT ON SharedDevices\n"
+"BEGIN\n"
+"	UPDATE SharedDevices SET [Order] = (SELECT MAX([Order]) FROM SharedDevices)+1 WHERE SharedDevices.ID = NEW.ID;\n"
+"END;\n";
 
 constexpr auto sqlCreateEventMaster =
 "CREATE TABLE IF NOT EXISTS [EventMaster] ("
@@ -803,6 +811,7 @@ bool CSQLHelper::OpenDatabase()
 	query(sqlCreateTimerPlans);
 	query(sqlCreateSceneTimers);
 	query(sqlCreateSharedDevices);
+	query(sqlCreateSharedDevicesTrigger);
 	query(sqlCreateEventMaster);
 	query(sqlCreateEventRules);
 	query(sqlCreateZWaveNodes);
@@ -3153,7 +3162,35 @@ bool CSQLHelper::OpenDatabase()
 					DeleteHardware(sd[0]);
 				}
 			}
+		}
+		if (dbversion < 162)
+		{
+			//add Order column to SharedDevices
+			query("ALTER TABLE SharedDevices ADD COLUMN [Order] INTEGER BIGINT(10) default 0");
+			query(sqlCreateSharedDevicesTrigger);
+			std::vector<std::vector<std::string> > result;
+			result = safe_query("SELECT A.[Order], B.ID FROM DeviceStatus as A, SharedDevices as B WHERE (B.[Order] == 0) AND (A.ID == B.DeviceRowID)");
+			if (!result.empty())
+			{
+				for (const auto& sd : result)
+				{
+					safe_query("UPDATE SharedDevices SET [Order] = %s WHERE (ROWID == '%q')", sd[0].c_str(), sd[1].c_str());
+				}
+			}
+		}
+		if (dbversion < 163)
+		{
+			// Add MFA secret column to Users table
+			query("ALTER TABLE Users ADD COLUMN [MFAsecret] VARCHAR(200) NULL");
 
+			// Make sure the default Applications are there (domoticzUI (enabled) and domoticzMobileApp (disabled))
+			result = safe_query("SELECT ID, Active, Applicationname FROM Applications WHERE Applicationname IN ('domoticzUI', 'domoticzMobileApp') order by Applicationname desc");
+			if (result.empty())
+			{
+				// None of the default Applications exist, so add them
+				safe_query("INSERT INTO Applications (Active, Public, Applicationname) VALUES (1, 1, 'domoticzUI')");
+				safe_query("INSERT INTO Applications (Active, Public, Applicationname) VALUES (0, 0, 'domoticzMobileApp')");
+			}
 		}
 	}
 	else if (bNewInstall)
@@ -3163,6 +3200,8 @@ bool CSQLHelper::OpenDatabase()
 		// Add hardware for internal use
 		safe_query("INSERT INTO Hardware (Name, Enabled, Type, Address, Port, Username, Password, Mode1, Mode2, Mode3, Mode4, Mode5, Mode6) VALUES ('Domoticz Internal',1, %d,'',1,'','',0,0,0,0,0,0)", HTYPE_DomoticzInternal);
 		safe_query("INSERT INTO Users (Active, Username, Password, Rights, TabsEnabled) VALUES (1, '%s', '%s', %d, 0x1F)", base64_encode(DEFAULT_ADMINUSER).c_str(), GenerateMD5Hash(DEFAULT_ADMINPWD).c_str(), http::server::URIGHTS_ADMIN);
+		safe_query("INSERT INTO Applications (Active, Public, Applicationname) VALUES (1, 1, 'domoticzUI')");
+		safe_query("INSERT INTO Applications (Active, Public, Applicationname) VALUES (0, 0, 'domoticzMobileApp')");
 	}
 	UpdatePreferencesVar("DB_Version", DB_VERSION);
 
@@ -3712,7 +3751,7 @@ void CSQLHelper::ManageExecuteScriptTimeout(std::string szCommand, int pid, int 
 }
 #endif
 
-void CSQLHelper::PerformThreadedAction(const _tTaskItem tItem)
+void CSQLHelper::PerformThreadedAction(const _tTaskItem &tItem)
 {
 	if (tItem._ItemType == TITEM_EXECUTESHELLCOMMAND)
 	{
