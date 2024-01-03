@@ -5112,13 +5112,12 @@ uint64_t CSQLHelper::UpdateManagedValueInt(
 
 	std::string sLastUpdate = TimeToString(nullptr, TF_DateTime);
 
-	bool bOK = false;
-
-	std::vector<std::string> parts, parts2;
+	std::vector<std::string> parts;
 	StringSplit(sValue, ";", parts);
 	if (parts.size() == 11)
 	{
 		// is last part date only, or date with hour with space?
+		std::vector<std::string> parts2;
 		StringSplit(parts[10], " ", parts2);
 		bool shortLog = false;
 		if (parts2.size() > 1) {
@@ -5143,11 +5142,12 @@ uint64_t CSQLHelper::UpdateManagedValueInt(
 			std::stoll(parts[8]),
 			std::stoll(parts[9])
 		);
-		bOK = true;
+		return ulID;
 	}
-	if (parts.size() == 7)
+	else if (parts.size() == 7)
 	{
 		// is last part date only, or date with hour with space?
+		std::vector<std::string> parts2;
 		StringSplit(parts[6], " ", parts2);
 		bool shortLog = false;
 		if (parts2.size() > 1) {
@@ -5167,12 +5167,13 @@ uint64_t CSQLHelper::UpdateManagedValueInt(
 			std::stoll(parts[1]),
 			std::stoll(parts[3])
 		);
-		bOK = true;
+		return ulID;
 	}
-	if (parts.size() == 3)
+	else if (parts.size() == 3)
 	{
+		// is last part date only, or date with hour with space?
+		std::vector<std::string> parts2;
 		StringSplit(parts[2], " ", parts2);
-		// second part is date only, or date with hour with space
 		bool shortLog = false;
 		if (parts2.size() > 1) {
 			shortLog = true;
@@ -5184,10 +5185,9 @@ uint64_t CSQLHelper::UpdateManagedValueInt(
 			std::stoll(parts[0]),
 			std::stoll(parts[1])
 		);
-		bOK = true;
+		return ulID;
 	}
-	if (!bOK)
-		return -1;
+
 	safe_query("UPDATE DeviceStatus SET LastUpdate='%q', sValue='%q' WHERE (ID = %" PRIu64 ")", sLastUpdate.c_str(), sValue, ulID);
 	return ulID;
 }
@@ -5203,7 +5203,6 @@ uint64_t CSQLHelper::UpdateValueInt(
 		return -1;
 
 	uint64_t ulID = 0;
-	std::string sOption;
 	std::map<std::string, std::string> options;
 
 	bool bIsManagedCounter = (devType == pTypeGeneral && subType == sTypeManagedCounter);
@@ -5213,7 +5212,7 @@ uint64_t CSQLHelper::UpdateValueInt(
 
 	if (!result.empty())
 	{
-		sOption = result[0][7];
+		std::string sOption = result[0][7];
 		options = BuildDeviceOptions(sOption);
 
 		if (options["AddDBLogEntry"] == "true")

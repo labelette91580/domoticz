@@ -63,10 +63,24 @@ std::string ReadFile(std::string filename)
 #endif
 
 Enever::Enever(int ID, const std::string& szToken, const std::string& szProvider) :
-	m_szToken(szToken),
-	m_szProvider(szProvider)
+	m_szToken(szToken)
 {
 	m_HwdID = ID;
+
+	std::vector<std::string> strarray;
+	StringSplit(szProvider, ";", strarray);
+	if (!strarray.empty())
+	{
+		m_szProviderElectricity = strarray[0];
+		if (strarray.size() == 1)
+		{
+			m_szProviderGas = strarray[0];
+		}
+		else
+		{
+			m_szProviderGas = strarray[1];
+		}
+	}
 
 	std::vector<std::vector<std::string> > result;
 
@@ -191,7 +205,7 @@ std::string Enever::MakeURL(const std::string& sURL)
 }
 
 uint64_t Enever::UpdateValueInt(const char* ID, unsigned char unit, unsigned char devType, unsigned char subType, unsigned char signallevel, unsigned char batterylevel, int nValue,
-	const char* sValue, std::string& devname, bool bUseOnOffAction, const std::string& user)
+	const char* sValue, std::string& devname, bool bUseOnOffAction, const std::string& user, const bool bUseEventSystem)
 {
 	uint64_t DeviceRowIdx = m_sql.UpdateValue(m_HwdID, ID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, (!user.empty()) ? user.c_str() : m_Name.c_str());
 	if (DeviceRowIdx == (uint64_t)-1)
@@ -201,8 +215,11 @@ uint64_t Enever::UpdateValueInt(const char* ID, unsigned char unit, unsigned cha
 		std::string szLogString = RFX_Type_Desc(devType, 1) + std::string("/") + std::string(RFX_Type_SubType_Desc(devType, subType)) + " (" + devname + ")";
 		Log(LOG_NORM, szLogString);
 	}
-	m_mainworker.sOnDeviceReceived(m_HwdID, DeviceRowIdx, devname, nullptr);
-	m_notifications.CheckAndHandleNotification(DeviceRowIdx, m_HwdID, ID, devname, unit, devType, subType, nValue, sValue);
+	if (bUseEventSystem)
+	{
+		m_mainworker.sOnDeviceReceived(m_HwdID, DeviceRowIdx, devname, nullptr);
+		m_notifications.CheckAndHandleNotification(DeviceRowIdx, m_HwdID, ID, devname, unit, devType, subType, nValue, sValue);
+	}
 	return DeviceRowIdx;
 }
 
@@ -216,7 +233,10 @@ bool Enever::GetPriceElectricity()
 		Json::Value jsonCurrent;
 		if (ParseJSon(m_szCurrentElectricityPrices, jsonCurrent))
 		{
-			if (jsonCurrent.isMember("data"))
+			if (
+				(jsonCurrent.isMember("data"))
+				&& (jsonCurrent["data"].isArray())
+				)
 			{
 				Json::Value firstRecord = jsonCurrent["data"][0];
 				std::string szDate = firstRecord["datum"].asString();
@@ -301,9 +321,12 @@ bool Enever::GetPriceElectricity()
 		Log(LOG_ERROR, "Invalid data received! (electricity/json)");
 		return false;
 	}
-	if (result["data"].empty())
+	if (
+		(result["data"].empty())
+		|| (!result["data"].isArray())
+		)
 	{
-		Log(LOG_ERROR, "Invalid (no) data received (electricity prices, date object not found)");
+		Log(LOG_ERROR, "Invalid (no) data received (electricity prices, date object not found). Check Token!");
 		return false;
 	}
 	m_szCurrentElectricityPrices = sResult;
@@ -323,7 +346,10 @@ bool Enever::GetPriceElectricity_Tomorrow()
 		Json::Value jsonCurrent;
 		if (ParseJSon(m_szCurrentElectricityPrices_Tomorrow, jsonCurrent))
 		{
-			if (jsonCurrent.isMember("data"))
+			if (
+				(jsonCurrent.isMember("data"))
+				&& (jsonCurrent["data"].isArray())
+				)
 			{
 				Json::Value firstRecord = jsonCurrent["data"][0];
 				std::string szDate = firstRecord["datum"].asString();
@@ -373,9 +399,12 @@ bool Enever::GetPriceElectricity_Tomorrow()
 		Log(LOG_ERROR, "Invalid data received! (electricity_tomorrow/json)");
 		return false;
 	}
-	if (result["data"].empty())
+	if (
+		(result["data"].empty())
+		|| (!result["data"].isArray())
+		)
 	{
-		Log(LOG_ERROR, "Invalid (no) data received (electricity prices tomorrow, data object not found)");
+		Log(LOG_ERROR, "Invalid (no) data received (electricity prices tomorrow, data object not found). Check Token!");
 		return false;
 	}
 	m_szCurrentElectricityPrices_Tomorrow = sResult;
@@ -402,7 +431,6 @@ void Enever::parseElectricity(const std::string& szElectricityData, const bool b
 
 	int act_hour = ltime->tm_hour;
 
-	uint64_t iActRate = 0;
 	uint64_t idx = -1;
 
 	uint64_t totalPrice = 0;
@@ -430,7 +458,7 @@ void Enever::parseElectricity(const std::string& szElectricityData, const bool b
 			return; //invalid date!
 		}
 
-		std::string szProviderPriceName = "prijs" + m_szProvider;
+		std::string szProviderPriceName = "prijs" + m_szProviderElectricity;
 		if (itt[szProviderPriceName].empty())
 			return; //no price for this provider
 
@@ -439,25 +467,30 @@ void Enever::parseElectricity(const std::string& szElectricityData, const bool b
 
 		uint64_t iRate = (uint64_t)round(fProviderPrice * 10000); //4 digts after comma!
 
-		if ((bIsToday) && (lltime.tm_hour == act_hour))
+		bool bIsNow = (bIsToday) && (lltime.tm_hour == act_hour);
+
+		if (bIsNow)
 		{
-			iActRate = iRate;
 			SendCustomSensor(1, 1, 255, fProviderPrice, "Actual Electricity Price", "Euro / kWh");
 		}
 
 		totalPrice += iRate;
 		totalValues++;
 
-		bool bDoAdd = true;
-
 		std::string szTime = std_format("%04d-%02d-%02d %02d:%02d:%02d", lltime.tm_year + 1900, lltime.tm_mon + 1, lltime.tm_mday, lltime.tm_hour, 0, 0);
-		std::string sValue = std::to_string(iRate) + ";" + std::to_string(iRate) + ";" + szTime;
+		std::string sValue = std::to_string(iRate) + ";" + std::to_string(iRate);
+		std::string sValueDTime = sValue + ";" + szTime;
 
-		idx = UpdateValueInt("0001", 1, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValue.c_str(), szDeviceName, false, "Enever");
+		idx = UpdateValueInt("0001", 1, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValueDTime.c_str(), szDeviceName, false, "Enever", false);
 		if (!bDoesMeterExitstInSystem)
 		{
 			//Set right units
 			m_sql.safe_query("UPDATE DeviceStatus SET SwitchType=3, AddjValue2=10000, Options='%q' WHERE (ID==%" PRIu64 ")", "ValueQuantity:RXVybyAvIGtXaA==;ValueUnits:4oKs", idx);
+			bDoesMeterExitstInSystem = true;
+		}
+		if (bIsNow)
+		{
+			UpdateValueInt("0001", 1, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValue.c_str(), szDeviceName, false, "Enever", true);
 		}
 	}
 	if (bIsToday)
@@ -470,12 +503,9 @@ void Enever::parseElectricity(const std::string& szElectricityData, const bool b
 				uint64_t avgPrice = totalPrice / totalValues;
 				std::string szTime = std_format("%04d-%02d-%02d", ltime->tm_year + 1900, ltime->tm_mon + 1, ltime->tm_mday);
 				std::string sValue = std::to_string(avgPrice) + ";" + std::to_string(avgPrice) + ";" + szTime;
-				UpdateValueInt("0001", 1, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValue.c_str(), szDeviceName, false, "Enever");
+				UpdateValueInt("0001", 1, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValue.c_str(), szDeviceName, false, "Enever", true);
 			}
 		}
-		//Set actual price
-		std::string sValue = std::to_string(iActRate) + ";" + std::to_string(iActRate);
-		m_sql.safe_query("UPDATE DeviceStatus SET sValue='%q' WHERE (ID==%" PRIu64 ")", sValue.c_str(), idx);
 	}
 }
 
@@ -491,7 +521,10 @@ bool Enever::GetPriceGas(const bool bForce)
 		Json::Value jsonCurrent;
 		if (ParseJSon(m_szCurrentGasPrices, jsonCurrent))
 		{
-			if (jsonCurrent.isMember("data"))
+			if (
+				(jsonCurrent.isMember("data"))
+				&& (jsonCurrent["data"].isArray())
+				)
 			{
 				Json::Value firstRecord = jsonCurrent["data"][0];
 				std::string szDate = firstRecord["datum"].asString();
@@ -518,7 +551,7 @@ bool Enever::GetPriceGas(const bool bForce)
 	std::vector<std::string> ExtraHeaders;
 	if (m_szToken.empty()) {
 		return false;
-}
+	}
 
 	if (!HTTPClient::GET(MakeURL(ENEVER_FEED_GAS_TODAY), ExtraHeaders, sResult))
 	{
@@ -542,9 +575,12 @@ bool Enever::GetPriceGas(const bool bForce)
 		Log(LOG_ERROR, "Invalid data received! (gas/json)");
 		return false;
 	}
-	if (result["data"].empty())
+	if (
+		(result["data"].empty())
+		|| (!result["data"].isArray())
+		)
 	{
-		Log(LOG_ERROR, "Invalid (no) data received (gas prices, date object not found)");
+		Log(LOG_ERROR, "Invalid (no) data received (gas prices, date object not found). Check Token!");
 		return false;
 	}
 	m_szCurrentGasPrices = sResult;
@@ -588,7 +624,7 @@ void Enever::parseGas()
 		return; //invalid date!
 	}
 
-	std::string szProviderPriceName = "prijs" + m_szProvider;
+	std::string szProviderPriceName = "prijs" + m_szProviderGas;
 	if (root["data"][0][szProviderPriceName].empty())
 		return; //no price for this provider
 
@@ -601,19 +637,23 @@ void Enever::parseGas()
 
 	uint64_t iRate = (uint64_t)round(fProviderPrice * 10000); //4 digts after comma!
 
-	std::string sValue = std::to_string(iRate) + ";" + std::to_string(iRate) + ";" + szTime;
+	std::string sValueDTime = std::to_string(iRate) + ";" + std::to_string(iRate) + ";" + szTime;
 
 	std::string szDeviceName = "Daily Gas Price";
-	uint64_t idx = UpdateValueInt("0001", 2, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValue.c_str(), szDeviceName, false, "Enever");
+	uint64_t idx = UpdateValueInt("0001", 2, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValueDTime.c_str(), szDeviceName, false, "Enever", true);
 	if (!bDoesMeterExitstInSystem)
 	{
 		//Set right units
 		m_sql.safe_query("UPDATE DeviceStatus SET SwitchType=3, AddjValue2=10000, Options='%q' WHERE (ID==%" PRIu64 ")", "ValueQuantity:RXVybyAvIG0z;ValueUnits:4oKs", idx);
+		bDoesMeterExitstInSystem = true;
 	}
 
 	//Short log value
 	szTime = std_format("%04d-%02d-%02d %02d:%02d:%02d", lltime.tm_year + 1900, lltime.tm_mon + 1, lltime.tm_mday, lltime.tm_hour, 0, 0);
-	sValue = std::to_string(iRate) + ";" + std::to_string(iRate) + ";" + szTime;
-	idx = UpdateValueInt("0001", 2, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValue.c_str(), szDeviceName, false, "Enever");
+	std::string sValue = std::to_string(iRate) + ";" + std::to_string(iRate);
+	sValueDTime = sValue + ";" + szTime;
+	UpdateValueInt("0001", 2, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValueDTime.c_str(), szDeviceName, false, "Enever", false);
 
+	//Current state
+	UpdateValueInt("0001", 2, pTypeGeneral, sTypeManagedCounter, 12, 255, 0, sValue.c_str(), szDeviceName, false, "Enever", true);
 }
