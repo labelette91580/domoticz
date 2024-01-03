@@ -278,7 +278,8 @@ static const STR_TABLE_SINGLE HardwareTypeTable[] = {
 	{ HTYPE_VirtualThermostat, "Virtual Thermostat", "VirtualThermostat" },
 	{ HTYPE_TeleinfoMeterTCP, "Teleinfo EDF with LAN interface", "TeleInfo" },
 	{ HTYPE_MQTTAutoDiscovery, "MQTT Auto Discovery Client Gateway with LAN interface", "MQTT-AD" },
-	{ HTYPE_RFLINKMQTT, "RFLink Gateway MQTT",	"RFLink" },
+	{ HTYPE_RFLINKMQTT, "RFLink Gateway MQTT", "RFLink" },
+	{ HTYPE_MitsubishiWF, "Mitsubishi WF RAC Airco with LAN (HTTP) interface", "MitsubishiWF" },
 	{ 0, nullptr, nullptr },
 };
 
@@ -3882,6 +3883,7 @@ bool IsSerialDevice(const _eHardwareTypes htype)
 bool IsNetworkDevice(const _eHardwareTypes htype)
 {
 	switch (htype) {
+	case HTYPE_Domoticz:
 	case HTYPE_RFXLAN:
 	case HTYPE_P1SmartMeterLAN:
 	case HTYPE_YouLess:
@@ -3920,7 +3922,10 @@ bool IsNetworkDevice(const _eHardwareTypes htype)
 	case HTYPE_OctoPrint:
 	case HTYPE_TeleinfoMeterTCP:
 	case HTYPE_MQTTAutoDiscovery:
+	case HTYPE_HARMONY_HUB:
+	case HTYPE_Philips_Hue:
 	case HTYPE_AlfenEveCharger:
+	case HTYPE_MitsubishiWF:
 		return true;
 	default:
 		return false;

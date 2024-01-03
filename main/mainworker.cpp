@@ -147,6 +147,7 @@
 #include "../hardware/AirconWithMe.h"
 #include "../hardware/AlfenEve.h"
 #include "../hardware/Enever.h"
+#include "../hardware/MitsubishiWF.h"
 
 // load notifications configuration
 #include "../notifications/NotificationHelper.h"
@@ -970,13 +971,14 @@ bool MainWorker::AddHardwareFromParams(
 	case HTYPE_Dummy:
 		pHardware = new CDummy(ID);
 		break;
-	case HTYPE_Tellstick: {
-		CTellstick* tellstick;
-		if (CTellstick::Create(&tellstick, ID, Mode1, Mode2)) {
-			pHardware = tellstick;
+	case HTYPE_Tellstick:
+		{
+			CTellstick* tellstick;
+			if (CTellstick::Create(&tellstick, ID, Mode1, Mode2)) {
+				pHardware = tellstick;
+			}
 		}
-	}
-						break;
+		break;
 	case HTYPE_EVOHOME_SCRIPT:
 		pHardware = new CEvohomeScript(ID);
 		break;
@@ -1088,6 +1090,10 @@ bool MainWorker::AddHardwareFromParams(
 	case HTYPE_EneverPriceFeeds:
 		pHardware = new Enever(ID, Username, Extra);
 		break;
+	case HTYPE_MitsubishiWF:
+		pHardware = new MitsubishiWF(ID, Address);
+		break;
+
 	}
 
 	if (pHardware)
