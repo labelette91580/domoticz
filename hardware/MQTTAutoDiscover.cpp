@@ -256,9 +256,32 @@ std::string MQTTAutoDiscover::GetValueFromTemplate(Json::Value root, std::string
 			for (const auto itt : strarray)
 			{
 				szKey = itt;
-				if (root[szKey].empty())
-					return ""; //key not found!
-				root = root[szKey];
+
+				if (szKey.find('[') == std::string::npos)
+				{
+					if (root[szKey].empty())
+						return ""; //key not found!
+					root = root[szKey];
+				}
+				else
+				{
+					//we have an array, so we need to get the index
+					if (szKey.find(']') == std::string::npos)
+						return ""; //no index?
+
+					std::string szIndex = szKey.substr(szKey.find('[') + 1);
+					szIndex = szIndex.substr(0, szIndex.find(']'));
+					if (szIndex.size() == 0)
+						return ""; //no index?
+
+					szKey= szKey.substr(0, szKey.find('['));
+					int iIndex = std::stoi(szIndex);
+					if (root[szKey].empty())
+						return ""; //key not found!
+					if (static_cast<int>(root[szKey].size()) <= iIndex)
+						return ""; //index out of range!
+					root = root[szKey][iIndex];
+				}
 			}
 			if (root.isObject())
 				return "";
@@ -1631,12 +1654,26 @@ bool MQTTAutoDiscover::GuessSensorTypeValue(const _tMQTTASensor* pSensor, uint8_
 			return false;
 		}
 
+		float fkWh = 0.0F;
 		_tMQTTASensor* pkWhSensor = get_auto_discovery_sensor_unit(pSensor, "kwh");
+		if (pkWhSensor)
+			fkWh = static_cast<float>(atof(pkWhSensor->last_value.c_str())) * 1000.0F;
+		else
+		{
+			pkWhSensor = get_auto_discovery_sensor_unit(pSensor, "wh");
+			if (pkWhSensor)
+				fkWh = static_cast<float>(atof(pkWhSensor->last_value.c_str()));
+			else
+			{
+				pkWhSensor = get_auto_discovery_sensor_unit(pSensor, "wm");
+				if (pkWhSensor)
+					fkWh = static_cast<float>(atof(pkWhSensor->last_value.c_str())) / 60.0F;
+			}
+		}
 		if (pkWhSensor)
 		{
 			if (pkWhSensor->last_received != 0)
 			{
-				float fkWh = static_cast<float>(atof(pkWhSensor->last_value.c_str())) * 1000.0F;
 				pkWhSensor->sValue = std_format("%.3f;%.3f", fUsage, fkWh);
 				mosquitto_message xmessage;
 				xmessage.retain = false;
@@ -1646,13 +1683,24 @@ bool MQTTAutoDiscover::GuessSensorTypeValue(const _tMQTTASensor* pSensor, uint8_
 		}
 		sValue = std_format("%.3f", fUsage);
 	}
-	else if (szUnit == "kwh")
+	else if (
+		(szUnit == "kwh")
+		|| (szUnit == "wh")
+		|| (szUnit == "wm")
+		)
 	{
 		devType = pTypeGeneral;
 		subType = sTypeKwh;
 
 		float fUsage = 0;
-		float fkWh = static_cast<float>(atof(pSensor->last_value.c_str())) * 1000.0F;
+		float multiply = 1000.0F;
+
+		if (szUnit == "wh")
+			multiply = 1.0F;
+		else if (szUnit == "wm")
+			multiply = 1.0F / 60.0F;
+
+		float fkWh = static_cast<float>(atof(pSensor->last_value.c_str())) * multiply;
 
 		if (fkWh < -1000000)
 		{
@@ -3451,6 +3499,10 @@ void MQTTAutoDiscover::InsertUpdateSwitch(_tMQTTASensor* pSensor)
 				szSwitchCmd = "off";
 			else if (pSensor->component_type == "lock" && szSwitchCmd == pSensor->state_locked)
 				szSwitchCmd = "on";
+			else if (pSensor->component_type == "lock" && !pSensor->value_template.empty())
+				// ignore states defined in the value template until value_template support is built in
+				return;
+
 			else
 			{
 				if (level == 0)

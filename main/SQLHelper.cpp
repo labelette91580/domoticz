@@ -4926,6 +4926,9 @@ uint64_t CSQLHelper::UpdateValue(const int HardwareID, const char* ID, const uns
 					case pTypeFS20:
 						newnValue = fs20_sOff;
 						break;
+					case pTypeDDxxxx:
+						newnValue = DDxxxx_Up;
+						break;
 					default:
 						continue;
 					}
@@ -5014,6 +5017,9 @@ uint64_t CSQLHelper::UpdateValue(const int HardwareID, const char* ID, const uns
 				break;
 			case pTypeFS20:
 				newnValue = fs20_sOff;
+				break;
+			case pTypeDDxxxx:
+				newnValue = DDxxxx_Up;
 				break;
 			default:
 				continue;
@@ -5387,6 +5393,7 @@ uint64_t CSQLHelper::UpdateValueInt(
 	case pTypeFS20:
 	case pTypeRadiator1:
 	case pTypeHunter:
+	case pTypeDDxxxx:
 		if ((devType == pTypeRadiator1) && (subType != sTypeSmartwaresSwitchRadiator))
 			break;
 		m_LastSwitchID = ID;
@@ -8772,7 +8779,7 @@ void CSQLHelper::CheckDeviceTimeout()
 	result = safe_query(
 		"SELECT ID, Name, LastUpdate FROM DeviceStatus WHERE (Used!=0 AND LastUpdate<='%04d-%02d-%02d %02d:%02d:%02d' "
 		"AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d "
-		"AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d) "
+		"AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d AND Type!=%d) "
 		"ORDER BY Name COLLATE NOCASE ASC",
 		ltime.tm_year + 1900, ltime.tm_mon + 1, ltime.tm_mday, ltime.tm_hour, ltime.tm_min, ltime.tm_sec,
 		pTypeLighting1,
@@ -8796,7 +8803,8 @@ void CSQLHelper::CheckDeviceTimeout()
 		pTypeGeneralSwitch,
 		pTypeHomeConfort,
 		pTypeFS20,
-		pTypeHunter
+		pTypeHunter,
+		pTypeDDxxxx
 	);
 	if (result.empty())
 		return;

@@ -945,7 +945,7 @@ bool MainWorker::AddHardwareFromParams(
 		pHardware = new CAnnaThermostat(ID, Address, Port, Username, Password);
 		break;
 	case HTYPE_THERMOSMART:
-		pHardware = new CThermosmart(ID, Username, Password, Mode1, Mode2, Mode3, Mode4, Mode5, Mode6);
+		pHardware = new CThermosmart(ID, Username, Password, Mode1);
 		break;
 	case HTYPE_Tado:
 		pHardware = new CTado(ID, Username, Password);
@@ -1529,6 +1529,11 @@ void MainWorker::ParseRFXLogFile()
 			if (_line[tpos - 4] != ':')
 				continue;
 			_line = _line.substr(tpos + 1);
+			tpos = _line.find(':');
+			if (tpos != std::string::npos)
+			{
+				_line = _line.substr(tpos + 1);
+			}
 			stdreplace(_line, " ", "");
 			_lines.push_back(_line);
 		}
@@ -1922,6 +1927,11 @@ uint64_t MainWorker::PerformRealActionFromDomoticzClient(const uint8_t* pRXComma
 		Unit = pSwitch->unitcode;
 	}
 	break;
+	case pTypeDDxxxx:
+		sprintf(szTmp, "%02X%02X%02X%02X", pResponse->DDXXXX.id1, pResponse->DDXXXX.id2, pResponse->DDXXXX.id3, pResponse->DDXXXX.id4);
+		ID = szTmp;
+		Unit = pResponse->DDXXXX.unitcode;
+		break;
 	default:
 		return -1;
 	}
@@ -2213,6 +2223,7 @@ void MainWorker::ProcessRXMessage(const CDomoticzHardwareBase* pHardware, const 
 			case pTypeFan:
 			case pTypeFS20:
 			case pTypeHunter:
+			case pTypeDDxxxx:
 				// we received a control message from a domoticz client,
 				// and should actually perform this command ourself switch
 				DeviceRowIdx = PerformRealActionFromDomoticzClient(pRXCommand, &pOrgHardware);
@@ -2448,6 +2459,9 @@ void MainWorker::ProcessRXMessage(const CDomoticzHardwareBase* pHardware, const 
 			break;
 		case pTypeLIGHTNING:
 			decode_LightningSensor(pHardware, reinterpret_cast<const tRBUF*>(pRXCommand), procResult);
+			break;
+		case pTypeDDxxxx:
+			decode_DDxxxx(pHardware, reinterpret_cast<const tRBUF*>(pRXCommand), procResult);
 			break;
 		default:
 			_log.Log(LOG_ERROR, "UNHANDLED PACKET TYPE:      FS20 %02X", pRXCommand[1]);
@@ -11294,8 +11308,106 @@ void MainWorker::decode_LightningSensor(const CDomoticzHardwareBase* pHardware, 
 	procResult.DeviceName = "Lightning Distance";
 	decode_General(pHardware, (const tRBUF*)&gdevice, procResult);
 	procResult.DeviceRowIdx = DevRowIdx;
-
 }
+
+void MainWorker::decode_DDxxxx(const CDomoticzHardwareBase* pHardware, const tRBUF* pResponse, _tRxMessageProcessingResult& procResult)
+{
+	char szTmp[100];
+	uint8_t devType = pTypeDDxxxx;
+	uint8_t subType = pResponse->DDXXXX.subtype;
+
+	sprintf(szTmp, "%02X%02X%02X%02X", pResponse->DDXXXX.id1, pResponse->DDXXXX.id2, pResponse->DDXXXX.id3, pResponse->DDXXXX.id4);
+
+	std::string ID = szTmp;
+	uint8_t Unit = pResponse->DDXXXX.unitcode;
+	uint8_t cmnd = pResponse->DDXXXX.cmnd;
+	uint8_t SignalLevel = pResponse->DDXXXX.rssi;
+
+	sprintf(szTmp, "%d", pResponse->DDXXXX.percent);
+	uint64_t DevRowIdx = m_sql.UpdateValue(pHardware->m_HwdID, ID.c_str(), Unit, devType, subType, SignalLevel, -1, cmnd, szTmp, procResult.DeviceName, true, procResult.Username.c_str());
+	if (DevRowIdx == (uint64_t)-1)
+		return;
+	CheckSceneCode(DevRowIdx, devType, subType, cmnd, szTmp, procResult.DeviceName);
+
+	if (_log.IsDebugLevelEnabled(DEBUG_RECEIVED))
+	{
+		WriteMessageStart();
+		char szTmp[100];
+
+		switch (pResponse->DDXXXX.subtype)
+		{
+		case sTypeDDxxxx:
+			WriteMessage("subtype       = Brel");
+			break;
+		default:
+			sprintf(szTmp, "ERROR: Unknown Sub type for Packet type= %02X:%02X:", pResponse->DDXXXX.packettype, pResponse->DDXXXX.subtype);
+			WriteMessage(szTmp);
+			break;
+		}
+		sprintf(szTmp, "Sequence nbr  = %d", pResponse->DDXXXX.seqnbr);
+		WriteMessage(szTmp);
+
+		sprintf(szTmp, "id1-4         = %02X%02X%02X%02X", pResponse->DDXXXX.id1, pResponse->DDXXXX.id2, pResponse->DDXXXX.id3, pResponse->DDXXXX.id4);
+		WriteMessage(szTmp);
+
+		if (pResponse->DDXXXX.unitcode == 0)
+			WriteMessage("Unit          = All");
+		else
+			sprintf(szTmp, "Unit          = %d", pResponse->DDXXXX.unitcode + 1);
+		WriteMessage(szTmp);
+
+		WriteMessage("Command       = ", false);
+
+		switch (pResponse->DDXXXX.cmnd)
+		{
+		case DDxxxx_Up:
+			WriteMessage("Open/Up");
+			break;
+		case DDxxxx_Down:
+			WriteMessage("Close/Down");
+			break;
+		case DDxxxx_Stop:
+			WriteMessage("Stop");
+			break;
+		case DDxxxx_P2:
+			WriteMessage("Pair");
+			break;
+		case DDxxxx_Percent:
+			sprintf(szTmp, "Percent = %d", pResponse->DDXXXX.percent);
+			WriteMessage(szTmp);
+			break;
+		case DDxxxx_Angle:
+			WriteMessage("Angle");
+			break;
+		case DDxxxx_PercentAngle:
+			WriteMessage("Percent Angle");
+			break;
+		case DDxxxx_HoldUp:
+			WriteMessage("Hold Up");
+			break;
+		case DDxxxx_HoldUpDown:
+			WriteMessage("Hold Down");
+			break;
+		case DDxxxx_HoldStop:
+			WriteMessage("Hold Stop");
+			break;
+		case DDxxxx_HoldStopUp:
+			WriteMessage("Hold Stop Up");
+			break;
+		case DDxxxx_HoldStopDown:
+			WriteMessage("Hold Stop Down");
+			break;
+		default:
+			WriteMessage("UNKNOWN");
+			break;
+		}
+		sprintf(szTmp, "Signal level  = %d", pResponse->DDXXXX.rssi);
+		WriteMessage(szTmp);
+		WriteMessageEnd();
+	}
+	procResult.DeviceRowIdx = DevRowIdx;
+}
+
 
 bool MainWorker::GetSensorData(const uint64_t idx, int& nValue, std::string& sValue)
 {
@@ -12298,6 +12410,46 @@ bool MainWorker::SwitchLightInt(const std::vector<std::string>& sd, std::string 
 		return true;
 	}
 	break;
+	case pTypeDDxxxx:
+	{
+		tRBUF lcmd;
+		lcmd.DDXXXX.packetlength = sizeof(lcmd.DDXXXX) - 1;
+		lcmd.DDXXXX.packettype = dType;
+		lcmd.DDXXXX.subtype = dSubType;
+		lcmd.DDXXXX.seqnbr = m_hardwaredevices[hindex]->m_SeqNr++;
+		lcmd.DDXXXX.id1 = ID1;
+		lcmd.DDXXXX.id2 = ID2;
+		lcmd.DDXXXX.id3 = ID3;
+		lcmd.DDXXXX.id4 = ID4;
+		lcmd.DDXXXX.unitcode = Unit;
+		if (!GetLightCommand(dType, dSubType, switchtype, switchcmd, lcmd.DDXXXX.cmnd, options))
+			return false;
+		lcmd.DDXXXX.filler = 0;
+		lcmd.DDXXXX.rssi = 12;
+
+		level = std::min(100, level);
+		level = std::max(0, level);
+		if (
+			(lcmd.DDXXXX.cmnd != DDxxxx_Percent)
+			&& (lcmd.DDXXXX.cmnd != DDxxxx_PercentAngle)
+			)
+		{
+			level = 0;
+		}
+		else
+		{
+			lcmd.DDXXXX.percent = level;
+		}
+
+		if (!WriteToHardware(HardwareID, (const char*)&lcmd, sizeof(lcmd.DDXXXX)))
+			return false;
+		if (!IsTesting) {
+			//send to internal for now (later we use the ACK)
+			PushAndWaitRxMessage(m_hardwaredevices[hindex], (const uint8_t*)&lcmd, nullptr, -1, User.c_str());
+		}
+		return true;
+	}
+	break;
 	case pTypeChime:
 	{
 		level = 15;
@@ -12818,26 +12970,27 @@ bool MainWorker::SetSetPointInt(const std::vector<std::string>& sd, const float 
 #endif
 	}
 	else if (
-		(pHardware->HwdType == HTYPE_OpenThermGateway) ||
-		(pHardware->HwdType == HTYPE_OpenThermGatewayTCP) ||
-		(pHardware->HwdType == HTYPE_ICYTHERMOSTAT) ||
-		(pHardware->HwdType == HTYPE_TOONTHERMOSTAT) ||
-		(pHardware->HwdType == HTYPE_AtagOne) ||
-		(pHardware->HwdType == HTYPE_NEST) ||
-		(pHardware->HwdType == HTYPE_Nest_OAuthAPI) ||
-		(pHardware->HwdType == HTYPE_ANNATHERMOSTAT) ||
-		(pHardware->HwdType == HTYPE_THERMOSMART) ||
-		(pHardware->HwdType == HTYPE_Tado) ||
-		(pHardware->HwdType == HTYPE_EVOHOME_SCRIPT) ||
-		(pHardware->HwdType == HTYPE_EVOHOME_SERIAL) ||
-		(pHardware->HwdType == HTYPE_EVOHOME_TCP) ||
-		(pHardware->HwdType == HTYPE_EVOHOME_WEB) ||
-		(pHardware->HwdType == HTYPE_Netatmo) ||
-		(pHardware->HwdType == HTYPE_NefitEastLAN) ||
-		(pHardware->HwdType == HTYPE_IntergasInComfortLAN2RF) ||
-		(pHardware->HwdType == HTYPE_OpenWebNetTCP) ||
-		(pHardware->HwdType == HTYPE_MQTT) ||
-		(pHardware->HwdType == HTYPE_MQTTAutoDiscovery)
+		(pHardware->HwdType == HTYPE_OpenThermGateway)
+		|| (pHardware->HwdType == HTYPE_OpenThermGatewayTCP)
+		|| (pHardware->HwdType == HTYPE_ICYTHERMOSTAT)
+		|| (pHardware->HwdType == HTYPE_TOONTHERMOSTAT)
+		|| (pHardware->HwdType == HTYPE_AtagOne)
+		|| (pHardware->HwdType == HTYPE_NEST)
+		|| (pHardware->HwdType == HTYPE_Nest_OAuthAPI)
+		|| (pHardware->HwdType == HTYPE_ANNATHERMOSTAT)
+		|| (pHardware->HwdType == HTYPE_THERMOSMART)
+		|| (pHardware->HwdType == HTYPE_Tado)
+		|| (pHardware->HwdType == HTYPE_EVOHOME_SCRIPT)
+		|| (pHardware->HwdType == HTYPE_EVOHOME_SERIAL)
+		|| (pHardware->HwdType == HTYPE_EVOHOME_TCP)
+		|| (pHardware->HwdType == HTYPE_EVOHOME_WEB)
+		|| (pHardware->HwdType == HTYPE_Netatmo)
+		|| (pHardware->HwdType == HTYPE_NefitEastLAN)
+		|| (pHardware->HwdType == HTYPE_IntergasInComfortLAN2RF)
+		|| (pHardware->HwdType == HTYPE_OpenWebNetTCP)
+		|| (pHardware->HwdType == HTYPE_MQTT)
+		|| (pHardware->HwdType == HTYPE_MQTTAutoDiscovery)
+		|| (pHardware->HwdType == HTYPE_AlfenEveCharger)
 		)
 	{
 		if (pHardware->HwdType == HTYPE_OpenThermGateway)
@@ -12918,6 +13071,11 @@ bool MainWorker::SetSetPointInt(const std::vector<std::string>& sd, const float 
 		{
 			MQTTAutoDiscover* pGateway = dynamic_cast<MQTTAutoDiscover*>(pHardware);
 			return pGateway->SetSetpoint(sd[1], TempValue);
+		}
+		else if (pHardware->HwdType == HTYPE_AlfenEveCharger)
+		{
+			AlfenEve* pGateway = dynamic_cast<AlfenEve*>(pHardware);
+			pGateway->SetSetpoint(ID4, TempValue);
 		}
 	}
 	else if (pHardware->HwdType == HTYPE_VirtualThermostat)
