@@ -1423,6 +1423,7 @@ namespace http
 			else if (htype == HTYPE_VirtualThermostat)
 			{
 				// all fine here!
+			}
 			else if (htype == HTYPE_EneverPriceFeeds)
 			{
 				// All fine here
