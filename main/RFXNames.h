@@ -94,7 +94,6 @@ enum _eMediaStatus
 };
 
 enum _eHardwareTypes {
-	HTYPE_VirtualThermostat =250,	
 	HTYPE_RFXtrx315 = 0,		//0
 	HTYPE_RFXtrx433,			//1
 	HTYPE_RFXLAN,				//2
@@ -223,6 +222,7 @@ enum _eHardwareTypes {
 	HTYPE_MQTTAutoDiscovery,	//125
 	HTYPE_RFLINKMQTT,			//126
 	HTYPE_VisualCrossing,		//127
+	HTYPE_VirtualThermostat,	
 	HTYPE_MitsubishiWF,			//128
 	HTYPE_END
 };

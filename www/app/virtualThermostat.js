@@ -1,10 +1,10 @@
 GetThermostatBigText = function (item, TempSign) {
-	var bigtext;
-	bigtext = item.Data + '\u00B0';
+	var bigtext='';
 	if (typeof item.RoomTemp != 'undefined') {
-		bigtext += '/' + item.RoomTemp + '\u00B0 ';
+		bigtext = item.RoomTemp + ' / ' ;
 	}
-	bigtext += TempSign;
+	bigtext += item.Data;
+	bigtext += ' '+TempSign;
 	return bigtext;
 }
 GetThermostatStatus = function (item) {

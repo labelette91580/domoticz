@@ -1484,9 +1484,9 @@ define(['app', 'livesocket'], function (app) {
 						else if ((item.Type == "Setpoint") && (item.SubType == "SetPoint")) {
 							status = "";
 							if (item.isVirtualThermostat) {
-								bigtext = item.Data + '\u00B0 ' ;
-								if (typeof item.RoomTemp != 'undefined') bigtext += '/' + item.RoomTemp + '\u00B0 ';
-								bigtext += $scope.config.TempSign;
+								bigtext = item.Data  ;
+								if (typeof item.RoomTemp != 'undefined') bigtext += ' / ' + item.RoomTemp ;
+								bigtext += ' ' +item.vunit;
 
 								if (item.Switch == 1)
 									img = '<img src="images/override.png"';
@@ -3395,7 +3395,7 @@ define(['app', 'livesocket'], function (app) {
 											bigtexthtml += item.Data;
 										}
 										else if ((item.Type == "Setpoint") && (item.SubType == "SetPoint")) {
-											if (typeof item.RoomTemp != 'undefined') bigtexthtml += item.RoomTemp + '\u00B0 ' + '/';
+											if (typeof item.RoomTemp != 'undefined') bigtexthtml += item.RoomTemp +  ' / ';
 											bigtexthtml += item.Data + ' ' + item.vunit;
 										}
 										else if (item.SubType == "Smartwares") {
