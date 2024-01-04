@@ -1452,6 +1452,11 @@
     <None Include="..\www\css\planning.css">
       <Filter>www\css</Filter>
     </None>
+    <None Include="..\www\app\timers\components.js" />
+    <None Include="..\www\app\timers\DeviceTimersController.js" />
+    <None Include="..\www\app\timers\factories.js" />
+    <None Include="..\www\app\timers\planning.js" />
+    <None Include="..\www\app\timers\SceneTimersController.js" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\webserver\Base64.h">

@@ -24,7 +24,7 @@ getThermostatImage = function (item) {
 			image = '"images/override_off.png"';
 	}
 	var undef;
-	var xhtm = '<img src=' + image + ' class="lcursor" onclick="ShowSetpointPopup(event, ' + item.idx + ',' + item.Protected + ', ' + item.Data + ',' + undef + ',' + item.ConforTemp + ',' + item.EcoTemp + ');" height="48" width="48" ></td>\n';
+	var xhtm = '<img src=' + image + ' class="lcursor" onclick="ShowSetpointPopup(event, ' + item.idx + ',' + item.Protected + ', ' + item.Data + ',false, ' + item.step + ', ' + item.min + ', ' + item.max + ');" height="48" width="48" ></td>\n';
 
 	return xhtm;
 }
