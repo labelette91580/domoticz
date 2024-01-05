@@ -175,6 +175,7 @@ push/FibaroPush.cpp
 push/GooglePubSubPush.cpp
 push/HttpPush.cpp
 push/InfluxPush.cpp
+push/MQTTPush.cpp
 push/WebsocketPush.cpp
 httpclient/HTTPClient.cpp
 httpclient/UrlEncode.cpp
@@ -198,6 +199,7 @@ hardware/ColorSwitch.cpp
 hardware/Comm5Serial.cpp
 hardware/Comm5SMTCP.cpp
 hardware/Comm5TCP.cpp
+hardware/CounterHelper.cpp
 hardware/csocket.cpp
 hardware/CurrentCostMeterBase.cpp
 hardware/CurrentCostMeterSerial.cpp

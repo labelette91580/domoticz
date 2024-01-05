@@ -343,6 +343,9 @@ class CSQLHelper : public StoppableTask
 	uint64_t UpdateValueHomeComfortGroupCmd(int HardwareID, const char* ID, unsigned char unit, unsigned char devType, unsigned char subType, unsigned char signallevel, unsigned char batterylevel,
 						int nValue, const char *sValue, std::string &devname, const bool bUseOnOffAction, const char* User = nullptr);
 
+	bool UpdateLastUpdate(const int64_t idx);
+	bool UpdateLastUpdate(const std::string& sidx);
+
 	uint64_t GetDeviceIndex(int HardwareID, const std::string &ID, unsigned char unit, unsigned char devType, unsigned char subType, std::string &devname);
 
 	uint64_t InsertDevice(int HardwareID, const char *ID, unsigned char unit, unsigned char devType, unsigned char subType, int switchType, int nValue, const char *sValue,
@@ -423,7 +426,9 @@ class CSQLHelper : public StoppableTask
 	bool DoesColumnExistsInTable(const std::string &columnname, const std::string &tablename);
 
 	bool AddUserVariable(const std::string &varname, _eUsrVariableType eVartype, const std::string &varvalue, std::string &errorMessage);
-	bool UpdateUserVariable(const std::string &idx, const std::string &varname, _eUsrVariableType eVartype, const std::string &varvalue, bool eventtrigger, std::string &errorMessage);
+	bool AddUserVariableEx(const std::string& varname, _eUsrVariableType eVartype, const std::string& varvalue, bool eventtrigger, std::string& errorMessage);
+	bool UpdateUserVariable(const std::string& idx, const std::string& varname, _eUsrVariableType eVartype, const std::string& varvalue, bool eventtrigger, std::string& errorMessage);
+	bool UpdateUserVariable(const std::string& varname, _eUsrVariableType eVartype, const std::string& varvalue, bool eventtrigger, std::string& errorMessage);
 	void DeleteUserVariable(const std::string &idx);
 	bool GetUserVariable(const std::string &varname, _eUsrVariableType eVartype, std::string &varvalue);
 	bool CheckUserVariable(_eUsrVariableType eVartype, const std::string &varvalue, std::string &errorMessage);
@@ -541,6 +546,8 @@ class CSQLHelper : public StoppableTask
 	bool CheckDateTimeSQL(const std::string &sDateTime);
 	bool CheckTime(const std::string &sTime);
 	void SendUpdateInt(const std::string& Idx);
+
+	void CorrectOffDelaySwitchStates();
 
 	std::vector<std::vector<std::string>> query(const std::string &szQuery);
 	std::vector<std::vector<std::string>> queryBlob(const std::string &szQuery);

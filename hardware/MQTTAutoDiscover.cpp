@@ -170,6 +170,7 @@ void MQTTAutoDiscover::CleanValueTemplate(std::string& szValueTemplate)
 
 	szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find("|"));
 	szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find(".split("));
+	szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find("if value_json."));
 
 	stdstring_trim(szValueTemplate);
 
@@ -666,6 +667,7 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 	try
 	{
 		std::string sensor_unique_id;
+
 		if (!root["unique_id"].empty())
 			sensor_unique_id = root["unique_id"].asString();
 		else if (!root["uniq_id"].empty())
@@ -674,11 +676,6 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 		{
 			//It's optional, but good to have one
 			sensor_unique_id = GenerateUUID();
-		}
-
-		if (root["name"].empty())
-		{
-			root["name"] = sensor_unique_id;
 		}
 
 		std::string device_identifiers;
@@ -725,10 +722,36 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 		_tMQTTADevice* pDevice = &m_discovered_devices[device_identifiers];
 
 		pDevice->identifiers = device_identifiers;
+
+		std::string dev_name("");
 		if (!root["device"]["name"].empty())
-			pDevice->name = root["device"]["name"].asString();
+		{
+			dev_name = root["device"]["name"].asString();
+		}
 		else if (!root["dev"]["name"].empty())
-			pDevice->name = root["dev"]["name"].asString();
+		{
+			dev_name = root["dev"]["name"].asString();
+		}
+
+		if (!dev_name.empty())
+		{
+			if (root["name"].empty())
+			{
+				root["name"] = sensor_unique_id;
+			}
+			std::string subname = root["name"].asString();
+			if (subname.find("0x") != 0)
+			{
+				pDevice->name = dev_name + " (" + subname + ")";
+			}
+			else
+				pDevice->name = dev_name;
+		}
+		else if (!root["name"].empty())
+		{
+			pDevice->name = root["name"].asString();
+		}
+
 		if (pDevice->name.empty())
 			pDevice->name = pDevice->identifiers;
 
@@ -1215,6 +1238,23 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 			pSensor->temperature_unit = root["temperature_unit"].asString();
 		if (!root["temp_unit"].empty())
 			pSensor->temperature_unit = root["temp_unit"].asString();
+		//Set default min/max temperature based on unit
+		if (pSensor->temperature_unit == "C")
+		{
+			pSensor->temp_max = 35;
+			pSensor->temp_min = 7;
+		}
+		else
+		{
+			pSensor->temp_max = 95;
+			pSensor->temp_min = 44.6;
+		}
+		if (!root["min_temp"].empty())
+			pSensor->temp_min = atof(root["min_temp"].asString().c_str());
+		if (!root["max_temp"].empty())
+			pSensor->temp_max = atof(root["max_temp"].asString().c_str());
+		if (!root["temp_step"].empty())
+			pSensor->temp_step = atof(root["temp_step"].asString().c_str());
 		if (!root["current_temperature_topic"].empty())
 			pSensor->current_temperature_topic = root["current_temperature_topic"].asString();
 		if (!root["curr_temp_t"].empty())
@@ -1253,6 +1293,28 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 			pSensor->preset_mode_state_topic = root["pr_mode_stat_t"].asString();
 		if (!root["pr_mode_val_tpl"].empty())
 			pSensor->preset_mode_value_template = root["pr_mode_val_tpl"].asString();
+
+		//Special case for Fan percentage_command_template
+		if (pSensor->component_type == "fan")
+		{
+			if (!pSensor->percentage_command_template.empty())
+			{
+				std::string tstring(pSensor->percentage_command_template);
+				stdreplace(tstring, "[value]", "");
+				std::vector<std::string> strarray;
+				StringSplit(tstring, ",", strarray);
+
+				for (const auto& ittMode : strarray)
+				{
+					std::vector<std::string> strarray2;
+					StringSplit(ittMode, ":", strarray2);
+					if (strarray2.size() == 2)
+					{
+						pSensor->preset_modes.push_back(strarray2[1]);
+					}
+				}
+			}
+		}
 
 		CleanValueTemplate(pSensor->mode_state_template);
 		CleanValueTemplate(pSensor->mode_command_template);
@@ -1820,6 +1882,12 @@ bool MQTTAutoDiscover::GuessSensorTypeValue(const _tMQTTASensor* pSensor, uint8_
 		subType = sTypeTextStatus;
 		sValue = pSensor->last_value;
 	}
+	else if (szUnit == "variable")
+	{
+		std::string errorMessage;
+		m_sql.AddUserVariableEx(pSensor->name, USERVARTYPE_STRING, pSensor->last_value, true, errorMessage);
+		return false;
+	}
 	else if (
 		(szUnit == "m³")
 		|| (szUnit == "m\xB3")
@@ -1971,20 +2039,10 @@ bool MQTTAutoDiscover::GuessSensorTypeValue(const _tMQTTASensor* pSensor, uint8_
 	*/
 	else
 	{
-		//Unknown unit, try to guess the type
-		if (pSensor->unique_id.find("voc") != std::string::npos)
-		{
-			devType = pTypeAirQuality;
-			subType = sTypeVoc;
-			nValue = atoi(pSensor->last_value.c_str());
-		}
-		else
-		{
-			devType = pTypeGeneral;
-			subType = sTypeCustom;
-			szOptions = pSensor->unit_of_measurement;
-			sValue = pSensor->last_value;
-		}
+		devType = pTypeGeneral;
+		subType = sTypeCustom;
+		szOptions = pSensor->unit_of_measurement;
+		sValue = pSensor->last_value;
 	}
 
 	if ((devType == pTypeGeneral) && (subType == sTypeCustom) && pSensor->szOptions.empty())
@@ -2193,6 +2251,58 @@ void MQTTAutoDiscover::handle_auto_discovery_number(_tMQTTASensor* pSensor, cons
 	}
 }
 
+bool MQTTAutoDiscover::HaveSingleTempHumBaro(const std::string& device_identifiers)
+{
+	//check if device has only one temp/hum/baro sensor
+	int nTemp = 0;
+	int nHum = 0;
+	int nBaro = 0;
+
+	auto pDevice = m_discovered_devices.find(device_identifiers);
+	if (pDevice == m_discovered_devices.end())
+		return false; //not discovered yet!?
+
+	for (const auto ittSensorID : pDevice->second.sensor_ids)
+	{
+		auto pSensorBase = m_discovered_sensors.find(ittSensorID.first);
+		if (pSensorBase == m_discovered_sensors.end())
+			continue;
+
+		_tMQTTASensor* pSensor = &pSensorBase->second;
+
+		uint8_t devType, subType;
+		std::string szOptions, sValue;
+		int nValue;
+
+		if (!GuessSensorTypeValue(pSensor, devType, subType, szOptions, nValue, sValue))
+			return false;
+
+		if (
+			(devType == pTypeTEMP)
+			&& (subType == sTypeTEMP1)
+			)
+		{
+			nTemp++;
+		}
+		else if (
+			(devType == pTypeHUM)
+			&& (subType == sTypeHUM2)
+			)
+		{
+			nHum++;
+		}
+		else if (
+			(devType == pTypeGeneral)
+			&& (subType == sTypeBaro)
+			)
+		{
+			nBaro++;
+		}
+	}
+
+	return ((nTemp <= 1) && (nHum <= 1) && (nBaro <= 1));
+}
+
 void MQTTAutoDiscover::handle_auto_discovery_sensor(_tMQTTASensor* pSensor, const struct mosquitto_message* message)
 {
 	if (
@@ -2300,6 +2410,13 @@ void MQTTAutoDiscover::handle_auto_discovery_sensor(_tMQTTASensor* pSensor, cons
 			//it's a standalone sensor
 			bTreatStandAlone = true;
 		}
+
+		if (!HaveSingleTempHumBaro(pSensor->device_identifiers))
+		{
+			//we have multiple temperature, humidity and/or baro sensors, threat them all standalone
+			bTreatStandAlone = true;
+		}
+		
 
 		if (!bTreatStandAlone)
 		{
@@ -2805,7 +2922,8 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 					current_mode = GetValueFromTemplate(root, pSensor->mode_state_template);
 					if ((pSensor->mode_state_topic == topic) && current_mode.empty())
 					{
-						Log(LOG_ERROR, "Climate device no idea how to interpretate state values (%s)", pSensor->unique_id.c_str());
+						//Mode not provided
+						//Log(LOG_ERROR, "Climate device no idea how to interpretate state values (%s)", pSensor->unique_id.c_str());
 						bValid = false;
 					}
 				}
@@ -2933,7 +3051,8 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 				current_mode = GetValueFromTemplate(root, pSensor->preset_mode_value_template);
 				if ((pSensor->preset_mode_state_topic == topic) && current_mode.empty())
 				{
-					Log(LOG_ERROR, "Climate device no idea how to interpretate preset_mode_state value (%s)", pSensor->unique_id.c_str());
+					//No preset mode provided
+					//Log(LOG_ERROR, "Climate device no idea how to interpretate preset_mode_state value (%s)", pSensor->unique_id.c_str());
 					bValid = false;
 				}
 			}
@@ -3033,7 +3152,7 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 			pSensor->devType = pTypeSetpoint;
 			pSensor->subType = sTypeSetpoint;
 			std::vector<std::vector<std::string>> result;
-			result = m_sql.safe_query("SELECT Name,nValue,sValue FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit == %d) AND (Type==%d) AND (Subtype==%d)", m_HwdID,
+			result = m_sql.safe_query("SELECT ID, Name, sValue FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit == %d) AND (Type==%d) AND (Subtype==%d)", m_HwdID,
 				pSensor->unique_id.c_str(), 1, pSensor->devType, pSensor->subType);
 			if (result.empty())
 			{
@@ -3048,15 +3167,30 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 					"VALUES (%d, '%q', 1, %d, %d, %d, %d, '%q', %d, %d, '%q')",
 					m_HwdID, pSensor->unique_id.c_str(), pSensor->devType, pSensor->subType, pSensor->SignalLevel, pSensor->BatteryLevel, pSensor->name.c_str(), iUsed,
 					pSensor->nValue, pSensor->sValue.c_str());
+				result = m_sql.safe_query("SELECT ID FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit == %d) AND (Type==%d) AND (Subtype==%d)", m_HwdID,
+					pSensor->unique_id.c_str(), 1, pSensor->devType, pSensor->subType);
+				//Set options
+				std::string new_options = std_format("ValueStep:%g;ValueMin:%g;ValueMax:%g;ValueUnit:%s;", pSensor->temp_step, pSensor->temp_min, pSensor->temp_max, pSensor->temperature_unit.c_str());
+				uint64_t ullidx = std::stoull(result[0][0]);
+				m_sql.SetDeviceOptions(ullidx, m_sql.BuildDeviceOptions(new_options, false));
 			}
 			else
 			{
 				// Update
 				if (bHaveReceiveValue)
 				{
-					UpdateValueInt(m_HwdID, pSensor->unique_id.c_str(), 1, pSensor->devType, pSensor->subType, pSensor->SignalLevel, pSensor->BatteryLevel, pSensor->nValue,
-						pSensor->sValue.c_str(),
-						result[0][0]);
+					std::string sID = result[0][0];
+					std::string sName = result[0][1];
+					std::string old_value = result[0][2];
+					//check if different
+					if (old_value != pSensor->sValue)
+					{
+						UpdateValueInt(m_HwdID, pSensor->unique_id.c_str(), 1, pSensor->devType, pSensor->subType, pSensor->SignalLevel, pSensor->BatteryLevel, pSensor->nValue,
+							pSensor->sValue.c_str(),
+							sName);
+					}
+					else
+						m_sql.UpdateLastUpdate(sID);
 				}
 			}
 		}
@@ -3075,7 +3209,8 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 				std::string tstring = GetValueFromTemplate(root, pSensor->current_temperature_template);
 				if (tstring.empty())
 				{
-					Log(LOG_ERROR, "Climate device unhandled current_temperature_template (%s)", pSensor->unique_id.c_str());
+					//No current temperature provided
+					//Log(LOG_ERROR, "Climate device unhandled current_temperature_template (%s)", pSensor->unique_id.c_str());
 					bValid = false;
 				}
 				temp_current = static_cast<double>(atof(tstring.c_str()));
@@ -3370,337 +3505,346 @@ void MQTTAutoDiscover::InsertUpdateSwitch(_tMQTTASensor* pSensor)
 		m_sql.UpdateDeviceValue("SubType", subType, szIdx);
 	pSensor->subType = subType;
 
-	bool bOn = false;
-
-	bool bIsJSON = false;
-	Json::Value root;
-	if (pSensor->bIsJSON)
-	{
-		bool ret = ParseJSon(pSensor->last_json_value, root);
-		if (ret)
-		{
-			bIsJSON = root.isObject();
-		}
-	}
-
-	_tColor color_old;
-	_tColor color_new;
-	color_old.mode = ColorModeCustom;
-	color_new.mode = ColorModeCustom;
 	bool bHaveColorChange = false;
 	bool bDoNotUpdateLevel = false;
+	bool bHaveLevelChange = false;
 
-	if (bIsJSON)
-	{
-		if (root["value"].isObject() && (!root["value"]["red"].empty() && root["value"]["r"].empty()))
-		{
-			// Color values are defined in "value" object instead of "color" as expected by domoticz (e.g. Fibaro FGRGBW)
-			root["color"] = root["value"];
-			root.removeMember("value");
-		}
+	_tColor color_new;
+	color_new.mode = ColorModeCustom;
 
-		if (root["color"].isObject() && !root["color"]["red"].empty())
-		{
-			// The device uses "red", "green"... to specify the color components, default for domoticz would be "r", "g"... (e.g. Fibaro FGRGBW)
-			JSonRenameKey(root["color"], "red", "r");
-			JSonRenameKey(root["color"], "green", "g");
-			JSonRenameKey(root["color"], "blue", "b");
-			JSonRenameKey(root["color"], "warmWhite", "w");
-			JSonRenameKey(root["color"], "coldWhite", "c");
-		}
-
-		if (root["state"].empty() && root["color"].isObject())
-		{
-			// The on/off state is omitted in the message, so guess it from the color components (e.g. Fibaro FGRGBW)
-			int r = root["color"]["r"].asInt();
-			int g = root["color"]["g"].asInt();
-			int b = root["color"]["b"].asInt();
-			int w = root["color"]["w"].asInt();
-			int c = root["color"]["c"].asInt();
-			if (r == 0 && g == 0 && b == 0 && w == 0 && c == 0)
-			{
-				root["state"] = "OFF";
-			}
-			else
-				root["state"] = "ON";
-		}
-
-		if (!pSensor->state_value_template.empty())
-		{
-			if (pSensor->state_topic == pSensor->last_topic)
-			{
-				std::string szValue = GetValueFromTemplate(root, pSensor->state_value_template);
-				if (szValue == pSensor->state_on)
-					szSwitchCmd = pSensor->payload_on;
-				else if (szValue == pSensor->state_off)
-					szSwitchCmd = pSensor->payload_off;
-				else
-					szSwitchCmd = szValue;
-			}
-		}
-
-		if (!root["state"].empty())
-		{
-			szSwitchCmd = root["state"].asString();
-		}
-		else if (!root["value"].empty())
-		{
-			szSwitchCmd = root["value"].asString();
-			if (
-				(szSwitchCmd != pSensor->payload_on)
-				&& (szSwitchCmd != pSensor->payload_off)
-				)
-			{
-				if (is_number(szSwitchCmd))
-				{
-					//must be a level
-					level = atoi(szSwitchCmd.c_str());
-
-					if (pSensor->bHave_brightness_scale)
-						level = (int)round((100.0 / pSensor->brightness_scale) * level);
-
-					if (level == 0)
-						szSwitchCmd = "off";
-					else if (level == 100)
-						szSwitchCmd = "on";
-					else
-						szSwitchCmd = "Set Level";
-				}
-			}
-		}
-
-		if (!root["brightness"].empty())
-		{
-			float dLevel = (100.F / pSensor->brightness_scale) * root["brightness"].asInt();
-			level = (int)round(dLevel);
-			if (
-				(szSwitchCmd != pSensor->payload_on)
-				&& (szSwitchCmd != pSensor->payload_off))
-			{
-				if (level == 0)
-					szSwitchCmd = pSensor->payload_off;
-				else if (level == 100)
-					szSwitchCmd = pSensor->payload_on;
-				else
-					szSwitchCmd = "Set Level";
-			}
-			else if ((szSwitchCmd == pSensor->payload_on) && (level > 0) && (level < 100))
-			{
-				szSwitchCmd = "Set Level";
-			}
-		}
-		if (!root["color"].empty())
-		{
-			Json::Value root_color;
-			bool ret = ParseJSon(sColor, root_color);
-			if (ret)
-			{
-				if (root_color.isObject())
-				{
-					color_old.fromJSON(root_color);
-				}
-			}
-
-			bool bReceivedColor = false;
-			//for some nodes "color" = {}, in this case there could be a brightness only status
-			if (!root["color"]["r"].empty())
-			{
-				bReceivedColor = true;
-				color_new.r = root["color"]["r"].asInt();
-			}
-			if (!root["color"]["g"].empty())
-			{
-				bReceivedColor = true;
-				color_new.g = root["color"]["g"].asInt();
-			}
-			if (!root["color"]["b"].empty())
-			{
-				bReceivedColor = true;
-				color_new.b = root["color"]["b"].asInt();
-			}
-			if (!root["color"]["c"].empty())
-			{
-				bReceivedColor = true;
-				color_new.cw = root["color"]["c"].asInt();
-			}
-			if (!root["color"]["w"].empty())
-			{
-				bReceivedColor = true;
-				color_new.ww = root["color"]["w"].asInt();
-			}
-
-			if ((!root["color"]["x"].empty()) && (!root["color"]["y"].empty()))
-			{
-				bReceivedColor = true;
-				// convert xy to rgb
-				_tColor::RgbFromXY(root["color"]["x"].asDouble(), root["color"]["y"].asDouble(), color_new.r, color_new.g, color_new.b);
-			}
-			if ((!root["color"]["h"].empty()) && (!root["color"]["s"].empty()))
-			{
-				bReceivedColor = true;
-				// convert hue/sat to rgb
-				float iHue = float(root["color"]["h"].asDouble()) * 360.0F / 65535.0F;
-				float iSat = float(root["color"]["s"].asDouble()) / 254.0F;
-				int r = 0;
-				int g = 0;
-				int b = 0;
-				hsb2rgb(iHue, iSat, 1.0F, r, g, b, 255);
-				color_new.r = (uint8_t)r;
-				color_new.g = (uint8_t)g;
-				color_new.b = (uint8_t)b;
-			}
-
-			if (!root["color_temp"].empty())
-			{
-				bReceivedColor = true;
-				float CT = root["color_temp"].asFloat();
-				float iCt = ((float(CT) - pSensor->min_mireds) / (pSensor->max_mireds - pSensor->min_mireds)) * 255.0F;
-				_tColor color_CT = _tColor((uint8_t)round(iCt), ColorModeTemp);
-				color_new.t = color_CT.t;
-				color_new.cw = color_CT.cw;
-				color_new.ww = color_CT.ww;
-			}
-
-			std::string szColorOld = color_old.toJSONString();
-			std::string szColorNew = color_new.toJSONString();
-			bHaveColorChange = szColorOld != szColorNew;
-			if (bReceivedColor)
-				bDoNotUpdateLevel = true;
-		}
-		else if (!root["color_temp"].empty())
-		{
-			float CT = root["color_temp"].asFloat();
-			float iCt = ((float(CT) - pSensor->min_mireds) / (pSensor->max_mireds - pSensor->min_mireds)) * 255.0F;
-			color_new = _tColor((uint8_t)round(iCt), ColorModeTemp);
-			std::string szColorOld = color_old.toJSONString();
-			std::string szColorNew = color_new.toJSONString();
-			bHaveColorChange = szColorOld != szColorNew;
-			bDoNotUpdateLevel = true;
-		}
-	}
-	else
-	{
-		//not json
-		if (is_number(szSwitchCmd))
-		{
-			//must be a level
-			level = atoi(szSwitchCmd.c_str());
-			if (pSensor->component_type == "binary_sensor" && szSwitchCmd == pSensor->payload_off)
-				szSwitchCmd = "off";
-			else if (pSensor->component_type == "binary_sensor" && szSwitchCmd == pSensor->payload_on)
-				szSwitchCmd = "on";
-			else if (pSensor->component_type == "lock" && szSwitchCmd == pSensor->state_unlocked)
-				szSwitchCmd = "off";
-			else if (pSensor->component_type == "lock" && szSwitchCmd == pSensor->state_locked)
-				szSwitchCmd = "on";
-			else if (pSensor->component_type == "lock" && !pSensor->value_template.empty())
-				// ignore states defined in the value template until value_template support is built in
-				return;
-
-			else
-			{
-				if (level == 0)
-					szSwitchCmd = "off";
-				else {
-					szSwitchCmd = "Set Level";
-					if (pSensor->bHave_brightness_scale)
-						level = (int)round((100.0 / pSensor->brightness_scale) * level);
-					else if (!pSensor->percentage_value_template.empty())
-					{
-						level = (int)round((100.0 / 255) * level);
-					}
-				}
-			}
-		}
-		else
-		{
-			if (pSensor->component_type == "binary_sensor")
-			{
-				if (szSwitchCmd == pSensor->payload_off)
-					szSwitchCmd = "off";
-				else if (szSwitchCmd == pSensor->payload_on)
-					szSwitchCmd = "on";
-			}
-			else if (pSensor->component_type == "lock")
-			{
-				if (szSwitchCmd == pSensor->state_unlocked)
-					szSwitchCmd = "off";
-				else if (szSwitchCmd == pSensor->state_locked)
-					szSwitchCmd = "on";
-			}
-		}
-	}
-
-	if (level > 100)
-		level = 100;
-
-	int slevel = atoi(sValue.c_str());
-	bool bHaveLevelChange = (slevel != level);
-
-
-	if (szSwitchCmd == pSensor->payload_on)
-		bOn = true;
-	else if (szSwitchCmd == pSensor->payload_off)
-		bOn = false;
-	else
-		bOn = (szSwitchCmd == "on") || (szSwitchCmd == "ON") || (szSwitchCmd == "true") || (szSwitchCmd == "Set Level");
-
-	// check if we have a change, if not do not update it
 	if (
 		(switchType != STYPE_PushOn)
 		&& (switchType != STYPE_PushOff)
 		)
 	{
-		if ((!bOn) && (nValue == 0))
+		bool bOn = false;
+		bool bIsJSON = false;
+		Json::Value root;
+		if (pSensor->bIsJSON)
 		{
-			if (!bHaveLevelChange)
+			bool ret = ParseJSon(pSensor->last_json_value, root);
+			if (ret)
 			{
-				if (!bHaveColorChange)
-					return;
+				bIsJSON = root.isObject();
 			}
 		}
-		if ((bOn && (nValue != 0)))
+
+		_tColor color_old;
+		color_old.mode = ColorModeCustom;
+
+		if (bIsJSON)
 		{
-			// Check Level
-			int slevel = atoi(sValue.c_str());
-			if (slevel == level)
+			if (root["value"].isObject() && (!root["value"]["red"].empty() && root["value"]["r"].empty()))
 			{
-				if (!bHaveColorChange)
-					return;
+				// Color values are defined in "value" object instead of "color" as expected by domoticz (e.g. Fibaro FGRGBW)
+				root["color"] = root["value"];
+				root.removeMember("value");
 			}
-		}
-		/*
-				if (bOn && (level == 0) && (slevel != 0)) {
-					level = slevel; //set level to last level (can't have a light that is on with a level of 0)
+
+			if (root["color"].isObject() && !root["color"]["red"].empty())
+			{
+				// The device uses "red", "green"... to specify the color components, default for domoticz would be "r", "g"... (e.g. Fibaro FGRGBW)
+				JSonRenameKey(root["color"], "red", "r");
+				JSonRenameKey(root["color"], "green", "g");
+				JSonRenameKey(root["color"], "blue", "b");
+				JSonRenameKey(root["color"], "warmWhite", "w");
+				JSonRenameKey(root["color"], "coldWhite", "c");
+			}
+
+			if (root["state"].empty() && root["color"].isObject())
+			{
+				// The on/off state is omitted in the message, so guess it from the color components (e.g. Fibaro FGRGBW)
+				int r = root["color"]["r"].asInt();
+				int g = root["color"]["g"].asInt();
+				int b = root["color"]["b"].asInt();
+				int w = root["color"]["w"].asInt();
+				int c = root["color"]["c"].asInt();
+				if (r == 0 && g == 0 && b == 0 && w == 0 && c == 0)
+				{
+					root["state"] = "OFF";
+				}
+				else
+					root["state"] = "ON";
+			}
+
+			if (!pSensor->state_value_template.empty())
+			{
+				if (pSensor->state_topic == pSensor->last_topic)
+				{
+					std::string szValue = GetValueFromTemplate(root, pSensor->state_value_template);
+					if (szValue == pSensor->state_on)
+						szSwitchCmd = pSensor->payload_on;
+					else if (szValue == pSensor->state_off)
+						szSwitchCmd = pSensor->payload_off;
+					else
+						szSwitchCmd = szValue;
+				}
+			}
+
+			if (!root["state"].empty())
+			{
+				szSwitchCmd = root["state"].asString();
+			}
+			else if (!root["value"].empty())
+			{
+				szSwitchCmd = root["value"].asString();
+				if (
+					(szSwitchCmd != pSensor->payload_on)
+					&& (szSwitchCmd != pSensor->payload_off)
+					)
+				{
+					if (is_number(szSwitchCmd))
+					{
+						//must be a level
+						level = atoi(szSwitchCmd.c_str());
+
+						if (pSensor->bHave_brightness_scale)
+							level = (int)round((100.0 / pSensor->brightness_scale) * level);
+
+						if (level == 0)
+							szSwitchCmd = "off";
+						else if (level == 100)
+							szSwitchCmd = "on";
+						else
+							szSwitchCmd = "Set Level";
+					}
+				}
+			}
+
+			if (!root["brightness"].empty())
+			{
+				float dLevel = (100.F / pSensor->brightness_scale) * root["brightness"].asInt();
+				level = (int)round(dLevel);
+				if (
+					(szSwitchCmd != pSensor->payload_on)
+					&& (szSwitchCmd != pSensor->payload_off))
+				{
+					if (level == 0)
+						szSwitchCmd = pSensor->payload_off;
+					else if (level == 100)
+						szSwitchCmd = pSensor->payload_on;
+					else
+						szSwitchCmd = "Set Level";
+				}
+				else if ((szSwitchCmd == pSensor->payload_on) && (level > 0) && (level < 100))
+				{
 					szSwitchCmd = "Set Level";
 				}
-		*/
-	}
+			}
+			if (!root["color"].empty())
+			{
+				Json::Value root_color;
+				bool ret = ParseJSon(sColor, root_color);
+				if (ret)
+				{
+					if (root_color.isObject())
+					{
+						color_old.fromJSON(root_color);
+					}
+				}
 
-	sValue = std_format("%d", level);
+				bool bReceivedColor = false;
+				//for some nodes "color" = {}, in this case there could be a brightness only status
+				if (!root["color"]["r"].empty())
+				{
+					bReceivedColor = true;
+					color_new.r = root["color"]["r"].asInt();
+				}
+				if (!root["color"]["g"].empty())
+				{
+					bReceivedColor = true;
+					color_new.g = root["color"]["g"].asInt();
+				}
+				if (!root["color"]["b"].empty())
+				{
+					bReceivedColor = true;
+					color_new.b = root["color"]["b"].asInt();
+				}
+				if (!root["color"]["c"].empty())
+				{
+					bReceivedColor = true;
+					color_new.cw = root["color"]["c"].asInt();
+				}
+				if (!root["color"]["w"].empty())
+				{
+					bReceivedColor = true;
+					color_new.ww = root["color"]["w"].asInt();
+				}
 
-	if (pSensor->devType != pTypeColorSwitch)
-	{
-		if (szSwitchCmd == "Set Level")
-		{
-			nValue = gswitch_sSetLevel;
+				if ((!root["color"]["x"].empty()) && (!root["color"]["y"].empty()))
+				{
+					bReceivedColor = true;
+					// convert xy to rgb
+					_tColor::RgbFromXY(root["color"]["x"].asDouble(), root["color"]["y"].asDouble(), color_new.r, color_new.g, color_new.b);
+				}
+				if ((!root["color"]["h"].empty()) && (!root["color"]["s"].empty()))
+				{
+					bReceivedColor = true;
+					// convert hue/sat to rgb
+					float iHue = float(root["color"]["h"].asDouble()) * 360.0F / 65535.0F;
+					float iSat = float(root["color"]["s"].asDouble()) / 254.0F;
+					int r = 0;
+					int g = 0;
+					int b = 0;
+					hsb2rgb(iHue, iSat, 1.0F, r, g, b, 255);
+					color_new.r = (uint8_t)r;
+					color_new.g = (uint8_t)g;
+					color_new.b = (uint8_t)b;
+				}
+
+				if (!root["color_temp"].empty())
+				{
+					bReceivedColor = true;
+					float CT = root["color_temp"].asFloat();
+					float iCt = ((float(CT) - pSensor->min_mireds) / (pSensor->max_mireds - pSensor->min_mireds)) * 255.0F;
+					_tColor color_CT = _tColor((uint8_t)round(iCt), ColorModeTemp);
+					color_new.t = color_CT.t;
+					color_new.cw = color_CT.cw;
+					color_new.ww = color_CT.ww;
+				}
+
+				std::string szColorOld = color_old.toJSONString();
+				std::string szColorNew = color_new.toJSONString();
+				bHaveColorChange = szColorOld != szColorNew;
+				if (bReceivedColor)
+					bDoNotUpdateLevel = true;
+			}
+			else if (!root["color_temp"].empty())
+			{
+				float CT = root["color_temp"].asFloat();
+				float iCt = ((float(CT) - pSensor->min_mireds) / (pSensor->max_mireds - pSensor->min_mireds)) * 255.0F;
+				color_new = _tColor((uint8_t)round(iCt), ColorModeTemp);
+				std::string szColorOld = color_old.toJSONString();
+				std::string szColorNew = color_new.toJSONString();
+				bHaveColorChange = szColorOld != szColorNew;
+				bDoNotUpdateLevel = true;
+			}
 		}
 		else
 		{
-			nValue = (bOn) ? gswitch_sOn : gswitch_sOff;
+			//not json
+			if (is_number(szSwitchCmd))
+			{
+				//must be a level
+				level = atoi(szSwitchCmd.c_str());
+				if (pSensor->component_type == "binary_sensor" && szSwitchCmd == pSensor->payload_off)
+					szSwitchCmd = "off";
+				else if (pSensor->component_type == "binary_sensor" && szSwitchCmd == pSensor->payload_on)
+					szSwitchCmd = "on";
+				else if (pSensor->component_type == "lock" && szSwitchCmd == pSensor->state_unlocked)
+					szSwitchCmd = "off";
+				else if (pSensor->component_type == "lock" && szSwitchCmd == pSensor->state_locked)
+					szSwitchCmd = "on";
+				else if (pSensor->component_type == "lock" && !pSensor->value_template.empty())
+					// ignore states defined in the value template until value_template support is built in
+					return;
+
+				else
+				{
+					if (level == 0)
+						szSwitchCmd = "off";
+					else {
+						szSwitchCmd = "Set Level";
+						if (pSensor->bHave_brightness_scale)
+							level = (int)round((100.0 / pSensor->brightness_scale) * level);
+						else if (!pSensor->percentage_value_template.empty())
+						{
+							level = (int)round((100.0 / 255) * level);
+						}
+					}
+				}
+			}
+			else
+			{
+				if (pSensor->component_type == "binary_sensor")
+				{
+					if (szSwitchCmd == pSensor->payload_off)
+						szSwitchCmd = "off";
+					else if (szSwitchCmd == pSensor->payload_on)
+						szSwitchCmd = "on";
+				}
+				else if (pSensor->component_type == "lock")
+				{
+					if (szSwitchCmd == pSensor->state_unlocked)
+						szSwitchCmd = "off";
+					else if (szSwitchCmd == pSensor->state_locked)
+						szSwitchCmd = "on";
+				}
+			}
 		}
-	}
-	else
-	{
+
+		if (level > 100)
+			level = 100;
+
+		int slevel = atoi(sValue.c_str());
+		bHaveLevelChange = (slevel != level);
+
+
+		if (szSwitchCmd == pSensor->payload_on)
+			bOn = true;
+		else if (szSwitchCmd == pSensor->payload_off)
+			bOn = false;
+		else
+			bOn = (szSwitchCmd == "on") || (szSwitchCmd == "ON") || (szSwitchCmd == "true") || (szSwitchCmd == "Set Level");
+
+		// check if we have a change, if not do not update it
 		if (
-			(szSwitchCmd == "Set Level")
-			|| (bOn && (level > 0) && (sValue != pSensor->payload_on))
+			(switchType != STYPE_PushOn)
+			&& (switchType != STYPE_PushOff)
 			)
 		{
-			nValue = Color_SetBrightnessLevel;
+			if ((!bOn) && (nValue == 0))
+			{
+				if (!bHaveLevelChange)
+				{
+					if (!bHaveColorChange)
+						return;
+				}
+			}
+			if ((bOn && (nValue != 0)))
+			{
+				// Check Level
+				int slevel = atoi(sValue.c_str());
+				if (slevel == level)
+				{
+					if (!bHaveColorChange)
+						return;
+				}
+			}
+		}
+		sValue = std_format("%d", level);
+
+		if (pSensor->devType != pTypeColorSwitch)
+		{
+			if (szSwitchCmd == "Set Level")
+			{
+				nValue = gswitch_sSetLevel;
+			}
+			else
+			{
+				nValue = (bOn) ? gswitch_sOn : gswitch_sOff;
+			}
 		}
 		else
-			nValue = (bOn) ? Color_LedOn : Color_LedOff;
+		{
+			if (
+				(szSwitchCmd == "Set Level")
+				|| (bOn && (level > 0) && (sValue != pSensor->payload_on))
+				)
+			{
+				nValue = Color_SetBrightnessLevel;
+			}
+			else
+				nValue = (bOn) ? Color_LedOn : Color_LedOff;
+		}
+	}
+	else if (switchType == STYPE_PushOn)
+	{
+		nValue = gswitch_sOn;
+	}
+	else if (switchType == STYPE_PushOff)
+	{
+		nValue = gswitch_sOff;
 	}
 
 	pSensor->nValue = nValue;
@@ -3846,7 +3990,10 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 
 				//This seems to cause issues for Tuya 2 gang dimmers... not sure why
 				//not sure if this is needed for other devices
-				//root["state"] = (slevel > 0) ? "ON" : "OFF";
+				if (m_discovered_devices[pSensor->device_identifiers].manufacturer == "TuYa")
+				{
+					root["state"] = (slevel > 0) ? "ON" : "OFF";
+				}
 			}
 			else
 			{
@@ -4289,6 +4436,11 @@ void MQTTAutoDiscover::UpdateBlindPosition(_tMQTTASensor* pSensor)
 			//must be a level
 			level = atoi(szSwitchCmd.c_str());
 			szSwitchCmd = "Set Level";
+		}
+		else if (pSensor->last_topic == pSensor->state_topic)
+		{
+			// Value for state_topic is not a number.
+			return;
 		}
 	}
 

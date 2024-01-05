@@ -98,6 +98,9 @@ class MQTTAutoDiscover : public MQTT
 		std::string preset_mode_command_template;
 		std::string preset_mode_state_topic;
 		std::string preset_mode_value_template;
+		double temp_step = 1;
+		double temp_max = 35;
+		double temp_min = 7;
 
 		//Lock
 		std::string payload_lock = "LOCK";
@@ -191,6 +194,7 @@ private:
 	_tMQTTASensor* get_auto_discovery_sensor_unit(const _tMQTTASensor* pSensor, const std::string& szMeasurementUnit);
 	_tMQTTASensor* get_auto_discovery_sensor_unit(const _tMQTTASensor* pSensor, const uint8_t devType, const int subType = -1, const int devUnit = -1);
 	_tMQTTASensor* get_auto_discovery_sensor_WATT_unit(const _tMQTTASensor* pSensor);
+	bool HaveSingleTempHumBaro(const std::string &device_identifiers);
 private:
 	std::string m_TopicDiscoveryPrefix;
 
