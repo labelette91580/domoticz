@@ -40,7 +40,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#define DB_VERSION 165
+#define DB_VERSION 166
 
 #define DEFAULT_ADMINUSER "admin"
 #define DEFAULT_ADMINPWD "domoticz"
@@ -53,6 +53,7 @@ constexpr auto sqlCreateDeviceStatus =
 "CREATE TABLE IF NOT EXISTS [DeviceStatus] ("
 "[ID] INTEGER PRIMARY KEY, "
 "[HardwareID] INTEGER NOT NULL, "
+"[OrgHardwareID] INTEGER NOT NULL, "
 "[DeviceID] VARCHAR(25) NOT NULL, "
 "[Unit] INTEGER DEFAULT 0, "
 "[Name] VARCHAR(100) DEFAULT Unknown, "
@@ -3138,6 +3139,10 @@ bool CSQLHelper::OpenDatabase()
 				}
 			}
 		}
+		if (dbversion < 166)
+		{
+			query("ALTER TABLE DeviceStatus ADD COLUMN [OrgHardwareID] INTEGER default 0");
+		}
 	}
 	else if (bNewInstall)
 	{
@@ -3657,7 +3662,7 @@ bool CSQLHelper::SwitchLightFromTasker(uint64_t idx, const std::string& switchcm
 
 #ifndef WIN32
 void CSQLHelper::ManageExecuteScriptTimeout(std::string szCommand, int pid, int timeout, bool *stillRunning, bool *timeoutOccurred)
-{
+{	
 
 	auto start = std::chrono::system_clock::now();
 
@@ -4113,19 +4118,19 @@ void CSQLHelper::Do_Work()
 							break;
 						default:
 							//just update internally
-							UpdateValueInt(itt._HardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
+							UpdateValueInt(itt._HardwareID, itt._OrgHardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
 								itt._nValue, itt._sValue.c_str(), devname, true, itt._sUser.c_str());
 							break;
 						}
 						break;
 					case pTypeLighting4:
 						//only update internally
-						UpdateValueInt(itt._HardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
+						UpdateValueInt(itt._HardwareID, itt._OrgHardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
 							itt._nValue, itt._sValue.c_str(), devname, true, itt._sUser.c_str());
 						break;
 					default:
 						//unknown hardware type, sensor will only be updated internally
-						UpdateValueInt(itt._HardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
+						UpdateValueInt(itt._HardwareID, itt._OrgHardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
 							itt._nValue, itt._sValue.c_str(), devname, true, itt._sUser.c_str());
 						break;
 					}
@@ -4136,7 +4141,7 @@ void CSQLHelper::Do_Work()
 					{
 						//only update internally
 						std::string devname;
-						UpdateValueInt(itt._HardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
+						UpdateValueInt(itt._HardwareID, itt._OrgHardwareID, itt._ID.c_str(), itt._unit, itt._devType, itt._subType, itt._signallevel, itt._batterylevel,
 							itt._nValue, itt._sValue.c_str(), devname, true, itt._sUser.c_str());
 					}
 					else
@@ -4200,7 +4205,16 @@ void CSQLHelper::Do_Work()
 				sstr << itt._idx;
 				std::string idx = sstr.str();
 				float fValue = (float)atof(itt._sValue.c_str());
-				m_mainworker.SetSetPoint(idx, fValue, itt._command, itt._sUntil);
+
+				auto result = safe_query("SELECT a.[Type] FROM Hardware as a, DeviceStatus as b WHERE (b.ID == 9693) AND (a.ID == b.HardwareID)");
+				if (!result.empty())
+				{
+					_eHardwareTypes HwdType = (_eHardwareTypes)atoi(result[0][0].c_str());
+					if (HwdType == HTYPE_EVOHOME_SCRIPT || HwdType == HTYPE_EVOHOME_SERIAL || HwdType == HTYPE_EVOHOME_WEB || HwdType == HTYPE_EVOHOME_TCP)
+						m_mainworker.SetSetPointEvo(idx, fValue, itt._command, itt._sUntil);
+					else
+						m_mainworker.SetSetPoint(idx, fValue);
+				}
 			}
 			else if (itt._ItemType == TITEM_SEND_NOTIFICATION)
 			{
@@ -4517,46 +4531,45 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 
 	switch (SensorType)
 	{
-
 	case pTypeTEMP:
 	case pTypeWEIGHT:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
 		break;
 	case pTypeUV:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;0.0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;0.0", devname, true, userName.c_str());
 		break;
 	case pTypeRAIN:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0;0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0;0", devname, true, userName.c_str());
 		break;
 	case pTypeTEMP_BARO:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;1038.0;0;188.0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;1038.0;0;188.0", devname, true, userName.c_str());
 		break;
 	case pTypeHUM:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 50, "1", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 50, "1", devname, true, userName.c_str());
 		break;
 	case pTypeTEMP_HUM:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;50;1", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;50;1", devname, true, userName.c_str());
 		break;
 	case pTypeTEMP_HUM_BARO:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;50;1;1010;1", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;50;1;1010;1", devname, true, userName.c_str());
 		break;
 	case pTypeRFXMeter:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 10, 255, 0, "0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 10, 255, 0, "0", devname, true, userName.c_str());
 		break;
 	case pTypeUsage:
 	case pTypeLux:
 	case pTypeP1Gas:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0", devname, true, userName.c_str());
 		break;
 	case pTypeP1Power:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0;0;0;0;0;0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0;0;0;0;0;0", devname, true, userName.c_str());
 		break;
 	case pTypeAirQuality:
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, devname, true, userName.c_str());
 		break;
 	case pTypeCURRENT:
 		//Current/Ampere
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;0.0;0.0", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0.0;0.0;0.0", devname, true, userName.c_str());
 		break;
 	case pTypeSetpoint: //Thermostat Setpoint
 	{
@@ -4566,7 +4579,7 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 		unsigned char ID4 = (unsigned char)((nid & 0x000000FF));
 		sprintf(ID, "%X%02X%02X%02X", ID1, ID2, ID3, ID4);
 
-		DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "20.5", devname, true, userName.c_str());
+		DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "20.5", devname, true, userName.c_str());
 
 		if (!soptions.empty() )
 		{
@@ -4585,89 +4598,89 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeCounterIncremental:
-			DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0", devname, true, userName.c_str());
 			break;
 		case sTypeManagedCounter:
-			DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "-1;0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "-1;0", devname, true, userName.c_str());
 			break;
 		case sTypeVoltage:		//Voltage
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.000", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.000", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeTextStatus:		//Text
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "Hello World", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "Hello World", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeAlert:		//Alert
-			DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "No Alert!", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "No Alert!", devname, true, userName.c_str());
 			break;
 		case sTypeSoundLevel:		//Sound Level
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "65", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "65", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeBaro:		//Barometer (hPa)
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "1021.34;0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "1021.34;0", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeVisibility:		//Visibility (km)
-			DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "10.3", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "10.3", devname, true, userName.c_str());
 			break;
 		case sTypeDistance:		//Distance (cm)
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "123.4", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "123.4", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeSoilMoisture:		//Soil Moisture
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 3, devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 3, devname, true, userName.c_str());
 		}
 		break;
 		case sTypeLeafWetness:		//Leaf Wetness
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 2, devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 2, devname, true, userName.c_str());
 		}
 		break;
 		case sTypeKwh:		//kWh
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0;0.0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0;0.0", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeCurrent:		//Current (Single)
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeSolarRadiation:		//Solar Radiation
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "1.0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "1.0", devname, true, userName.c_str());
 		}
 		break;
 		case sTypeCustom:			//Custom
@@ -4676,7 +4689,7 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 			{
 				std::string rID = std::string(ID);
 				padLeft(rID, 8, '0');
-				DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
+				DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 0, "0.0", devname, true, userName.c_str());
 				if (DeviceRowIdx != (uint64_t)-1)
 				{
 					//Set the Label
@@ -4695,7 +4708,7 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 		{
 		case sTypeWIND1:			// sTypeWIND1
 		case sTypeWIND4:			//Wind + Temp + Chill
-			DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0;N;0;0;0;0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0;N;0;0;0;0", devname, true, userName.c_str());
 			break;
 		}
 		break;
@@ -4708,7 +4721,7 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 		case sSwitchGeneralSwitch:		//Switch
 		{
 			sprintf(ID, "%08lX", nid);
-			DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "100", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "100", devname, true, userName.c_str());
 		}
 		break;
 		case sSwitchTypeSelector:		//Selector Switch
@@ -4718,7 +4731,7 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 			unsigned char ID3 = (unsigned char)((nid & 0x0000FF00) >> 8);
 			unsigned char ID4 = (unsigned char)((nid & 0x000000FF));
 			sprintf(ID, "%02X%02X%02X%02X", ID1, ID2, ID3, ID4);
-			DeviceRowIdx = UpdateValue(HardwareID, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0", devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, ID, 1, SensorType, SensorSubType, 12, 255, 0, "0", devname, true, userName.c_str());
 			if (DeviceRowIdx != (uint64_t)-1)
 			{
 				//Set switch type to selector
@@ -4746,7 +4759,7 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 		{
 			std::string rID = std::string(ID);
 			padLeft(rID, 8, '0');
-			DeviceRowIdx = UpdateValue(HardwareID, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 1, devname, true, userName.c_str());
+			DeviceRowIdx = UpdateValue(HardwareID, 0, rID.c_str(), 1, SensorType, SensorSubType, 12, 255, 1, devname, true, userName.c_str());
 			if (DeviceRowIdx != (uint64_t)-1)
 			{
 				//Set switch type to dimmer
@@ -4768,19 +4781,19 @@ uint64_t CSQLHelper::CreateDevice(const int HardwareID, const int SensorType, co
 	return DeviceRowIdx;
 }
 
-uint64_t CSQLHelper::UpdateValue(const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const unsigned char signallevel, const unsigned char batterylevel, const int nValue, std::string& devname, const bool bUseOnOffAction, const char* User)
+uint64_t CSQLHelper::UpdateValue(const int HardwareID, int OrgHardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const unsigned char signallevel, const unsigned char batterylevel, const int nValue, std::string& devname, const bool bUseOnOffAction, const char* User)
 {
-	return UpdateValue(HardwareID, ID, unit, devType, subType, signallevel, batterylevel, nValue, "", devname, bUseOnOffAction, User);
+	return UpdateValue(HardwareID, OrgHardwareID, ID, unit, devType, subType, signallevel, batterylevel, nValue, "", devname, bUseOnOffAction, User);
 }
 
-uint64_t CSQLHelper::UpdateValue(const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const unsigned char signallevel, const unsigned char batterylevel, const char* sValue, std::string& devname, const bool bUseOnOffAction, const char* User)
+uint64_t CSQLHelper::UpdateValue(const int HardwareID, int OrgHardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const unsigned char signallevel, const unsigned char batterylevel, const char* sValue, std::string& devname, const bool bUseOnOffAction, const char* User)
 {
-	return UpdateValue(HardwareID, ID, unit, devType, subType, signallevel, batterylevel, 0, sValue, devname, bUseOnOffAction, User);
+	return UpdateValue(HardwareID, OrgHardwareID, ID, unit, devType, subType, signallevel, batterylevel, 0, sValue, devname, bUseOnOffAction, User);
 }
 
-uint64_t CSQLHelper::UpdateValue(const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const unsigned char signallevel, const unsigned char batterylevel, const int nValue, const char* sValue, std::string& devname, const bool bUseOnOffAction, const char* User)
+uint64_t CSQLHelper::UpdateValue(const int HardwareID, int OrgHardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const unsigned char signallevel, const unsigned char batterylevel, const int nValue, const char* sValue, std::string& devname, const bool bUseOnOffAction, const char* User)
 {
-	uint64_t devRowID = UpdateValueInt(HardwareID, ID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
+	uint64_t devRowID = UpdateValueInt(HardwareID, OrgHardwareID, ID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
 	if (devRowID == (uint64_t)-1)
 		return -1;
 
@@ -5010,7 +5023,7 @@ uint64_t CSQLHelper::UpdateValue(const int HardwareID, const char* ID, const uns
 	return devRowID;
 }
 
-uint64_t CSQLHelper::InsertDevice(const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const int switchType, const int nValue, const char* sValue, const std::string& devname, const unsigned char signallevel, const unsigned char batterylevel, const int used)
+uint64_t CSQLHelper::InsertDevice(const int HardwareID, const int OrgHardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const int switchType, const int nValue, const char* sValue, const std::string& devname, const unsigned char signallevel, const unsigned char batterylevel, const int used)
 {
 	//TODO: 'unsigned char unit' only allows 256 devices / plugin
 	//DONE: return -1 as error code does not make sense for a function returning an unsigned value
@@ -5031,17 +5044,17 @@ uint64_t CSQLHelper::InsertDevice(const int HardwareID, const char* ID, const un
 	}
 
 	safe_query(
-		"INSERT INTO DeviceStatus (HardwareID, DeviceID, Unit, Type, SubType, SwitchType, SignalLevel, BatteryLevel, nValue, sValue, Name) "
-		"VALUES ('%d','%q','%d','%d','%d','%d','%d','%d','%d','%q','%q')",
-		HardwareID, ID, unit,
+		"INSERT INTO DeviceStatus (HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType, SwitchType, SignalLevel, BatteryLevel, nValue, sValue, Name) "
+		"VALUES ('%d','%d','%q','%d','%d','%d','%d','%d','%d','%d','%q','%q')",
+		HardwareID, OrgHardwareID, ID, unit,
 		devType, subType, switchType,
 		signallevel, batterylevel,
 		nValue, sValue, name.c_str());
 
 	//Get new ID
 	result = safe_query(
-		"SELECT ID FROM DeviceStatus WHERE (HardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)",
-		HardwareID, ID, unit, devType, subType);
+		"SELECT ID FROM DeviceStatus WHERE (HardwareID=%d AND OrgHardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)",
+		HardwareID, OrgHardwareID, ID, unit, devType, subType);
 	if (result.empty())
 	{
 		_log.Log(LOG_ERROR, "Serious database error, problem getting ID from DeviceStatus!");
@@ -5052,9 +5065,9 @@ uint64_t CSQLHelper::InsertDevice(const int HardwareID, const char* ID, const un
 	return ulID;
 }
 
-uint64_t CSQLHelper::GetDeviceIndex(const int HardwareID, const std::string& ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, std::string& devname) {
+uint64_t CSQLHelper::GetDeviceIndex(const int HardwareID, const int OrgHardwareID, const std::string& ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, std::string& devname) {
 	std::vector<std::vector<std::string> > result;
-	result = safe_query("SELECT ID, Name FROM DeviceStatus WHERE (HardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, ID.c_str(), unit, devType, subType);
+	result = safe_query("SELECT ID, Name FROM DeviceStatus WHERE (HardwareID=%d AND OrgHardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, OrgHardwareID, ID.c_str(), unit, devType, subType);
 	if (result.empty())
 		return -1;
 	devname = result[0].at(1);
@@ -5062,20 +5075,21 @@ uint64_t CSQLHelper::GetDeviceIndex(const int HardwareID, const std::string& ID,
 }
 
 uint64_t CSQLHelper::UpdateManagedValueInt(
-	const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType,
+	const int HardwareID, const int OrgHardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType,
 	const unsigned char signallevel, const unsigned char batterylevel, const int nValue, const char* sValue, std::string& devname,
 	const bool bUseOnOffAction,
 	const char* User
 )
 {
 	uint64_t ulID = 0;
+	bool bDeviceUsed = false;
 
 	std::vector<std::vector<std::string> > result;
-	result = safe_query("SELECT ID, Name, Used, SwitchType, nValue, sValue, LastUpdate, Options FROM DeviceStatus WHERE (HardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, ID, unit, devType, subType);
+	result = safe_query("SELECT ID, Name, Used, SwitchType, nValue, sValue, LastUpdate, Options FROM DeviceStatus WHERE (HardwareID=%d AND OrgHardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, OrgHardwareID, ID, unit, devType, subType);
 	if (result.empty())
 	{
 		//Device not found, create it
-		ulID = InsertDevice(HardwareID, ID, unit, devType, subType, 0, nValue, sValue, devname, signallevel, batterylevel);
+		ulID = InsertDevice(HardwareID, OrgHardwareID, ID, unit, devType, subType, 0, nValue, sValue, devname, signallevel, batterylevel);
 
 		if (ulID == (uint64_t)-1)
 		{
@@ -5086,6 +5100,7 @@ uint64_t CSQLHelper::UpdateManagedValueInt(
 	{
 		ulID = std::stoull(result[0][0]);
 		devname = result[0][1];
+		bDeviceUsed = atoi(result[0][2].c_str()) != 0;
 	}
 
 	std::string sLastUpdate = TimeToString(nullptr, TF_DateTime);
@@ -5168,13 +5183,22 @@ uint64_t CSQLHelper::UpdateManagedValueInt(
 
 	safe_query("UPDATE DeviceStatus SET LastUpdate='%q', sValue='%q' WHERE (ID = %" PRIu64 ")", sLastUpdate.c_str(), sValue, ulID);
 	
-	m_mainworker.m_eventsystem.ProcessDevice(HardwareID, ulID, unit, devType, subType, signallevel, batterylevel, nValue, sValue);
+	if (bDeviceUsed)
+	{
+		m_mainworker.m_eventsystem.ProcessDevice(HardwareID, ulID, unit, devType, subType, signallevel, batterylevel, nValue, sValue);
+
+		if (OrgHardwareID == 0)
+		{
+			//Send to connected Sharing Users
+			m_mainworker.m_sharedserver.SendToAll(HardwareID, ulID, nullptr);
+		}
+	}
 
 	return ulID;
 }
 
 uint64_t CSQLHelper::UpdateValueInt(
-        const int HardwareID, const char *ID, const unsigned char unit, const unsigned char devType, const unsigned char subType,
+        const int HardwareID, const int OrgHardwareID, const char *ID, const unsigned char unit, const unsigned char devType, const unsigned char subType,
         const unsigned char signallevel, const unsigned char batterylevel, const int nValue, const char *sValue, std::string &devname,
         const bool bUseOnOffAction,
 		const char* User
@@ -5189,7 +5213,7 @@ uint64_t CSQLHelper::UpdateValueInt(
 	bool bIsManagedCounter = (devType == pTypeGeneral && subType == sTypeManagedCounter);
 
 	std::vector<std::vector<std::string> > result;
-	result = safe_query("SELECT ID, Name, Used, SwitchType, nValue, sValue, LastUpdate, Options FROM DeviceStatus WHERE (HardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, ID, unit, devType, subType);
+	result = safe_query("SELECT ID, Name, Used, SwitchType, nValue, sValue, LastUpdate, Options FROM DeviceStatus WHERE (HardwareID=%d AND OrgHardwareID=%d AND DeviceID='%q' AND Unit=%d AND Type=%d AND SubType=%d)", HardwareID, OrgHardwareID, ID, unit, devType, subType);
 
 	if (!result.empty())
 	{
@@ -5202,7 +5226,7 @@ uint64_t CSQLHelper::UpdateValueInt(
 		}
 	}
 	if (bIsManagedCounter)
-		return UpdateManagedValueInt(HardwareID, ID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
+		return UpdateManagedValueInt(HardwareID, OrgHardwareID, ID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
 
 
 	bool bDeviceUsed = false;
@@ -5214,7 +5238,7 @@ uint64_t CSQLHelper::UpdateValueInt(
 	if (result.empty())
 	{
 		//Insert
-		ulID = InsertDevice(HardwareID, ID, unit, devType, subType, 0, nValue, sValue, devname, signallevel, batterylevel);
+		ulID = InsertDevice(HardwareID, OrgHardwareID, ID, unit, devType, subType, 0, nValue, sValue, devname, signallevel, batterylevel);
 
 		if (ulID == (uint64_t)-1)
 		{
@@ -5643,7 +5667,15 @@ uint64_t CSQLHelper::UpdateValueInt(
 	_log.Debug(DEBUG_NORM, "SQLH UpdateValueInt %s HwID:%d  DevID:%s Type:%d  sType:%d nValue:%d sValue:%s ", devname.c_str(), HardwareID, ID, devType, subType, nValue, sValue);
 
 	if (bDeviceUsed)
+	{
 		m_mainworker.m_eventsystem.ProcessDevice(HardwareID, ulID, unit, devType, subType, signallevel, batterylevel, nValue, sValue);
+
+		if (OrgHardwareID == 0)
+		{
+			//Send to connected Sharing Users
+			m_mainworker.m_sharedserver.SendToAll(HardwareID, ulID, nullptr);
+		}
+	}
 	return ulID;
 }
 
@@ -8518,7 +8550,7 @@ uint64_t CSQLHelper::UpdateValueLighting2GroupCmd(const int HardwareID, const ch
 	for (const auto &unit : result)
 	{
 		unsigned char theUnit = atoi(unit[0].c_str()); // get the unit value
-		devRowIndex = UpdateValue(HardwareID, ID, theUnit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
+		devRowIndex = UpdateValue(HardwareID, 0, ID, theUnit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
 	}
 	return devRowIndex;
 }
@@ -8559,7 +8591,7 @@ uint64_t CSQLHelper::UpdateValueHomeComfortGroupCmd(const int HardwareID, const 
 	for (const auto &unit : result)
 	{
 		unsigned char theUnit = atoi(unit[0].c_str()); // get the unit value
-		devRowIndex = UpdateValue(HardwareID, ID, theUnit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
+		devRowIndex = UpdateValue(HardwareID, 0, ID, theUnit, devType, subType, signallevel, batterylevel, nValue, sValue, devname, bUseOnOffAction, User);
 	}
 	return devRowIndex;
 }
