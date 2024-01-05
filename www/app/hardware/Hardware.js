@@ -2974,11 +2974,6 @@ define(['app','app/virtualThermostat.js'], function (app) {
 				e.preventDefault();
 				SetRFXCOMMode();
 			});
-			$('#hardwarecontent #firmwarebutton').click(function (e) {
-				e.preventDefault();
-				$rootScope.hwidx = $('#hardwarecontent #idx').val();
-				SwitchLayout('RFXComFirmware');
-			});
 
 			$('#hardwarecontent #idx').val(idx);
 			$('#hardwarecontent #Keeloq').prop('checked', ((Mode6 & 0x01) != 0));
@@ -3062,11 +3057,6 @@ define(['app','app/virtualThermostat.js'], function (app) {
 			$('#hardwarecontent #submitbutton').click(function (e) {
 				e.preventDefault();
 				SetRFXCOMMode868();
-			});
-			$('#hardwarecontent #firmwarebutton').click(function (e) {
-				e.preventDefault();
-				$rootScope.hwidx = $('#hardwarecontent #idx').val();
-				SwitchLayout('RFXComFirmware');
 			});
 
 			$('#hardwarecontent #idx').val(idx);
@@ -3958,6 +3948,9 @@ define(['app','app/virtualThermostat.js'], function (app) {
 							}
 							else if (HwTypeStr.indexOf("BleBox") >= 0) {
 								HwTypeStr += ' ' + hardwareSetupLink;
+							}
+							else if (HwTypeStr.indexOf("MQTT Client") >= 0) {
+                                HwTypeStr += ' ' + hardwareSetupLink;
 							}
 							else if (HwTypeStr.indexOf("MQTT Auto") >= 0) {
 								HwTypeStr += ' ' + hardwareSetupLink;

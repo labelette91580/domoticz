@@ -638,6 +638,7 @@ constexpr auto sqlCreateApplications =
 ");";
 
 extern std::string szUserDataFolder;
+#define round(a) (int)(a + .5)
 
 CSQLHelper::CSQLHelper()
 {
@@ -4324,7 +4325,7 @@ bool CSQLHelper::safe_UpdateBlobInTableWithID(const std::string& Table, const st
 	if (rc != SQLITE_OK) {
 		return false;
 	}
-	rc = sqlite3_bind_blob(stmt, 1, BlobData.c_str(), BlobData.size(), SQLITE_STATIC);
+	rc = sqlite3_bind_blob(stmt, 1, BlobData.c_str(), static_cast<int>(BlobData.size()), SQLITE_STATIC);
 	if (rc != SQLITE_OK) {
 		return false;
 	}
@@ -4365,6 +4366,11 @@ std::vector<std::vector<std::string>> CSQLHelper::safe_query(const char *fmt, ..
 #endif
 	}
 	return results;
+}
+
+std::vector<std::vector<std::string>> CSQLHelper::unsafe_query(const std::string& szQuery)
+{
+	return query(szQuery);
 }
 
 std::vector<std::vector<std::string> > CSQLHelper::query(const std::string& szQuery)
@@ -6141,7 +6147,7 @@ void CSQLHelper::UpdateTemperatureLog()
 				if (splitresults.size() >= 2)
 				{
 					temp = static_cast<float>(atof(splitresults[0].c_str()));
-					humidity = atoi(splitresults[1].c_str());
+					humidity = round(atof(splitresults[1].c_str()));
 					dewpoint = (float)CalculateDewPoint(temp, humidity);
 				}
 				break;
@@ -6149,7 +6155,7 @@ void CSQLHelper::UpdateTemperatureLog()
 				if (splitresults.size() == 5)
 				{
 					temp = static_cast<float>(atof(splitresults[0].c_str()));
-					humidity = atoi(splitresults[1].c_str());
+					humidity = round(atof(splitresults[1].c_str()));
 					if (dSubType == sTypeTHBFloat)
 						barometer = int(atof(splitresults[3].c_str()) * 10.0F);
 					else
@@ -6853,8 +6859,10 @@ void CSQLHelper::UpdateMeter()
 
 			try
 			{
-				MeterUsage = std::stoll(sUsage);
-				MeterValue = std::stoll(sValue);
+				if (!sUsage.empty())
+					MeterUsage = std::stoll(sUsage);
+				if (!sValue.empty())
+					MeterValue = std::stoll(sValue);
 			}
 			catch (const std::exception&)
 			{
@@ -9696,9 +9704,9 @@ std::map<std::string, std::string> CSQLHelper::GetDeviceOptions(const std::strin
 std::string CSQLHelper::FormatDeviceOptions(const std::map<std::string, std::string>& optionsMap)
 {
 	std::string options;
-	int count = optionsMap.size();
+	size_t count = optionsMap.size();
 	if (count > 0) {
-		int i = 0;
+		size_t i = 0;
 		std::stringstream ssoptions;
 		for (const auto &sd : optionsMap)
 		{

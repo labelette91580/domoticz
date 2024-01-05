@@ -1675,7 +1675,7 @@ define(['app', 'livesocket'], function (app) {
 								if (jj % rowItems == 0) {
 									//add divider
 									if (bHaveAddedDivider == true) {
-										//close previous devider
+										//close previous divider
 										htmlcontent += '</div>\n';
 									}
 									htmlcontent += '<div class="row divider">\n';
@@ -1764,7 +1764,7 @@ define(['app', 'livesocket'], function (app) {
 							}
 						}); //scenes
 						if (bHaveAddedDivider == true) {
-							//close previous devider
+							//close previous divider
 							htmlcontent += '</div>\n';
 						}
 						if (($scope.config.DashboardType == 2) || (window.myglobals.ismobile == true)) {
@@ -1821,7 +1821,7 @@ define(['app', 'livesocket'], function (app) {
 								if (jj % rowItems == 0) {
 									//add divider
 									if (bHaveAddedDivider == true) {
-										//close previous devider
+										//close previous divider
 										htmlcontent += '</div>\n';
 									}
 									htmlcontent += '<div class="row divider">\n';
@@ -2565,9 +2565,9 @@ define(['app', 'livesocket'], function (app) {
 										}
 									}
 									if (jj % rowItems == 0) {
-										//add devider
+										//add divider
 										if (bHaveAddedDivider == true) {
-											//close previous devider
+											//close previous divider
 											htmlcontent += '</div>\n';
 										}
 										htmlcontent += '<div class="row divider">\n';
@@ -2688,7 +2688,7 @@ define(['app', 'livesocket'], function (app) {
 								}
 							}); //temp devices
 							if (bHaveAddedDivider == true) {
-								//close previous devider
+								//close previous divider
 								htmlcontent += '</div>\n';
 							}
 							if (($scope.config.DashboardType == 2) || (window.myglobals.ismobile == true)) {
@@ -2728,9 +2728,9 @@ define(['app', 'livesocket'], function (app) {
 										}
 									}
 									if (jj % rowItems == 0) {
-										//add devider
+										//add divider
 										if (bHaveAddedDivider == true) {
-											//close previous devider
+											//close previous divider
 											htmlcontent += '</div>\n';
 										}
 										htmlcontent += '<div class="row divider">\n';
@@ -2899,7 +2899,7 @@ define(['app', 'livesocket'], function (app) {
 								}
 							}); //weather devices
 							if (bHaveAddedDivider == true) {
-								//close previous devider
+								//close previous divider
 								htmlcontent += '</div>\n';
 							}
 							if (($scope.config.DashboardType == 2) || (window.myglobals.ismobile == true)) {
@@ -2936,9 +2936,9 @@ define(['app', 'livesocket'], function (app) {
 									}
 								}
 								if (jj % rowItems == 0) {
-									//add devider
+									//add divider
 									if (bHaveAddedDivider == true) {
-										//close previous devider
+										//close previous divider
 										htmlcontent += '</div>\n';
 									}
 									htmlcontent += '<div class="row divider">\n';
@@ -3123,9 +3123,9 @@ define(['app', 'livesocket'], function (app) {
 										}
 									}
 									if (jj % rowItems == 0) {
-										//add devider
+										//add divider
 										if (bHaveAddedDivider == true) {
-											//close previous devider
+											//close previous divider
 											htmlcontent += '</div>\n';
 										}
 										htmlcontent += '<div class="row divider">\n';

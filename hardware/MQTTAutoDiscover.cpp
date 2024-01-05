@@ -76,7 +76,7 @@ void MQTTAutoDiscover::on_message(const struct mosquitto_message* message)
 			return;
 
 		if (
-			(topic.substr(0, topic.find('/')) == m_TopicDiscoveryPrefix)
+			topic.find(m_TopicDiscoveryPrefix) == 0
 			&& (topic.find("/config") != std::string::npos)
 			)
 		{
@@ -639,6 +639,7 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 			|| (object_id.find("max_") == 0)
 			|| (object_id.find("_sensitivity") != std::string::npos)
 			|| (object_id.find("_alarm") != std::string::npos)
+			|| (object_id.find("_calibration") != std::string::npos)
 			)
 		{
 			return;
@@ -1885,7 +1886,10 @@ bool MQTTAutoDiscover::GuessSensorTypeValue(const _tMQTTASensor* pSensor, uint8_
 	else if (szUnit == "variable")
 	{
 		std::string errorMessage;
-		m_sql.AddUserVariableEx(pSensor->name, USERVARTYPE_STRING, pSensor->last_value, true, errorMessage);
+		_eUsrVariableType varType = USERVARTYPE_STRING;
+		if (is_number(pSensor->last_value))
+			varType = USERVARTYPE_FLOAT;
+		m_sql.AddUserVariableEx(pSensor->name, varType, pSensor->last_value, true, errorMessage);
 		return false;
 	}
 	else if (
@@ -2269,6 +2273,8 @@ bool MQTTAutoDiscover::HaveSingleTempHumBaro(const std::string& device_identifie
 			continue;
 
 		_tMQTTASensor* pSensor = &pSensorBase->second;
+		if (pSensor->component_type == "number")
+			continue; //ignore number sensors
 
 		uint8_t devType, subType;
 		std::string szOptions, sValue;
@@ -2783,6 +2789,13 @@ void MQTTAutoDiscover::handle_auto_discovery_select(_tMQTTASensor* pSensor, cons
 	else {
 		if (pSensor->last_value.empty())
 			return;
+		if (pSensor->select_options.size() == 1)
+		{
+			// Assume the only one option is the current value (used as a push button for some sensors)
+			std::string szIdx = result[0][0];
+			m_sql.UpdateLastUpdate(szIdx);
+			return;
+		}
 	}
 
 	std::string szIdx = result[0][0];
@@ -2810,7 +2823,7 @@ void MQTTAutoDiscover::handle_auto_discovery_select(_tMQTTASensor* pSensor, cons
 	}
 
 	if (iActualIndex == -1) {
-		Log(LOG_ERROR, "Select device doesn't have the option for received STATE \"%s\")", current_mode.c_str());
+		Log(LOG_ERROR, "Select device \"%s\" doesn't have the option for received STATE \"%s\")", szDeviceName.c_str(), current_mode.c_str());
 		iActualIndex = atoi(sValue.c_str());
 	}
 
@@ -3470,6 +3483,15 @@ void MQTTAutoDiscover::InsertUpdateSwitch(_tMQTTASensor* pSensor)
 		else
 			szSwitchCmd = "on";
 	}
+	if (
+		(pSensor->unique_id.find("child_lock") != std::string::npos)
+		|| (pSensor->unique_id.find("indicator_mode") != std::string::npos)
+		)
+	{
+		//don't add these as used by default
+		iUsed = 0;
+	}
+
 
 	std::vector<std::vector<std::string>> result;
 	result = m_sql.safe_query("SELECT ID, Name, nValue, sValue, Color, SubType, SwitchType FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit==%d)", m_HwdID, pSensor->unique_id.c_str(), pSensor->devUnit);
