@@ -738,7 +738,7 @@ const char* RFX_Type_SubType_Desc(const unsigned char dType, const unsigned char
 		{ pTypeRego6XXValue, sTypeRego6XXStatus, "Rego 6XX" },
 		{ pTypeRego6XXValue, sTypeRego6XXCounter, "Rego 6XX" },
 
-		{ pTypeAirQuality, sTypeVoltcraft, "Voltcraft CO-20" },
+		{ pTypeAirQuality, sTypeVoc, "Voc" },
 
 		{ pTypeUsage, sTypeElectric, "Electric" },
 
@@ -2876,10 +2876,13 @@ bool GetLightCommand(
 				// Not a managed command
 				return false;
 			}
-			int level = GetSelectorSwitchLevel(options, switchcmd);
-			if (level > 0) { // not Off but a level name
-							 // switchcmd cannot be a level name
-				return false;
+			if ((switchcmd != "On") && (switchcmd != "Off"))
+			{
+				int level = GetSelectorSwitchLevel(options, switchcmd);
+				if (level > 0) {
+					// switchcmd cannot be a level name
+					return false;
+				}
 			}
 		}
 

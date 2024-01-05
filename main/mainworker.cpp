@@ -187,6 +187,7 @@ extern std::string szStartupFolder;
 extern std::string szUserDataFolder;
 extern std::string szWWWFolder;
 extern std::string szAppVersion;
+extern std::string szCertFile;
 extern int iAppRevision;
 extern std::string szWebRoot;
 extern bool g_bUseUpdater;
@@ -220,7 +221,7 @@ MainWorker::MainWorker()
 	m_secure_webserver_settings.listening_address = "::"; // listen to all network interfaces
 	m_secure_webserver_settings.listening_port = "443";
 	m_secure_webserver_settings.ssl_method = "tls";
-	m_secure_webserver_settings.certificate_chain_file_path = "./server_cert.pem";
+	m_secure_webserver_settings.certificate_chain_file_path = szCertFile;
 	m_secure_webserver_settings.ca_cert_file_path = m_secure_webserver_settings.certificate_chain_file_path; // not used
 	m_secure_webserver_settings.cert_file_path = m_secure_webserver_settings.certificate_chain_file_path;
 	m_secure_webserver_settings.private_key_file_path = m_secure_webserver_settings.certificate_chain_file_path;
@@ -510,7 +511,7 @@ bool MainWorker::GetSunSettings()
 	std::string asttwstart = std_format("%02d:%02d:00", sresult.AstronomicalTwilightStartHour, sresult.AstronomicalTwilightStartMin);
 	std::string asttwend = std_format("%02d:%02d:00", sresult.AstronomicalTwilightEndHour, sresult.AstronomicalTwilightEndMin);
 
-	m_scheduler.SetSunRiseSetTimers(sunrise, sunset, sunatsouth, civtwstart, civtwend, nauttwstart, nauttwend, asttwstart, asttwend); // Do not change the order
+	m_scheduler.SetSunRiseSetTimes(sunrise, sunset, sunatsouth, civtwstart, civtwend, nauttwstart, nauttwend, asttwstart, asttwend); // Do not change the order
 
 	bool bFirstTime = m_LastSunriseSet.empty();
 
@@ -557,9 +558,6 @@ bool MainWorker::GetSunSettings()
 
 		if (!bFirstTime)
 			m_eventsystem.LoadEvents();
-
-		// FixMe: only reload schedules relative to sunset/sunrise to prevent race conditions
-		// m_scheduler.ReloadSchedules(); // force reload of all schedules to adjust for changed sunrise/sunset values
 	}
 	return true;
 }
@@ -972,13 +970,13 @@ bool MainWorker::AddHardwareFromParams(
 		pHardware = new CDummy(ID);
 		break;
 	case HTYPE_Tellstick:
-		{
-			CTellstick* tellstick;
-			if (CTellstick::Create(&tellstick, ID, Mode1, Mode2)) {
-				pHardware = tellstick;
-			}
+	{
+		CTellstick* tellstick;
+		if (CTellstick::Create(&tellstick, ID, Mode1, Mode2)) {
+			pHardware = tellstick;
 		}
-		break;
+	}
+	break;
 	case HTYPE_EVOHOME_SCRIPT:
 		pHardware = new CEvohomeScript(ID);
 		break;
@@ -10035,8 +10033,8 @@ void MainWorker::decode_AirQuality(const CDomoticzHardwareBase* pHardware, const
 		WriteMessageStart();
 		switch (pMeter->subtype)
 		{
-		case sTypeVoltcraft:
-			WriteMessage("subtype       = Voltcraft CO-20");
+		case sTypeVoc:
+			WriteMessage("subtype       = Voc");
 
 			sprintf(szTmp, "CO2 = %d ppm", pMeter->airquality);
 			WriteMessage(szTmp);
@@ -12630,6 +12628,7 @@ bool MainWorker::SwitchLightInt(const std::vector<std::string>& sd, std::string 
 		}
 		return true;
 	}
+	break;
 	case pTypeGeneralSwitch:
 	{
 		tRBUF lcmd;
@@ -12662,15 +12661,15 @@ bool MainWorker::SwitchLightInt(const std::vector<std::string>& sd, std::string 
 			if ((switchcmd == "Set Level") || (switchcmd == "Set Group Level")) {
 				std::map<std::string, std::string> statuses;
 				GetSelectorSwitchStatuses(options, statuses);
-				int maxLevel = static_cast<int>(statuses.size()) * 10;
+				int maxLevel = static_cast<int>(statuses.size() - 1) * 10;
 
-				level = (level < 0) ? 0 : level;
-				level = (level > maxLevel) ? maxLevel : level;
-
-				std::stringstream sslevel;
-				sslevel << level;
-				if (statuses[sslevel.str()].empty()) {
+				if (
+					(level < 0)
+					|| (level > maxLevel)
+					)
+				{
 					_log.Log(LOG_ERROR, "Setting a wrong level value %d to Selector device %lu", level, ID);
+					return false;
 				}
 			}
 		}
@@ -12686,8 +12685,9 @@ bool MainWorker::SwitchLightInt(const std::vector<std::string>& sd, std::string 
 			//send to internal for now (later we use the ACK)
 			PushAndWaitRxMessage(m_hardwaredevices[hindex], (const uint8_t*)&gswitch, nullptr, -1, User.c_str());
 		}
+		return true;
 	}
-	return true;
+	break;
 	}
 	return false;
 }
@@ -13297,7 +13297,7 @@ bool MainWorker::SwitchScene(const uint64_t idx, std::string switchcmd, const st
 
 		if (scenetype == SGTYPE_GROUP)
 		{
-			std::vector<std::string> validCmdArray {"On", "Off", "Toggle", "Group On", "Chime", "All On"};
+			std::vector<std::string> validCmdArray{ "On", "Off", "Toggle", "Group On", "Chime", "All On" };
 			if (std::find(validCmdArray.begin(), validCmdArray.end(), switchcmd) == validCmdArray.end())
 				return false;
 			//when asking for Toggle, just switch to the opposite value

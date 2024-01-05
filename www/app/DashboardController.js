@@ -3552,9 +3552,8 @@ define(['app', 'livesocket'], function (app) {
 													imagehtml += 'override_off.png"';
 											}
 											else
-												imagehtml += 'override.png"';
-
-											imagehtml += ' class="lcursor" onclick="ShowSetpointPopup(event, ' + item.idx + ', ' + item.Protected + ', ' + item.Data + ', false, ' + item.step + ', ' + item.min + ', ' + item.max + ');" height="40" width="40"></td>\n';
+												imagehtml += (item.CustomImage == 0)  ? 'override.png' : item.Image + '48_On.png';
+											imagehtml += '" class="lcursor" onclick="ShowSetpointPopup(event, ' + item.idx + ', ' + item.Protected + ', ' + item.Data + ', false, ' + item.step + ', ' + item.min + ', ' + item.max + ');" height="40" width="40"></td>\n';
 											statushtml = "";
 										}
 										else if (item.SubType == "Smartwares") {

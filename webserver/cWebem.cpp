@@ -1103,8 +1103,18 @@ namespace http {
 				StringSplit(sLine, ",", vLineParts);
 				for (std::string sPart : vLineParts)
 				{
-					if(isValidIP(sPart))
+					if (isValidIP(sPart))
 						vHosts.push_back(sPart);
+					else {
+						size_t dpos = sPart.find_last_of(':');
+						if (dpos != std::string::npos)
+						{
+							//Strip off the port number
+							sPart = sPart.substr(0, dpos);
+							if (isValidIP(sPart))
+								vHosts.push_back(sPart);
+						}
+					}
 				}
 			}
 
@@ -1422,77 +1432,6 @@ namespace http {
 			if ((ah->nonce.empty()) && (!ah->response.empty()))
 				return (ha1 == GenerateMD5Hash(ah->response));
 
-			return 0;
-		}
-
-		// Authorize against the internal Userlist. Credentials coming via Authorization header or URL parameters.
-		// Return 1 if authorized.
-		// Only used when webserver Authentication method is set to Auth_Basic.
-		int cWebemRequestHandler::authorize(WebEmSession & session, const request& req, reply& rep)
-		{
-			struct ah _ah;
-
-			std::string uname;
-			std::string upass;
-
-			if (!parse_auth_header(req, &_ah))
-			{	// No username, password (or other identification) found in Authorization header. Check URI for user parameters.
-				size_t uPos = req.uri.find("username=");
-				size_t pPos = req.uri.find("password=");
-				if (
-					(uPos == std::string::npos) ||
-					(pPos == std::string::npos)
-					)
-				{
-					return 0;
-				}
-				uPos += 9; //strlen("username=")
-				pPos += 9; //strlen("password=")
-				size_t uEnd = req.uri.find('&', uPos);
-				size_t pEnd = req.uri.find('&', pPos);
-				std::string tmpuname;
-				std::string tmpupass;
-				if (uEnd == std::string::npos)
-					tmpuname = req.uri.substr(uPos);
-				else
-					tmpuname = req.uri.substr(uPos, uEnd - uPos);
-				if (pEnd == std::string::npos)
-					tmpupass = req.uri.substr(pPos);
-				else
-					tmpupass = req.uri.substr(pPos, pEnd - pPos);
-				if (request_handler::url_decode(tmpuname, uname) && request_handler::url_decode(tmpupass, upass))
-				{	// Found parameters, so lets use these to check
-					_ah.user = base64_decode(uname);
-					_ah.response = base64_decode(upass);
-				}
-				else
-				{
-					m_failcounter++;
-					return 0;
-				}
-			}
-
-			// Check if valid password has been provided for the user
-			for (const auto &my : myWebem->m_userpasswords)
-			{
-				if (my.Username == _ah.user)
-				{
-					int bOK = check_password(&_ah, my.Password);
-					_log.Debug(DEBUG_AUTH, "[Authorize] User %s password check: %d", _ah.user.c_str(), bOK);
-					if (!bOK || my.userrights == URIGHTS_CLIENTID)	// User with ClientID 'rights' are not real users!
-					{
-						m_failcounter++;
-						return 0;
-					}
-					session.isnew = true;
-					session.username = my.Username;
-					session.rights = my.userrights;
-					session.rememberme = false;
-					m_failcounter = 0;
-					return 1;
-				}
-			}
-			m_failcounter++;
 			return 0;
 		}
 
