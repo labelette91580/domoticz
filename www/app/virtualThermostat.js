@@ -1,10 +1,10 @@
-GetThermostatBigText = function (item, TempSign) {
+GetThermostatBigText = function (item) {
 	var bigtext='';
 	if (typeof item.RoomTemp != 'undefined') {
 		bigtext = item.RoomTemp + ' / ' ;
 	}
 	bigtext += item.Data;
-	bigtext += ' '+TempSign;
+	bigtext += ' '+ item.vunit;
 	return bigtext;
 }
 GetThermostatStatus = function (item) {
@@ -24,7 +24,7 @@ getThermostatImage = function (item) {
 			image = '"images/override_off.png"';
 	}
 	var undef;
-	var xhtm = '<img src=' + image + ' class="lcursor" onclick="ShowSetpointPopup(event, ' + item.idx + ',' + item.Protected + ', ' + item.Data + ',false, ' + item.step + ', ' + item.min + ', ' + item.max + ');" height="48" width="48" ></td>\n';
+	var xhtm = '<img src=' + image + ' class="lcursor" onclick="ShowSetpointPopup(event, ' + item.idx + ',' + item.Protected + ', ' + item.Data + ',false, ' + item.step + ', ' + item.min + ', ' + item.max + ',' + item.ConforTemp + ',' + item.EcoTemp + ');" height="48" width="48" ></td>\n';
 
 	return xhtm;
 }

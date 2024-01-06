@@ -439,10 +439,10 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 //					var undef;
 //					$(id + " #img").attr('onclick', 'ShowSetpointPopup(event, ' + item.idx + ', ' + item.Protected + ', ' + item.Data + ',' + undef + ',' + item.ConforTemp + ',' + item.EcoTemp +')');
 				else if ((item.Type == "Setpoint") && (item.SubType == "SetPoint")) {
-					bigtext = GetThermostatBigText(item,item.vunit);
+					bigtext = GetThermostatBigText(item);
 					status = GetThermostatStatus(item);
 					img = getThermostatImage(item);
-					$(id + " #img").attr('onclick', 'ShowSetpointPopup(event, ' + item.idx + ', ' + item.Protected + ', ' + item.Data + ',false, ' + item.step + ', ' + item.min + ', ' + item.max + ')');
+					$(id + " #img").attr('onclick', 'ShowSetpointPopup(event, ' + item.idx + ', ' + item.Protected + ', ' + item.Data + ',false, ' + item.step + ', ' + item.min + ', ' + item.max + ',' + item.ConforTemp + ',' + item.EcoTemp + ')');
 				}
 				else if (item.Type == "Radiator 1") {
 					status = item.Data + '\u00B0 ' + $scope.config.TempSign;
@@ -623,7 +623,7 @@ define(['app', 'livesocket','app/virtualThermostat.js'], function (app) {
 								bigtext += item.Data;
 							}
 							else if (item.Type == "Setpoint") {
-								bigtext += GetThermostatBigText(item,item.vunit);
+								bigtext += GetThermostatBigText(item);
 								status = GetThermostatStatus(item);
 							}
 							else if (item.SubType == "Waterflow") {

@@ -5910,6 +5910,14 @@ function ShowSetpointPopupInt(mouseX, mouseY, idx, currentvalue, ismobile, step,
 	$.setstep = step;
 	$.setmin = min;
 	$.setmax = max;
+	if (typeof $.confor == 'undefined') {
+		$('#setpoint_popup #confor').hide();
+		$('#setpoint_popup #eco').hide();
+	}
+	else {
+		$('#setpoint_popup #confor').show();
+		$('#setpoint_popup #eco').show();
+	}
 	var curValue = (Number.isInteger(currentvalue)) ? currentvalue : parseFloat(currentvalue).toFixed(1);
 	$('#setpoint_popup #actual_value').html(curValue);
 	$('#setpoint_popup #popup_setpoint').val(curValue);
@@ -5968,7 +5976,16 @@ function SetpointDown() {
 	var curValueStr = (Number.isInteger(curValue)) ? curValue : curValue.toFixed(1);
 	$('#setpoint_popup #popup_setpoint').val(curValueStr);
 }
-
+function SetEcoTemp() {
+	var curValueStr = $.eco.toFixed(1);
+	$('#setpoint_popup #popup_setpoint').val(curValueStr);
+	SetSetpoint();
+}
+function SetConforTemp() {
+	var curValueStr = $.confor.toFixed(1);
+	$('#setpoint_popup #popup_setpoint').val(curValueStr);
+	SetSetpoint();
+}
 function SetSetpoint() {
 	var currentvalue = parseFloat($('#setpoint_popup #popup_setpoint').val());
 	var curValue = (Number.isInteger(currentvalue)) ? currentvalue : currentvalue.toFixed(1);
@@ -5996,8 +6013,10 @@ function SetSetpoint() {
 }
 
 
-function ShowSetpointPopup(event, idx, Protected, currentvalue, ismobile, step, min, max) {
+function ShowSetpointPopup(event, idx, Protected, currentvalue, ismobile, step, min, max, confor, eco) {
 	$.Protected = Protected;
+	$.confor = confor;
+	$.eco = eco;
 
 	if (typeof step == 'undefined') step = 0.5;
 	if (typeof min == 'undefined') min = -200;
