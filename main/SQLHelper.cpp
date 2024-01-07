@@ -16,6 +16,7 @@
 #include "../main/json_helper.h"
 #include <sqlite3.h>
 #include "../hardware/hardwaretypes.h"
+#include "../hardware/DomoticzTCP.h"
 #include "../smtpclient/SMTPClient.h"
 #include "../push/InfluxPush.h"
 #include "WebServerHelper.h"
@@ -53,7 +54,7 @@ constexpr auto sqlCreateDeviceStatus =
 "CREATE TABLE IF NOT EXISTS [DeviceStatus] ("
 "[ID] INTEGER PRIMARY KEY, "
 "[HardwareID] INTEGER NOT NULL, "
-"[OrgHardwareID] INTEGER NOT NULL, "
+"[OrgHardwareID] DEFAULT 0, "
 "[DeviceID] VARCHAR(25) NOT NULL, "
 "[Unit] INTEGER DEFAULT 0, "
 "[Name] VARCHAR(100) DEFAULT Unknown, "
@@ -3650,10 +3651,24 @@ bool CSQLHelper::SwitchLightFromTasker(uint64_t idx, const std::string& switchcm
 
 	std::vector<std::string> sd = result[0];
 	int HardwareID = atoi(sd[0].c_str());
-	_eSwitchType switchtype = (_eSwitchType)atoi(sd[5].c_str());
+
+	int hindex = m_mainworker.FindDomoticzHardware(HardwareID);
+	if (hindex == -1)
+	{
+		_log.Log(LOG_ERROR, "Switch command not send!, Hardware device disabled or not found!");
+		return false;
+	}
 	CDomoticzHardwareBase* pHardware = m_mainworker.GetHardware(HardwareID);
 	if (pHardware == nullptr)
 		return false;
+	if (pHardware->HwdType == HTYPE_Domoticz)
+	{
+		DomoticzTCP* pDomoticz = static_cast<DomoticzTCP*>(pHardware);
+		bool bret = pDomoticz->SwitchLight(idx, switchcmd, level, color, false, User);
+		return (bret) ? MainWorker::SL_OK : MainWorker::SL_ERROR;
+	}
+
+	_eSwitchType switchtype = (_eSwitchType)atoi(sd[5].c_str());
 
 	std::string switchCommand = switchcmd;
 	bool bret = m_mainworker.SwitchLightInt(sd, switchCommand, level, color, false, User);
