@@ -1076,11 +1076,6 @@ void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manI
 			SetTeachInStatus((nodeID), teachin_mode);
 	}
 }
-extern http::server::CWebServerHelper m_webservers;
-void CEnOceanESP3::registerWebServerEntry(void)
-{
-	m_webservers.RegisterRType("enocean", RType_OpenEnOcean );
-}
 
 bool CEnOceanESP3::configureActuatorSetMeasurement(uint32_t nodeID , bool Resetmeasurement, MeasurementTypeEnum measurementType , int IOchannel , int MeasurementDelta, MeasurementUnitEnum MeasurementUnit , int MaxSendMessageTimeInSec , int MinSendMessageTimeInSec )
 {

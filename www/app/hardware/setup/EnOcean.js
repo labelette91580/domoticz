@@ -309,7 +309,7 @@ define(['app'], function (app) {
 					ShowWaiting($.t('Waiting response ' + cmd), true);
 				},
 				//		        type: 'POST',
-				url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=" + cmd,
+				url: "json.htm?type=command&param=enocean&hwid=" + $.hwid + "&cmd=" + cmd,
 				data: payload,
 				async: true,
 				dataType: 'json',
@@ -499,7 +499,7 @@ define(['app'], function (app) {
             payload[0] = DeviceID + ";1" ;
 
 		    $.ajax({
-		        url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=GetLinkTableList" ,
+		        url: "json.htm?type=command&param=enocean&hwid=" + $.hwid + "&cmd=GetLinkTableList" ,
                 data: payload,
                 async: false,
 		        dataType: 'json',
@@ -538,7 +538,7 @@ define(['app'], function (app) {
 		    oTable.fnClearTable();
 
 		    $.ajax({
-		        url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=GetNodeList",
+		        url: "json.htm?type=command&param=enocean&hwid=" + $.hwid + "&cmd=GetNodeList",
 		        async: false,
 		        dataType: 'json',
 		        success: function (data) {
@@ -685,7 +685,7 @@ define(['app'], function (app) {
 
 			//get code 
 			$.ajax({
-				url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=" + "GetCode",
+				url: "json.htm?type=command&param=enocean&hwid=" + $.hwid + "&cmd=" + "GetCode",
 				async: false,
 				dataType: 'json',
 				success: function (data) {
@@ -710,7 +710,7 @@ define(['app'], function (app) {
 		                callback: function () {
 		                    var addnode = $("#add_node").val();
 		                    $http({
-		                        url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=SetCode" + "&code=" + addnode ,
+		                        url: "json.htm?type=command&param=enocean&hwid=" + $.hwid + "&cmd=SetCode" + "&code=" + addnode ,
 		                        async: true,
 		                        dataType: 'json'
 		                    }).then(function successCallback(response) {
@@ -742,7 +742,7 @@ define(['app'], function (app) {
 		                    var addnode = $("#add_node").val();
 		                    var eepnode = $("#eep").val();
 		                    $http({
-		                        url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=CreateSensor" + "&id=" + addnode + "&eep=" + eepnode,
+		                        url: "json.htm?type=command&param=enocean&hwid=" + $.hwid + "&cmd=CreateSensor" + "&id=" + addnode + "&eep=" + eepnode,
 		                        async: true,
 		                        dataType: 'json'
 		                    }).then(function successCallback(response) {

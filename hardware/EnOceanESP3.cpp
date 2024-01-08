@@ -336,8 +336,6 @@ bool CEnOceanESP3::StartHardware()
 
 	LoadNodesFromDatabase();
 
-	registerWebServerEntry();
-
 	// Will force reconnect first thing
 	m_retrycntr = ESP3_CONTROLLER_RETRY_DELAY * 5;
 

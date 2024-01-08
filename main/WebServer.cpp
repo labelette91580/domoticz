@@ -609,6 +609,10 @@ namespace http
 			RegisterCommandCode("esp3deletenode", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanESP3DeleteNode(session, req, root); });
 			RegisterCommandCode("esp3getnodes", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanESP3GetNodes(session, req, root); });
 
+			extern void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::request& req, Json::Value& root);
+			
+			RegisterCommandCode("enocean", [this](auto&& session, auto&& req, auto&& root) { RType_OpenEnOcean(session, req, root); });
+
 			//Whitelist
 			m_pWebEm->RegisterWhitelistURLString("/images/floorplans/plan");
 
