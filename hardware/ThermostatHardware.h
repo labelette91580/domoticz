@@ -2,8 +2,15 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 #include "DomoticzHardware.h"
+
+// row result for an sql query : string Vector
+using TSqlRowQuery = std::vector<std::string>;
+
+// result for an sql query : Vector of TSqlRowQuery
+using TSqlQueryResult = std::vector<TSqlRowQuery>;
 
 class CThermostatHardware : public CDomoticzHardwareBase
 {

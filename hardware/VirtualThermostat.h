@@ -2,15 +2,6 @@
 
 #include "ThermostatHardware.h"
 
-#include <map>
-#include <vector>
-
-// row result for an sql query : string Vector
-using TSqlRowQuery = std::vector<std::string> ;
-
-// result for an sql query : Vector of TSqlRowQuery
-using TSqlQueryResult = std::vector<TSqlRowQuery> ;
-
 //duratoiopn of integration window in min
 #define INTEGRAL_DURATION 10
 
