@@ -153,6 +153,18 @@ namespace http {
 #endif
 		}
 
+		void CWebServerHelper::RegisterRType(const char* idname, const http::server::CWebServer::webserver_response_function& ResponseFunction)
+		{
+			if (plainServer_) { // assert
+				plainServer_->RegisterRType( idname,  ResponseFunction);
+			}
+#ifdef WWW_ENABLE_SSL
+			else if (secureServer_) {
+				secureServer_->RegisterRType( idname,  ResponseFunction);
+			}
+#endif
+		}
+
 		void CWebServerHelper::ReloadCustomSwitchIcons()
 		{
 			for (auto &it : serverCollection)
