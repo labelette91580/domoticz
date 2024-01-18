@@ -114,6 +114,12 @@ void DomoticzTCP::OnData(const uint8_t* pData, size_t length)
 		uint64_t idx = m_sql.UpdateValue(m_HwdID, OrgHardwareID, DeviceID.c_str(), Unit, Type, SubType, SignalLevel, BatteryLevel, nValue, sValue.c_str(), Name, true, m_Name.c_str());
 		if (idx == (uint64_t)-1)
 		{
+			if (!m_sql.m_bAcceptNewHardware)
+			{
+				Log(LOG_STATUS, "Device creation failed, Domoticz settings prevent accepting new devices. (device ID %s)", DeviceID.c_str());
+				return;
+			}
+
 			Log(LOG_ERROR, "Failed to update device %s", DeviceID.c_str());
 			return;
 		}
@@ -134,9 +140,9 @@ void DomoticzTCP::OnData(const uint8_t* pData, size_t length)
 		m_sql.UpdateDeviceValue("LastUpdate", LastUpdate, std::to_string(idx));
 
 	}
-	catch (const std::exception&)
+	catch (const std::exception& e)
 	{
-		Log(LOG_ERROR, "Invalid data received!");
+		Log(LOG_ERROR, "Exception: Invalid data received! (%s)", e.what());
 	}
 }
 

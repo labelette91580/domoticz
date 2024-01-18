@@ -41,7 +41,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#define DB_VERSION 166
+#define DB_VERSION 167
 
 #define DEFAULT_ADMINUSER "admin"
 #define DEFAULT_ADMINPWD "domoticz"
@@ -54,7 +54,7 @@ constexpr auto sqlCreateDeviceStatus =
 "CREATE TABLE IF NOT EXISTS [DeviceStatus] ("
 "[ID] INTEGER PRIMARY KEY, "
 "[HardwareID] INTEGER NOT NULL, "
-"[OrgHardwareID] DEFAULT 0, "
+"[OrgHardwareID] INTEGER DEFAULT 0, "
 "[DeviceID] VARCHAR(25) NOT NULL, "
 "[Unit] INTEGER DEFAULT 0, "
 "[Name] VARCHAR(100) DEFAULT Unknown, "
@@ -227,6 +227,7 @@ constexpr auto sqlCreateMultiMeter_Calendar =
 constexpr auto sqlCreateNotifications =
 "CREATE TABLE IF NOT EXISTS [Notifications] ("
 "[ID] INTEGER PRIMARY KEY, "
+"[Active] BOOLEAN DEFAULT true, "
 "[DeviceRowID] BIGINT(10) NOT NULL, "
 "[Params] VARCHAR(100), "
 "[CustomMessage] VARCHAR(300) DEFAULT (''), "
@@ -3144,6 +3145,10 @@ bool CSQLHelper::OpenDatabase()
 		{
 			query("ALTER TABLE DeviceStatus ADD COLUMN [OrgHardwareID] INTEGER default 0");
 		}
+		if (dbversion < 167)
+		{
+			query("ALTER TABLE Notifications ADD COLUMN [Active] BOOLEAN DEFAULT true");
+		}
 	}
 	else if (bNewInstall)
 	{
@@ -4221,7 +4226,7 @@ void CSQLHelper::Do_Work()
 				std::string idx = sstr.str();
 				float fValue = (float)atof(itt._sValue.c_str());
 
-				auto result = safe_query("SELECT a.[Type] FROM Hardware as a, DeviceStatus as b WHERE (b.ID == 9693) AND (a.ID == b.HardwareID)");
+				auto result = safe_query("SELECT a.[Type] FROM Hardware as a, DeviceStatus as b WHERE (b.ID == %" PRIu64 ") AND (a.ID == b.HardwareID)", itt._idx);
 				if (!result.empty())
 				{
 					_eHardwareTypes HwdType = (_eHardwareTypes)atoi(result[0][0].c_str());
@@ -5060,7 +5065,7 @@ uint64_t CSQLHelper::InsertDevice(const int HardwareID, const int OrgHardwareID,
 
 	safe_query(
 		"INSERT INTO DeviceStatus (HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType, SwitchType, SignalLevel, BatteryLevel, nValue, sValue, Name) "
-		"VALUES ('%d','%d','%q','%d','%d','%d','%d','%d','%d','%d','%q','%q')",
+		"VALUES (%d,%d,'%q',%d,%d,%d,%d,%d,%d,%d,'%q','%q')",
 		HardwareID, OrgHardwareID, ID, unit,
 		devType, subType, switchType,
 		signallevel, batterylevel,
@@ -5222,6 +5227,12 @@ uint64_t CSQLHelper::UpdateValueInt(
 	if (!m_dbase)
 		return -1;
 
+	CDomoticzHardwareBase* pHardware = m_mainworker.GetHardware(HardwareID);
+	if (pHardware != nullptr)
+	{
+		const_cast<CDomoticzHardwareBase*>(pHardware)->SetHeartbeatReceived();
+	}
+
 	uint64_t ulID = 0;
 	std::map<std::string, std::string> options;
 
@@ -5262,7 +5273,6 @@ uint64_t CSQLHelper::UpdateValueInt(
 
 #ifdef ENABLE_PYTHON
 		//TODO: Plugins should perhaps be blocked from implicitly adding a device by update? It's most likely a bug due to updating a removed device..
-		CDomoticzHardwareBase* pHardware = m_mainworker.GetHardware(HardwareID);
 		if (pHardware != nullptr && pHardware->HwdType == HTYPE_PythonPlugin)
 		{
 			_log.Debug(DEBUG_NORM, "CSQLHelper::UpdateValueInt: Notifying plugin %u about creation of device %u", HardwareID, unit);
@@ -5454,7 +5464,6 @@ uint64_t CSQLHelper::UpdateValueInt(
 			std::string slevel = sd[6];
 
 			_eHardwareTypes HWtype = HTYPE_Domoticz; //just a value
-			CDomoticzHardwareBase* pHardware = m_mainworker.GetHardware(HardwareID);
 			if (pHardware != nullptr)
 				HWtype = pHardware->HwdType;
 

@@ -58,6 +58,8 @@ class MQTTAutoDiscover : public MQTT
 		int position_open = 100;
 		int position_closed = 0;
 
+		std::string on_command_type;
+
 		std::string payload_available;
 		std::string payload_not_available;
 
@@ -108,7 +110,7 @@ class MQTTAutoDiscover : public MQTT
 		std::string state_locked = "LOCKED";
 		std::string state_unlocked = "UNLOCKED";
 
-		int qos = 0;
+		int qos = 1;
 
 		std::map<std::string, std::string> keys;
 
