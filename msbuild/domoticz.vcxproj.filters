@@ -1446,9 +1446,6 @@
     <None Include="..\www\js\sw-toolbox.js">
       <Filter>www\js</Filter>
     </None>
-    <None Include="..\www\app\virtualThermostat.js">
-      <Filter>www\app</Filter>
-    </None>
     <None Include="..\www\app\hardware\setup\MQTT-AD.html">
       <Filter>www\app\hardware\setup</Filter>
     </None>
@@ -1458,11 +1455,6 @@
     <None Include="..\www\css\planning.css">
       <Filter>www\css</Filter>
     </None>
-    <None Include="..\www\app\timers\components.js" />
-    <None Include="..\www\app\timers\DeviceTimersController.js" />
-    <None Include="..\www\app\timers\factories.js" />
-    <None Include="..\www\app\timers\planning.js" />
-    <None Include="..\www\app\timers\SceneTimersController.js" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\webserver\Base64.h">

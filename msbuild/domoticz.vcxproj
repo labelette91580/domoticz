@@ -270,16 +270,10 @@
     <None Include="..\www\app\TemperatureController.js" />
     <None Include="..\www\app\TemperatureCustomLogController.js" />
     <None Include="..\www\app\TimerplanController.js" />
-    <None Include="..\www\app\timers\components.js" />
-    <None Include="..\www\app\timers\DeviceTimersController.js" />
-    <None Include="..\www\app\timers\factories.js" />
-    <None Include="..\www\app\timers\planning.js" />
-    <None Include="..\www\app\timers\SceneTimersController.js" />
     <None Include="..\www\app\UpdateController.js" />
     <None Include="..\www\app\UsersController.js" />
     <None Include="..\www\app\UserVariablesController.js" />
     <None Include="..\www\app\UtilityController.js" />
-    <None Include="..\www\app\virtualThermostat.js" />
     <None Include="..\www\app\WeatherController.js" />
     <None Include="..\www\css\bootstrap-responsive.css" />
     <None Include="..\www\css\bootstrap.css" />
