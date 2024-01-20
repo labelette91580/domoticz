@@ -324,3 +324,66 @@ void CRFXBase::SendResetCommand()
 	SendCommand(cmdSTATUS);
 }
 
+void CRFXBase::SendRawCommand(const char* cmdfile)
+{
+	std::ifstream file;
+	RBUF tsen;
+	long pulse;
+	char* EndPtr;
+	int base=10;
+	file.open(cmdfile);
+	if (!file.is_open())
+	{
+		_log.Log(LOG_ERROR, "RFX send raw :file not found %s", cmdfile);
+
+		return;
+	}
+	std::string sLine;
+	unsigned int len = 0;
+	unsigned int sizeOfPulse = sizeof(tsen.RAW.pulse) / 2 / sizeof(BYTE);
+	bool error = false;
+	memset(&tsen, 0, sizeof(tsen));
+
+	tsen.RAW.packetlength=0;
+	tsen.RAW.packettype = pTypeRAW;
+	tsen.RAW.subtype=0;
+	tsen.RAW.seqnbr=0;
+	tsen.RAW.repeat=5;
+
+
+	while (!file.eof() && (error == false) )
+	{
+		getline(file, sLine);
+		
+		if (!sLine.empty()) {
+			pulse = strtol(sLine.c_str(), &EndPtr, base);
+			if (*EndPtr == 0)
+			{
+				if ((len < sizeOfPulse) && (pulse != 0))
+				{
+					tsen.RAW.pulse[len].uint_lsb = pulse % 256;
+					tsen.RAW.pulse[len].uint_msb = pulse / 256;
+					len++;
+				}
+				else
+				{
+					_log.Log(LOG_ERROR, "RFX send raw :too many pulse : max  %d", sizeOfPulse);
+					error = true;
+				}
+			}
+			else
+			{
+				_log.Log(LOG_ERROR, "RFX send raw :not a number line %d", len + 1);
+				error = true;
+			}
+		}
+	}
+	file.close();
+	if(error==false)
+	{
+		tsen.RAW.packetlength = sizeof(tsen.RAW) - sizeof(tsen.RAW.pulse )  - 1 + len * 2 ;
+		WriteToHardware((const char*) & tsen, tsen.RAW.packetlength+1);
+		Debug(DEBUG_HARDWARE, "RFX send raw :send  %d pulse", len );
+	}
+
+}
