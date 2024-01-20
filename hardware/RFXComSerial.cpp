@@ -185,6 +185,7 @@ bool RFXComSerial::WriteToHardware(const char* pdata, const unsigned char length
 	if (!isOpen())
 		return false;
 	write(pdata, length);
+	Debug(DEBUG_RECEIVED, "send:%s", ToHexString((const uint8_t*)pdata, length).c_str());
 	return true;
 }
 
