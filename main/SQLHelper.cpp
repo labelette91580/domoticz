@@ -4177,11 +4177,13 @@ void CSQLHelper::Do_Work()
 				if (strstr(itt._ID.c_str(), "sendRawRfx") != 0)
 				{
 					//get rfx hardware
-					CDomoticzHardwareBase* pBaseHardware  = m_mainworker.GetHardwareByType(HTYPE_RFXtrx433);
+//					CDomoticzHardwareBase* pBaseHardware  = m_mainworker.GetHardwareByType(HTYPE_RFXtrx433);
+					CDomoticzHardwareBase* pBaseHardware = CRFXBase::GetRfxHardware();
+					
 					if (pBaseHardware != nullptr)
 					{
 						CRFXBase* pHardware = dynamic_cast<CRFXBase*>(pBaseHardware);
-						pHardware->SendRawCommand(itt._sValue.c_str());
+						pHardware->SendRawCommand(itt._ID.c_str(),itt._sValue.c_str());
 					}
 					else
 						_log.Log(LOG_ERROR, "RFX send raw :RFXCOM hardware not found" );

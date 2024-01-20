@@ -324,7 +324,33 @@ void CRFXBase::SendResetCommand()
 	SendCommand(cmdSTATUS);
 }
 
-void CRFXBase::SendRawCommand(const char* cmdfile)
+/* to send raw pulse to RFXCOM , create a file with the liste of pulse
+ the file  shall contains then sendRawRfx in its name : eg sendRawRfx.txt
+ the format of this file is :
+ascii command on column 1
+then list of pulse value , one per line, maximum 124 pulses
+
+example :
+on
+1
+2
+off
+1
+2
+3
+...
+
+for command on  : pulse list is 1,2
+for command off : pulse list is 1,2,3
+
+set the following On/Off action in the switch option
+for OnAction  : script://./scripts/sendRawRfx.txt on
+for OffAction : script://./scripts/sendRawRfx.txt off
+
+script:  ./scripts/sendRawRfx.txt : the path of file containing the raw pulse liste
+on/off : action pulse list to send
+*/
+void CRFXBase::SendRawCommand(const char* cmdfile, const char* cmd)
 {
 	std::ifstream file;
 	RBUF tsen;
@@ -339,6 +365,7 @@ void CRFXBase::SendRawCommand(const char* cmdfile)
 		return;
 	}
 	std::string sLine;
+	int line = 0;
 	unsigned int len = 0;
 	unsigned int sizeOfPulse = sizeof(tsen.RAW.pulse) / 2 / sizeof(BYTE);
 	bool error = false;
@@ -350,12 +377,29 @@ void CRFXBase::SendRawCommand(const char* cmdfile)
 	tsen.RAW.seqnbr=0;
 	tsen.RAW.repeat=5;
 
+	//search fof command : on/off
 
+	while (!file.eof() && (strstr(sLine.c_str(), cmd)==0) )
+	{
+		getline(file, sLine);
+		line++;
+	}
+	if (file.eof())
+	{
+		_log.Log(LOG_ERROR, "RFX send raw :command %s not found in %s", cmd, cmdfile);
+		error = true;
+
+	}
 	while (!file.eof() && (error == false) )
 	{
 		getline(file, sLine);
-		
-		if (!sLine.empty()) {
+		line++;
+
+		//not a number stop
+		if (!isdigit(sLine[0]) )
+			break;
+
+		if (!sLine.empty()  ) {
 			pulse = strtol(sLine.c_str(), &EndPtr, base);
 			if (*EndPtr == 0)
 			{
@@ -373,7 +417,7 @@ void CRFXBase::SendRawCommand(const char* cmdfile)
 			}
 			else
 			{
-				_log.Log(LOG_ERROR, "RFX send raw :not a number line %d", len + 1);
+				_log.Log(LOG_ERROR, "RFX send raw :not a number line %d", line);
 				error = true;
 			}
 		}
@@ -383,7 +427,22 @@ void CRFXBase::SendRawCommand(const char* cmdfile)
 	{
 		tsen.RAW.packetlength = sizeof(tsen.RAW) - sizeof(tsen.RAW.pulse )  - 1 + len * 2 ;
 		WriteToHardware((const char*) & tsen, tsen.RAW.packetlength+1);
-		Debug(DEBUG_HARDWARE, "RFX send raw :send  %d pulse", len );
+		Debug(DEBUG_HARDWARE, "RFX send raw :send  %d pulse for cmd:%s file:%s", len, cmd, cmdfile);
 	}
+
+}
+
+CDomoticzHardwareBase* CRFXBase::GetRfxHardware()
+{
+	//get rfx hardware
+	CDomoticzHardwareBase* pBaseHardware = m_mainworker.GetHardwareByType(HTYPE_RFXtrx315);
+	if (pBaseHardware != nullptr)	return  pBaseHardware;
+	pBaseHardware = m_mainworker.GetHardwareByType(HTYPE_RFXtrx433);
+	if (pBaseHardware != nullptr)	return  pBaseHardware;
+	pBaseHardware = m_mainworker.GetHardwareByType(HTYPE_RFXLAN);
+	if (pBaseHardware != nullptr)	return  pBaseHardware;
+	pBaseHardware = m_mainworker.GetHardwareByType(HTYPE_RFXtrx868);
+	if (pBaseHardware != nullptr)	return  pBaseHardware;
+	return NULL;
 
 }
