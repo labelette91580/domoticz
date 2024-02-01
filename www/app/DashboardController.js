@@ -3936,9 +3936,8 @@ define(['app', 'livesocket', 'app/virtualThermostat.js'], function (app) {
 			ctrl.changeRoom = function () {
 				var idx = ctrl.roomSelected;
 				window.myglobals.LastPlanSelected = idx;
-	
 				$route.updateParams({
-						room: idx > 0 ? idx : undefined
+						room: idx >= 0 ? idx : undefined
 					});
 					$location.replace();
 					$scope.$apply();
