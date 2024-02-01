@@ -3,9 +3,11 @@ local _ = require('lodash')
 
 local self = {
 	LOG_ERROR = 1,
-	LOG_FORCE = 0.5,
-	LOG_MODULE_EXEC_INFO = 2,
-	LOG_INFO = 3,
+	LOG_FORCE = 6,
+	LOG_MODULE_EXEC_INFO = 5,
+--	LOG_FORCE = 0.5,
+--	LOG_MODULE_EXEC_INFO = 2,
+	LOG_INFO = 4,
 	LOG_WARNING = 3,
 	LOG_DEBUG = 4,
 	DZVERSION = '3.1.8',
