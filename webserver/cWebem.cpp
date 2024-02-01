@@ -500,6 +500,17 @@ namespace http {
 			return false;
 		}
 
+std::string getRootDir(std::string &request_path)
+{
+	std::string rootDir = "";
+	std::vector<std::string> results;
+	StringSplit(request_path.substr(1), "/", results);
+	if (results.size() !=0 )
+	{
+		rootDir = "/" + results[0];
+	}
+	return rootDir;
+}
 		bool cWebem::CheckForPageOverride(WebEmSession & session, request& req, reply& rep)
 		{
 			std::string request_path;
@@ -581,6 +592,11 @@ namespace http {
 			std::string strMimeType = mime_types::extension_to_type(extension);
 
 			auto pfun = myPages.find(request_path);
+
+	//if not found,search roodir
+	if (pfun == myPages.end())
+		pfun = myPages.find(getRootDir(request_path));
+
 			if (pfun != myPages.end())
 			{
 				rep.status = reply::ok;
@@ -1220,8 +1236,10 @@ namespace http {
 						ah->qop = std::to_string(my.userrights);
 						return true;
 					}
+					_log.Debug(DEBUG_WEBSERVER, "[web:] Invalid password" );
 				}
 			}
+			_log.Debug(DEBUG_WEBSERVER, "[web:] Invalid user" );
 			return false;
 		}
 
@@ -1928,7 +1946,11 @@ namespace http {
 				}
 				else if (_ah.method == "BASIC")
 				{
-					if (req.uri.find("json.htm") != std::string::npos)	// Exception for the main API endpoint so scripts can execute them with 'just' Basic AUTH
+					if (   (req.uri.find("json.htm") != std::string::npos)	// Exception for the main API endpoint so scripts can execute them with 'just' Basic AUTH
+						|| (req.uri.find("system") != std::string::npos)	//imperihome rest API
+						|| (req.uri.find("rooms") != std::string::npos)
+						|| (req.uri.find("devices") != std::string::npos)
+						)
 					{
 						if (AllowBasicAuth())	// Check if Basic Auth is allowed either over HTTPS or when explicitly enabled
 						{
