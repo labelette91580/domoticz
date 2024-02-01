@@ -319,7 +319,9 @@ private:
 	void Cmd_GetDevices(WebEmSession & session, const request& req, Json::Value &root);
 	void Cmd_DeleteDevice(WebEmSession & session, const request& req, Json::Value &root);
 	void Cmd_GetSceneLog(WebEmSession & session, const request& req, Json::Value &root);
+public:
 	void Cmd_GetScenes(WebEmSession & session, const request& req, Json::Value &root);
+private:
 	void Cmd_AddScene(WebEmSession & session, const request& req, Json::Value &root);
 	void Cmd_DeleteScene(WebEmSession & session, const request& req, Json::Value &root);
 	void Cmd_UpdateScene(WebEmSession & session, const request& req, Json::Value &root);
@@ -437,6 +439,7 @@ private:
 	void Cmd_EnOceanESP3GetNodes(WebEmSession & session, const request& req, Json::Value &root);
 
     void Cmd_TellstickApplySettings(WebEmSession &session, const request &req, Json::Value &root);
+		void ImperihomeServices(WebEmSession & session, const request& req, reply & rep);
 	std::shared_ptr<std::thread> m_thread;
 
 	std::map < std::string, webserver_response_function > m_webcommands;	//Commands
