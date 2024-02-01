@@ -593,6 +593,15 @@ namespace http
 			RegisterCommandCode("getopenzwavenodes", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetOpenZWaveNodes(session, req, root); });
 #endif
 
+			RegisterCommandCode("setlogoption", [this](auto&& session, auto&& req, auto&& root) {
+				//http://192.168.1.27:8080/json.htm?type=command&param=setlogoption&logflags=normal,status,error,debug
+				//http://192.168.1.6:8080/json.htm?type=command&param=setlogoption&filter=Send:_,Read_,HwdID,%2bRMC,%2bWait:,SQLH,IMPA,RFX,dzVents,&debugflags=normal,hardware,received_,auth_,webserver_
+				root["status"] = "OK"; root["title"] = "setlogoption";
+				std::string option = request::findValue(&req, "filter"); if (!option.empty())_log.SetFilter(option);
+				option = request::findValue(&req, "logflags"); if (!option.empty())_log.SetLogFlags(option);
+				option = request::findValue(&req, "debugflags"); if (!option.empty())_log.SetDebugFlags(option);
+				});
+
 			// EnOcean helpers cmds
 			RegisterCommandCode("enoceangetmanufacturers", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetManufacturers(session, req, root); });
 			RegisterCommandCode("enoceangetrorgs", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetRORGs(session, req, root); });
