@@ -60,6 +60,7 @@ extern int iAppRevision;
 extern std::string szAppHash;
 extern std::string szAppDate;
 extern std::string szPyVersion;
+extern void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::request& req, Json::Value& root);
 
 namespace http
 {
@@ -623,6 +624,8 @@ namespace http
 			RegisterCommandCode("esp3updatenode", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanESP3UpdateNode(session, req, root); });
 			RegisterCommandCode("esp3deletenode", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanESP3DeleteNode(session, req, root); });
 			RegisterCommandCode("esp3getnodes", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanESP3GetNodes(session, req, root); });
+
+			RegisterCommandCode("enocean", [this](auto&& session, auto&& req, auto&& root) { RType_OpenEnOcean(session, req, root); });
 
 			//Whitelist
 			m_pWebEm->RegisterWhitelistURLString("/images/floorplans/plan");

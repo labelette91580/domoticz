@@ -3058,6 +3058,21 @@
     <ClCompile Include="..\hardware\ZWaveBase.cpp">
       <Filter>Devices\ZWave</Filter>
     </ClCompile>
+    <ClCompile Include="..\hardware\EnOceanESP3New.cpp">
+      <Filter>Devices\EnOcean</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hardware\EnOceanRMCC.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hardware\EnOceanSensors.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hardware\EnOceanEepProfil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hardware\EnOceanProfil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="domoticz.rc">
