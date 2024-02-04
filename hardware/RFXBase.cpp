@@ -10,12 +10,83 @@ CRFXBase::CRFXBase()
 	m_NoiseLevel = 0;
 	m_AsyncType = ATYPE_DISABLED;
 }
+bool CRFXBase::onInternalMessage(const unsigned char * pReceivedBuffer, const size_t ReceivedLen, const bool checkValid/* = true*/)
+{
+	size_t start = 0;
 
-bool CRFXBase::onInternalMessage(const unsigned char *pBuffer, const size_t Len, const bool checkValid/* = true*/)
+	if (!m_bEnableReceive)
+		return true; //receiving not enabled
+
+//	Debug(DEBUG_RECEIVED, "read:%s", ToHexString((const uint8_t*)pReceivedBuffer, ReceivedLen).c_str());
+
+	//comy receiver data at the end of current received data
+	for (size_t i = 0; i < ReceivedLen; i++)
+		if (m_ReceivedBufferLen < sizeof(m_ReceivedBuffer))
+			m_ReceivedBuffer[m_ReceivedBufferLen++] = pReceivedBuffer[i];
+
+	size_t ii = 0;
+	while (ii < m_ReceivedBufferLen)
+	{
+		//1st char of a packet received ignore first char if 00
+		if ((m_rxbufferpos == 0) && (m_ReceivedBuffer[ii] == 0)) {
+			ii++;
+		}
+		else
+		{
+			m_rxbuffer[m_rxbufferpos] = m_ReceivedBuffer[ii];
+			m_rxbufferpos++;
+			ii++;
+			if (m_rxbufferpos >= sizeof(m_rxbuffer) - 1)
+			{
+				//something is out of sync here!!
+				//restart
+				Log(LOG_ERROR, "input buffer out of sync, going to restart!....");
+				m_rxbufferpos = 0;
+				return false;
+			}
+			if (m_rxbufferpos == 2)
+			{
+				if (!(!checkValid || CheckValidRFXData((uint8_t*)&m_rxbuffer))) {
+					Log(LOG_ERROR, "Invalid data received!....%d: %02x %02x", m_rxbufferpos, m_rxbuffer[0], m_rxbuffer[1]);
+					//shift input buffer by 1
+					m_ReceivedBufferLen -= 1;
+					ii = 0;
+					memcpy(&m_ReceivedBuffer[0], &m_ReceivedBuffer[1], m_ReceivedBufferLen);
+					m_rxbufferpos = 0;
+				}
+			}
+
+
+			if (m_rxbufferpos > m_rxbuffer[0])
+			{
+				if (!checkValid || CheckValidRFXData((uint8_t*)&m_rxbuffer)) {
+					sDecodeRXMessage(this, (const uint8_t*)&m_rxbuffer, nullptr, -1, m_Name.c_str());
+					//shift input buffer by m_rxbufferpos
+					m_ReceivedBufferLen -= m_rxbufferpos;
+					ii = 0;
+					memcpy(&m_ReceivedBuffer[0], &m_ReceivedBuffer[m_rxbufferpos], m_ReceivedBufferLen);
+					m_rxbufferpos = 0;
+				}
+				else {
+					Log(LOG_ERROR, "Invalid data received!....%d: %02x %02x", m_rxbufferpos, m_rxbuffer[0], m_rxbuffer[1]);
+					//shift input buffer by 1
+					m_ReceivedBufferLen -= 1;
+					ii = 0;
+					memcpy(&m_ReceivedBuffer[0], &m_ReceivedBuffer[1], m_ReceivedBufferLen);
+					m_rxbufferpos = 0;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+/*
 {
 	if (!m_bEnableReceive)
 		return true; //receiving not enabled
 
+	Log(LOG_STATUS, "read:%s", Dump((const char*)pBuffer, Len).c_str());
 	size_t ii = 0;
 	while (ii < Len)
 	{
@@ -47,6 +118,7 @@ bool CRFXBase::onInternalMessage(const unsigned char *pBuffer, const size_t Len,
 	}
 	return true;
 }
+*/
 
 bool CRFXBase::CheckValidRFXData(const uint8_t *pData)
 {
@@ -320,7 +392,7 @@ void CRFXBase::SendResetCommand()
 	m_bEnableReceive = true;
 
 	SendCommand(cmdStartRec);
-	sleep_milliseconds(50);
+	sleep_milliseconds(500);
 	SendCommand(cmdSTATUS);
 }
 

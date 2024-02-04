@@ -26,6 +26,8 @@
 
 extern std::string szStartupFolder;
 
+#define round(a) ( int ) ( a + .5 )
+
 const unsigned char PKT_STX = 0x55;
 const unsigned char PKT_ETX = 0x04;
 const unsigned char PKT_DLE = 0x05;
@@ -185,6 +187,7 @@ bool RFXComSerial::WriteToHardware(const char* pdata, const unsigned char length
 	if (!isOpen())
 		return false;
 	write(pdata, length);
+//	Debug(DEBUG_RECEIVED, "write:%s", ToHexString((const uint8_t*)pdata,length).c_str() );
 	return true;
 }
 
