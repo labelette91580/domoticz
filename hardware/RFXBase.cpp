@@ -16,6 +16,7 @@ bool CRFXBase::onInternalMessage(const unsigned char *pBuffer, const size_t Len,
 	if (!m_bEnableReceive)
 		return true; //receiving not enabled
 
+	//Debug(DEBUG_RECEIVED, "read:%s", ToHexString((const uint8_t*)pBuffer, Len).c_str());
 	size_t ii = 0;
 	while (ii < Len)
 	{
