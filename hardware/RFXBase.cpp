@@ -16,6 +16,15 @@ bool CRFXBase::onInternalMessage(const unsigned char *pBuffer, const size_t Len,
 	if (!m_bEnableReceive)
 		return true; //receiving not enabled
 
+	//Debug(DEBUG_RECEIVED, "read:%s", ToHexString((const uint8_t*)pBuffer, Len).c_str());
+	if ( (pBuffer[0]>=0x20)&&(pBuffer[1]>=0x20)&&(pBuffer[2]>=0x20)&&(pBuffer[3]>=0x20))
+	{
+		char fmt[16];
+		sprintf(fmt,"read:%%%dc",Len);
+		Debug(DEBUG_RECEIVED, fmt, pBuffer );
+	return true;
+	
+	}
 	size_t ii = 0;
 	while (ii < Len)
 	{
@@ -327,21 +336,21 @@ void CRFXBase::SendResetCommand()
 /* to send raw pulse to RFXCOM , create a file with the liste of pulse
  the file  shall contains then sendRawRfx in its name : eg sendRawRfx.txt
  the format of this file is :
-ascii command on column 1
-then list of pulse value , one per line, maximum 124 pulses
+ascii command on column 1 separated by :
+base  : 10 ou 16 for pulse unit 
+factor: facteur multiplicatif si /10 
+
+then list of pulse value deparated by ',' per line, maximum 124 pulses
 
 example :
-on
-1
-2
-off
-1
-2
-3
-...
+on:10,1,10,20        ->pulse list is 10,20
+off:10,1,10,20,30    ->pulse list is 10,20,30
 
-for command on  : pulse list is 1,2
-for command off : pulse list is 1,2,3
+on:16,1,10,20       ->pulse list is 16,32
+off:10,1,x10,x20,x30    ->pulse list is 16,32,48
+
+on:10,10,10,20        ->pulse list is 100,200
+off:10,10,10,20,30    ->pulse list is 100,200,300
 
 set the following On/Off action in the switch option
 for OnAction  : script://./scripts/sendRawRfx.txt on
@@ -357,6 +366,8 @@ void CRFXBase::SendRawCommand(const char* cmdfile, const char* cmd)
 	long pulse;
 	char* EndPtr;
 	int base=10;
+	int factor;
+	bool error=false ;
 	file.open(cmdfile);
 	if (!file.is_open())
 	{
@@ -365,10 +376,11 @@ void CRFXBase::SendRawCommand(const char* cmdfile, const char* cmd)
 		return;
 	}
 	std::string sLine;
+	std::string sOption;
+	std::string sPulses;
 	int line = 0;
 	unsigned int len = 0;
 	unsigned int sizeOfPulse = sizeof(tsen.RAW.pulse) / 2 / sizeof(BYTE);
-	bool error = false;
 	memset(&tsen, 0, sizeof(tsen));
 
 	tsen.RAW.packetlength=0;
@@ -377,32 +389,59 @@ void CRFXBase::SendRawCommand(const char* cmdfile, const char* cmd)
 	tsen.RAW.seqnbr=0;
 	tsen.RAW.repeat=5;
 
-	//search fof command : on/off
+	//search of command : on/off
 
-	while (!file.eof() && (strstr(sLine.c_str(), cmd)==0) )
+	while (!file.eof() && (strstr(sLine.c_str(), cmd)!=sLine.c_str()) )
 	{
 		getline(file, sLine);
-		line++;
 	}
 	if (file.eof())
 	{
 		_log.Log(LOG_ERROR, "RFX send raw :command %s not found in %s", cmd, cmdfile);
-		error = true;
-
+		file.close();
+		return;
 	}
-	while (!file.eof() && (error == false) )
+	file.close();
+
+	std::vector<std::string> splitresults;
+	//get option On:1,2,3
+	StringSplit(sLine, ":", splitresults);
+	if (splitresults.size() < 1){
+		_log.Log(LOG_ERROR, "RFX send raw :command %s pulses invalid  %s", cmd, sLine);
+		return;
+	}
+	//get pulses 
+	StringSplit(splitresults[1], ",", splitresults);
+
+	//get base
+	base = strtol(splitresults[0].c_str(), &EndPtr, 10);
+	//get factor
+	factor  = strtol(splitresults[1].c_str(), &EndPtr, 10);
+
+	for (unsigned int i=2;(i<splitresults.size()) && (error == false);i++)  
 	{
-		getline(file, sLine);
-		line++;
-
+		const char* spulse = splitresults[i].c_str();
 		//not a number stop
-		if (!isdigit(sLine[0]) )
-			break;
+		//if (!isdigit(spulse[0]) )
+		//	break;
+		{
+			const char* posX;
+			posX = strchr(spulse,'x');
+			if (posX != 0 )
+				pulse = strtol(posX+1, &EndPtr, 16);
+			else
+				pulse = strtol(spulse, &EndPtr, base);
 
-		if (!sLine.empty()  ) {
-			pulse = strtol(sLine.c_str(), &EndPtr, base);
 			if (*EndPtr == 0)
 			{
+				//get pinData
+				if (factor>1)
+				{
+				int PulsePinData = pulse & 1;
+				int PulseData    = pulse & (~1);
+				pulse = PulseData * factor + PulsePinData;
+					
+				}
 				if ((len < sizeOfPulse) && (pulse != 0))
 				{
 					tsen.RAW.pulse[len].uint_lsb = pulse % 256;
@@ -417,12 +456,11 @@ void CRFXBase::SendRawCommand(const char* cmdfile, const char* cmd)
 			}
 			else
 			{
-				_log.Log(LOG_ERROR, "RFX send raw :not a number line %d", line);
+				_log.Log(LOG_ERROR, "RFX send raw :not a number pulse %d: %s",i, spulse);
 				error = true;
 			}
 		}
 	}
-	file.close();
 	if(error==false)
 	{
 		tsen.RAW.packetlength = sizeof(tsen.RAW) - sizeof(tsen.RAW.pulse )  - 1 + len * 2 ;
