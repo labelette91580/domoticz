@@ -11,21 +11,53 @@ CRFXBase::CRFXBase()
 	m_AsyncType = ATYPE_DISABLED;
 }
 
+#define ISPRINT(c)( (c>=' ') && (c<0x7f) )
+size_t printAsciiCharacter(const unsigned char *pBuffer, const size_t Len)
+{
+	size_t ii = 0;
+	if (     ISPRINT(pBuffer[0]) && ISPRINT(pBuffer[1]) && ISPRINT(pBuffer[2]) && ISPRINT (pBuffer[3]) 
+		)
+	{
+		static char mes[1024];
+		static int nbc = 0;
+		while( (ii<Len )  /*&& (*pBuffer!=0x0d) */)
+		{
+			char c = pBuffer[ii];
+			if (!ISPRINT(c))
+			{
+				nbc=0;
+				break;
+			}
+			if (c==0x0a)
+			{
+				mes[nbc++]=0;
+				if (nbc>10)
+					_log.Debug(DEBUG_RECEIVED,"RFX:%s", mes  );
+				nbc=0;
+				//test si suivant pas ascii
+				if (!( (pBuffer[0]>=0x20)&&(pBuffer[1]>=0x20)&&(pBuffer[2]>=0x20)&&(pBuffer[3]>=0x20)))
+				{
+					break;
+				}
+			}
+			else
+			if (c!=0x0d){
+				if(nbc<sizeof(mes)-1)
+					mes[nbc++]=c;
+			}
+			ii++;
+		}
+	}
+	return ii ;
+}
 bool CRFXBase::onInternalMessage(const unsigned char *pBuffer, const size_t Len, const bool checkValid/* = true*/)
 {
 	if (!m_bEnableReceive)
 		return true; //receiving not enabled
 
 	//Debug(DEBUG_RECEIVED, "read:%s", ToHexString((const uint8_t*)pBuffer, Len).c_str());
-	if ( (pBuffer[0]>=0x20)&&(pBuffer[1]>=0x20)&&(pBuffer[2]>=0x20)&&(pBuffer[3]>=0x20))
-	{
-		char fmt[16];
-		sprintf(fmt,"read:%%%dc",Len);
-		Debug(DEBUG_RECEIVED, fmt, pBuffer );
-	return true;
-	
-	}
 	size_t ii = 0;
+	ii = printAsciiCharacter(  pBuffer, Len);
 	while (ii < Len)
 	{
 		if (m_rxbufferpos == 0)	//1st char of a packet received
@@ -43,6 +75,12 @@ bool CRFXBase::onInternalMessage(const unsigned char *pBuffer, const size_t Len,
 			m_rxbufferpos = 0;
 			return false;
 		}
+		if (m_rxbufferpos == 2 )
+		{
+			if ( !CheckValidRFXData((uint8_t*)&m_rxbuffer))
+				m_rxbufferpos = 0;    //set to zero to receive next message
+		}
+
 		if (m_rxbufferpos > m_rxbuffer[0])
 		{
 			if (!checkValid || CheckValidRFXData((uint8_t*)&m_rxbuffer))
