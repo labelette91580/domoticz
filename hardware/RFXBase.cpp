@@ -23,19 +23,14 @@ size_t printAsciiCharacter(const unsigned char *pBuffer, const size_t Len)
 		while( (ii<Len )  /*&& (*pBuffer!=0x0d) */)
 		{
 			char c = pBuffer[ii];
-			if (!ISPRINT(c))
-			{
-				nbc=0;
-				break;
-			}
 			if (c==0x0a)
 			{
 				mes[nbc++]=0;
 				if (nbc>10)
-					_log.Debug(DEBUG_RECEIVED,"RFX:%s", mes  );
+					_log.Debug(DEBUG_RECEIVED,"RFR:%s", mes  );
 				nbc=0;
 				//test si suivant pas ascii
-				if (!( (pBuffer[0]>=0x20)&&(pBuffer[1]>=0x20)&&(pBuffer[2]>=0x20)&&(pBuffer[3]>=0x20)))
+//				if (!( (pBuffer[ii+0]>=0x20)&&(pBuffer[ii+1]>=0x20)&&(pBuffer[ii+2]>=0x20)&&(pBuffer[ii+3]>=0x20)))
 				{
 					break;
 				}
@@ -55,7 +50,7 @@ bool CRFXBase::onInternalMessage(const unsigned char *pBuffer, const size_t Len,
 	if (!m_bEnableReceive)
 		return true; //receiving not enabled
 
-	//Debug(DEBUG_RECEIVED, "read:%s", ToHexString((const uint8_t*)pBuffer, Len).c_str());
+	Debug(DEBUG_RECEIVED, "read:%s", ToHexString((const uint8_t*)pBuffer, Len).c_str());
 	size_t ii = 0;
 	ii = printAsciiCharacter(  pBuffer, Len);
 	while (ii < Len)
