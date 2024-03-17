@@ -275,17 +275,10 @@ const char* ImperiHome::GetTypeDevice(DeviceTypeEnum dev)
 }
 
 //device name is devXXX_type
-std::string getDeviceId(std::string& device)
+std::string getDeviceIdFromIdType(std::string& device)
 {
 	//the dev Id is DEVnnn_zzz : nnn is the ID 
 	return  device.substr(3, device.find("_") - 3);
-}
-
-std::string buildDeviceId(std::string& pidx, DeviceTypeEnum ApType)
-{
-	//the dev Id is DEVnnn_zzz : nnn is the ID  zzz: the DeviceTypeEnum ApType 
-//	return  "dev" + pidx + "_" + DevTypeName;
-	return  "dev" + pidx + "_" + std::to_string(ApType);
 }
 
 std::string getDeviceTypeName(std::string& device)
@@ -298,6 +291,42 @@ std::string getDeviceTypeName(std::string& device)
 	else
 		return  device.substr(posUnder + 1, 100);
 }
+
+std::string getDeviceIdFromName(std::string& device)
+{
+	//the dev Id is DEVName_zzz : Name of devive
+	std::string name = device.substr(3, device.find("_") - 3);
+	
+	stdreplace(name, "+", " ");
+
+	auto result=m_sql.safe_query("SELECT ID FROM DeviceStatus where Name=='%s'", name.c_str() ) ;
+	if (result.size() > 0)
+	{
+		TSqlRowQuery* row = &result[0];
+		return (*row)[0] ;
+	}
+	else
+		return "";
+}
+
+std::string buildDeviceId_IDType(std::string& pidx, DeviceTypeEnum ApType,std::string& pname)
+{
+	//the dev Id is DEVnnn_zzz : nnn is the ID  zzz: the DeviceTypeEnum ApType 
+	return  "dev" + pidx + "_" + std::to_string(ApType);
+}
+
+std::string buildDeviceId_NameType(std::string& pidx, DeviceTypeEnum ApType,std::string& pname)
+{
+	//the dev Id is DEVName_zzz : nnn is the ID  zzz: the DeviceTypeEnum ApType 
+	return  "dev" + pname + "_" + std::to_string(ApType);
+}
+
+//#define getDeviceId   getDeviceIdFromIdType
+//#define buildDeviceId buildDeviceId_IDType
+
+#define getDeviceId   getDeviceIdFromName 
+#define buildDeviceId buildDeviceId_NameType
+
 
 void SqlGetTypeSubType(std::string& idx, int& dType, int& dSubType)
 {
@@ -748,7 +777,7 @@ void ImperiHome::updateRoot(std::string pidx, std::string pname, DeviceTypeEnum 
 {
 	int ii = root["devices"].size();
 
-	root["devices"][ii]["id"] = buildDeviceId(pidx, ApType);
+	root["devices"][ii]["id"] = buildDeviceId(pidx, ApType,pname);
 	root["devices"][ii]["name"] = pname;		//Name
 	if (!proom.empty())
 		root["devices"][ii]["room"] = proom;
@@ -950,6 +979,15 @@ void ImperiHome::DeviceContent(std::string& rep_content)
 	getDeviceCamera();
 	getScenes();
 	rep_content = root.toStyledString();
+
+//one device per line in log
+	stdreplace(rep_content, "\n", "$");
+	stdreplace(rep_content, "\t", "");
+	stdreplace(rep_content, "},$", "},\n");
+	stdreplace(rep_content, "$", "");
+
+	stdreplace(rep_content, "},\n{\"k","},{\"k" );
+	stdreplace(rep_content, "},\n{\"g","},{\"g" );
 }
 
 void ImperiHome::getScenes()
