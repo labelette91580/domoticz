@@ -465,7 +465,7 @@ void CRFXBase::SendRawCommand(const char* cmdfile, const char* cmd)
 			else
 				pulse = strtol(spulse, &EndPtr, base);
 
-			if (*EndPtr == 0)
+			if ( (*EndPtr == 0) || (*EndPtr == 0xa ) || (*EndPtr == 0xd )  )
 			{
 				//get pinData
 				if (factor>1)
@@ -489,7 +489,7 @@ void CRFXBase::SendRawCommand(const char* cmdfile, const char* cmd)
 			}
 			else
 			{
-				_log.Log(LOG_ERROR, "RFX send raw :not a number pulse %d: %s",i, spulse);
+				_log.Log(LOG_ERROR, "RFX send raw :not a number pulse %d: %s ; car:%d ",i, spulse,*EndPtr );
 				error = true;
 			}
 		}
