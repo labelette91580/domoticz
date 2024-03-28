@@ -2984,6 +2984,7 @@ void MainWorker::decode_Rain(const CDomoticzHardwareBase* pHardware, const tRBUF
 			{
 				float totalRainFallLastHour = TotalRain - static_cast<float>(atof(result[0][0].c_str()));
 				Rainrate = ground(totalRainFallLastHour * 100.0F);
+				if(Rainrate<0 ) Rainrate= 0;
 			}
 		}
 	}
