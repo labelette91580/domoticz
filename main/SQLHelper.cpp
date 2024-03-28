@@ -6119,7 +6119,7 @@ void CSQLHelper::ScheduleShortlog()
 		UpdateFanLog();
 		//Removing the line below could cause a very large database,
 		//and slow(large) data transfer (specially when working remote!!)
-		CleanupShortLog();
+		//CleanupShortLog();
 	}
 	catch (boost::exception& e)
 	{
@@ -6152,6 +6152,8 @@ void CSQLHelper::ScheduleDay()
 		AddCalendarUpdatePercentage();
 		AddCalendarUpdateFan();
 		CleanupLightSceneLog();
+		CleanupShortLog();
+
 	}
 	catch (boost::exception& e)
 	{
@@ -6163,6 +6165,32 @@ void CSQLHelper::ScheduleDay()
 #endif
 		return;
 	}
+}
+
+
+bool isNewValues(struct tm & tm1 , std::vector<std::vector<std::string>> val2  , double delta , ... )
+{
+	va_list value;
+	va_start(value, delta);
+
+	//one record every 60 min in case no value evolution
+	if (tm1.tm_min == 0 )
+		return true;
+	if(val2.size()==0)
+		return true ;
+	if (m_sql.m_bShortLogAddOnlyNewValues)
+	{
+		for (int i=0;i<val2[0].size();i++)
+		{
+			double val1 = va_arg(value, double);       /*   va_arg() donne le paramètre courant    */
+			double diff = abs (val1 - atof(val2[0][i].c_str()));
+			if (  diff > delta )
+				return true ;
+		}
+		return false ;
+	}
+	else
+		return true ;
 }
 
 void CSQLHelper::UpdateTemperatureLog()
@@ -6358,6 +6386,8 @@ void CSQLHelper::UpdateTemperatureLog()
 				break;
 			}
 			//insert record
+			auto oldValues = safe_query("select Temperature, Chill, Humidity, Barometer, SetPoint from Temperature where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+			if ( isNewValues(  tm1 , oldValues , (double)0.1 , (double)temp,(double)chill,(double)humidity,(double)barometer,(double)setpoint ) )
 			safe_query(
 				"INSERT INTO Temperature (DeviceRowID, Temperature, Chill, Humidity, Barometer, DewPoint, SetPoint) "
 				"VALUES ('%" PRIu64 "', '%.2f', '%.2f', '%d', '%d', '%.2f', '%.2f')",
@@ -6418,6 +6448,8 @@ void CSQLHelper::UpdateRainLog()
 			int rate = atoi(splitresults[0].c_str());
 			float total = static_cast<float>(atof(splitresults[1].c_str()));
 
+			auto oldValues = safe_query("select Total, Rate from Rain where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+			if ( isNewValues( tm1 ,oldValues , (double)0.1 , (double)total,(double)rate ) )
 			//insert record
 			safe_query(
 				"INSERT INTO Rain (DeviceRowID, Total, Rate) "
@@ -6494,6 +6526,8 @@ void CSQLHelper::UpdateWindLog()
 			}
 
 			//insert record
+			auto oldValues = safe_query("select  Direction, Speed, Gust from Wind where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+			if ( isNewValues(  tm1 , oldValues , (double)0.1 , (double)direction,(double)speed,(double)gust ) )
 			safe_query(
 				"INSERT INTO Wind (DeviceRowID, Direction, Speed, Gust) "
 				"VALUES ('%" PRIu64 "', '%.2f', '%d', '%d')",
@@ -7107,6 +7141,8 @@ void CSQLHelper::UpdateMeter()
 				_log.Log(LOG_ERROR, "UpdateMeter: Error converting sValue/sUsage! (IDX: %s, sValue: '%s', sUsage: '%s', dType: %d, sType: %d)", sd[0].c_str(), sValue.c_str(), sUsage.c_str(), dType, dSubType);
 				continue;
 			}
+			auto oldValues = safe_query("select Value, [Usage] from Meter where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+			if ( isNewValues( tm1 ,oldValues , (double)0.1 , (double)MeterValue,(double)MeterUsage ) )
 
 			//insert record
 			safe_query(
@@ -7280,6 +7316,9 @@ void CSQLHelper::UpdateMultiMeter()
 				continue;//don't know you (yet)
 
 			//insert record
+			auto oldValues = safe_query("select  Value1, Value2, Value3, Value4, Value5, Value6 from MultiMeter where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+			if ( isNewValues(  tm1 , oldValues , (double)0.1 , (double)value1,(double)value2,(double)value3, (double)value4,(double)value5,(double)value6) )
+
 			safe_query(
 				"INSERT INTO MultiMeter (DeviceRowID, Value1, Value2, Value3, Value4, Value5, Value6, Price) "
 				"VALUES ('%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%.4f')",
@@ -7354,6 +7393,8 @@ void CSQLHelper::UpdatePercentageLog()
 
 			float percentage = static_cast<float>(atof(sValue.c_str()));
 
+			auto oldValues = safe_query("select percentage from Percentage where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+			if ( isNewValues( tm1 ,oldValues , (double)0.1 , (double)percentage  ) )
 			//insert record
 			safe_query(
 				"INSERT INTO Percentage (DeviceRowID, Percentage) "
@@ -7412,6 +7453,8 @@ void CSQLHelper::UpdateFanLog()
 
 			int speed = (int)atoi(sValue.c_str());
 
+			auto oldValues = safe_query("select speed from Fan where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+			if ( isNewValues( tm1 ,oldValues , (double)0.1 , (double)speed  ) )
 			//insert record
 			safe_query(
 				"INSERT INTO Fan (DeviceRowID, Speed) "
@@ -7559,6 +7602,9 @@ void CSQLHelper::AddCalendarUpdateRain()
 			else
 			{
 				total_real = total_max - total_min;
+				if(total_real<=0)
+					total_real=0;
+
 			}
 
 			if (total_real < 1000)
@@ -7745,6 +7791,8 @@ void CSQLHelper::AddCalendarUpdateMeter()
 				)
 			{
 				double total_real = total_max - total_min;
+				if(total_real<=0)
+					total_real=0;
 				double counter = total_max;
 
 				price = 0;
@@ -8202,7 +8250,9 @@ void CSQLHelper::CleanupShortLog()
 #endif
 
 		char szQuery[250];
-		std::string szQueryFilter = "strftime('%s',datetime('now','localtime')) - strftime('%s',Date) > (SELECT p.nValue * 86400 From Preferences AS p WHERE p.Key='5MinuteHistoryDays')";
+//		std::string szQueryFilter = "strftime('%s',datetime('now','localtime')) - strftime('%s',Date) > (SELECT p.nValue * 86400 From Preferences AS p WHERE p.Key='5MinuteHistoryDays')";
+		std::string szQueryFilter = "strftime('%s',datetime('now','localtime')) - strftime('%s',Date) > ";
+		szQueryFilter += std::to_string(n5MinuteHistoryDays*86400); 
 
 		sprintf(szQuery, "DELETE FROM Temperature WHERE %s", szQueryFilter.c_str());
 		query(szQuery);
