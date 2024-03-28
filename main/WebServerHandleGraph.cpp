@@ -1716,6 +1716,9 @@ namespace http
 							{
 								root["result"][ii]["d"] = sd[1].substr(0, 16);
 								std::string szValue = sd[0];
+								if (atof(szValue.c_str())<0)
+									szValue="0";
+
 								switch (metertype)
 								{
 								case MTYPE_ENERGY:
@@ -3222,6 +3225,8 @@ namespace http
 									root["result"][ii]["d"] = sd[1].substr(0, 16);
 
 									std::string szValue = sd[0];
+									if (atof(szValue.c_str())<0)
+										szValue="0";
 
 									double fcounter = atof(sd[2].c_str());
 
