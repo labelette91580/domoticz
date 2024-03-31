@@ -6039,6 +6039,9 @@ void MainWorker::decode_UNDECODED(const CDomoticzHardwareBase* pHardware, const 
 {
 	char szTmp[100];
 
+	if (_log.IsDebugLevelEnabled(DEBUG_RECEIVED))
+	{
+	WriteMessageStart();
 	WriteMessage("UNDECODED ", false);
 
 	switch (pResponse->UNDECODED.subtype)
@@ -6113,6 +6116,8 @@ void MainWorker::decode_UNDECODED(const CDomoticzHardwareBase* pHardware, const 
 	for (int i = 0; i < pResponse->UNDECODED.packetlength - 3; i++)
 		sHexDump << HEX(pRXBytes[i]);
 	WriteMessage(sHexDump.str().c_str());
+	WriteMessageEnd();
+	}
 	procResult.DeviceRowIdx = -1;
 }
 
