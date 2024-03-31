@@ -7366,6 +7366,9 @@ void CSQLHelper::AddCalendarUpdateRain()
 			else
 			{
 				total_real = total_max - total_min;
+				if(total_real<=0)
+					total_real=0;
+
 			}
 
 			if (total_real < 1000)
@@ -7525,6 +7528,8 @@ void CSQLHelper::AddCalendarUpdateMeter()
 				)
 			{
 				double total_real = total_max - total_min;
+				if(total_real<=0)
+					total_real=0;
 				double counter = total_max;
 
 				result = safe_query(
