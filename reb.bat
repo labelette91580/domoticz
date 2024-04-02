@@ -1,3 +1,8 @@
+OnlyUpdateNewValue
+
+
+"C:\Program Files\Git\bin\"git rebase development OnlyUpdateNewValue
+pause
 "C:\Program Files\Git\bin\"git rebase development RawRfx
 pause
 "C:\Program Files\Git\bin\"git rebase development BatteryAutomaticReplace
