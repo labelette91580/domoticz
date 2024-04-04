@@ -594,6 +594,9 @@ define(['app','app/virtualThermostat.js'], function (app) {
 					Mode2 = 0;
 					if ($("#hardwarecontent #divenphase #readinverters").prop("checked"))
 						Mode2 = 1;
+					Mode3 = 0;
+					if ($("#hardwarecontent #divenphase #dontreadmeteredvalues").prop("checked"))
+						Mode3 = 1;
 					username = $("#hardwarecontent #divlogin #username").val();
 					password = $("#hardwarecontent #divlogin #password").val();
 					extra = $("#hardwarecontent #divenphase #siteid").val();
@@ -1816,6 +1819,9 @@ define(['app','app/virtualThermostat.js'], function (app) {
 					Mode2 = 0;
 					if ($("#hardwarecontent #divenphase #readinverters").prop("checked"))
 						Mode2 = 1;
+					Mode3 = 0;
+					if ($("#hardwarecontent #divenphase #dontreadmeteredvalues").prop("checked"))
+						Mode3 = 1;
 					username = $("#hardwarecontent #divlogin #username").val();
 					password = $("#hardwarecontent #divlogin #password").val();
 					extra = $("#hardwarecontent #divenphase #siteid").val();
@@ -4286,6 +4292,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 									pollInterval=120;
 								$("#hardwarecontent #divenphase #pollinterval").val(pollInterval);
 								$("#hardwarecontent #divenphase #readinverters").prop('checked', parseInt(data["Mode2"]) != 0);
+								$("#hardwarecontent #divenphase #dontreadmeteredvalues").prop('checked', parseInt(data["Mode3"]) != 0);
 								$("#hardwarecontent #divenphase #siteid").val(data["Extra"]);
 							}
 						}
