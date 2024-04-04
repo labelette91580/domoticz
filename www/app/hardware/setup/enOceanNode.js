@@ -7,7 +7,7 @@ function tt(name) {
 function SendCmd(devIdx,cmd,payload) {
 	var result = {} ;
     $.ajax({
-        url: "json.htm?type=enocean&hwid=" + $.hwid + "&cmd=" + cmd,
+        url: "json.htm?type=command&param=enocean&hwid=" + $.hwid + "&cmd=" + cmd,
         data: payload,
         async: false,
         dataType: 'json',

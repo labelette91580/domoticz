@@ -863,7 +863,7 @@ void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::
 		return;
 	if (pEnocean->HwdType != HTYPE_EnOceanESP3)
 		return;
-	int nbSelectedDevice = req.parameters.size() - 4;
+	int nbSelectedDevice = req.parameters.size() - 5;
 	//log arguments
 	{
 		std::string arg;
@@ -1075,11 +1075,6 @@ void CEnOceanESP3::TeachInNodeIfExist(const uint32_t nodeID, const uint16_t manI
 		if (teachin_mode > GENERIC_NODE)
 			SetTeachInStatus((nodeID), teachin_mode);
 	}
-}
-extern http::server::CWebServerHelper m_webservers;
-void CEnOceanESP3::registerWebServerEntry(void)
-{
-	m_webservers.RegisterRType("enocean", RType_OpenEnOcean );
 }
 
 bool CEnOceanESP3::configureActuatorSetMeasurement(uint32_t nodeID , bool Resetmeasurement, MeasurementTypeEnum measurementType , int IOchannel , int MeasurementDelta, MeasurementUnitEnum MeasurementUnit , int MaxSendMessageTimeInSec , int MinSendMessageTimeInSec )
