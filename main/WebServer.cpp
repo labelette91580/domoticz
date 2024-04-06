@@ -600,6 +600,9 @@ namespace http
 #endif
 
 			// EnOcean helpers cmds
+			extern void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::request& req, Json::Value& root);
+			RegisterCommandCode("enocean", [this](auto &&session, auto &&req, auto &&root)  { RType_OpenEnOcean(session, req, root); });
+
 			RegisterCommandCode("enoceangetmanufacturers", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetManufacturers(session, req, root); });
 			RegisterCommandCode("enoceangetrorgs", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetRORGs(session, req, root); });
 			RegisterCommandCode("enoceangetprofiles", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetProfiles(session, req, root); });
