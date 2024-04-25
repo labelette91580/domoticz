@@ -9502,19 +9502,21 @@ bool CSQLHelper::InsertCustomIconFromZip(const std::string& szZip, std::string& 
 	outfile.flush();
 	outfile.close();
 
-	return InsertCustomIconFromZipFile(outputfile, ErrorMessage);
+	return (InsertCustomIconFromZipFile(outputfile, ErrorMessage) != 0);
 }
 
-bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::string& ErrorMessage)
+uint64_t CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::string& ErrorMessage)
 {
 	clx::basic_unzip<char> in(szZipFile);
 	if (!in.is_open())
 	{
 		ErrorMessage = "Error opening zip file";
-		return false;
+		return 0;
 	}
 
 	int iTotalAdded = 0;
+
+	uint64_t retidx = 0;
 
 	for (auto pos = in.begin(); pos != in.end(); ++pos)
 	{
@@ -9537,7 +9539,7 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 			if (pFBuf == nullptr)
 			{
 				ErrorMessage = "Could not extract icons.txt";
-				return false;
+				return 0;
 			}
 			pFBuf[fsize] = 0; //null terminate
 
@@ -9590,7 +9592,7 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 							{
 								m_webservers.ReloadCustomSwitchIcons();
 							}
-							return false;
+							return 0;
 						}
 					}
 
@@ -9628,6 +9630,8 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 						std::remove(IconFile48Off.c_str());
 					}
 
+					retidx = RowID;
+
 					//Insert the Icons
 
 					for (const auto &db : _dbImageFiles)
@@ -9640,7 +9644,7 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 						if (!zQuery)
 						{
 							_log.Log(LOG_ERROR, "SQL: Out of memory, or invalid printf!....");
-							return false;
+							return 0;
 						}
 						int rc = sqlite3_prepare_v2(m_dbase, zQuery, -1, &stmt, nullptr);
 						sqlite3_free(zQuery);
@@ -9650,7 +9654,7 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 							{
 								m_webservers.ReloadCustomSwitchIcons();
 							}
-							return false;
+							return 0;
 						}
 						// SQLITE_STATIC because the statement is finalized
 						// before the buffer is freed:
@@ -9662,7 +9666,7 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 							{
 								m_webservers.ReloadCustomSwitchIcons();
 							}
-							return false;
+							return 0;
 						}
 						rc = sqlite3_bind_blob(stmt, 1, pFBuf, fsize, SQLITE_STATIC);
 						if (rc != SQLITE_OK) {
@@ -9672,7 +9676,7 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 							{
 								m_webservers.ReloadCustomSwitchIcons();
 							}
-							return false;
+							return 0;
 						}
 						rc = sqlite3_step(stmt);
 						if (rc != SQLITE_DONE)
@@ -9683,7 +9687,7 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 							{
 								m_webservers.ReloadCustomSwitchIcons();
 							}
-							return false;
+							return 0;
 						}
 						sqlite3_finalize(stmt);
 						free(pFBuf);
@@ -9698,11 +9702,11 @@ bool CSQLHelper::InsertCustomIconFromZipFile(const std::string& szZipFile, std::
 	{
 		//definition file not found
 		ErrorMessage = "No Icon definition file not found";
-		return false;
+		return 0;
 	}
 
 	m_webservers.ReloadCustomSwitchIcons();
-	return true;
+	return retidx;
 }
 
 

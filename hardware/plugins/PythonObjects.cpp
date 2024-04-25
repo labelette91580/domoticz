@@ -172,14 +172,15 @@ namespace Plugins {
 					//	Call code to do insert here
 					//
 					std::string ErrorMessage;
-					if (!m_sql.InsertCustomIconFromZipFile(sFilename, ErrorMessage))
+					const uint64_t retidx = m_sql.InsertCustomIconFromZipFile(sFilename, ErrorMessage);
+					if (retidx == 0)
 					{
 						_log.Log(LOG_ERROR, "(%s) Insert Custom Icon From Zip failed on file '%s' with error '%s'.", self->pPlugin->m_Name.c_str(), sFilename.c_str(), ErrorMessage.c_str());
 					}
 					else
 					{
 						// load associated custom images to make them available to python
-						std::vector<std::vector<std::string> > result = m_sql.safe_query("SELECT max(ID), Base, Name, Description FROM CustomImages");
+						std::vector<std::vector<std::string> > result = m_sql.safe_query("SELECT ID, Base, Name, Description FROM CustomImages WHERE (ID == %d)", static_cast<int>(retidx));
 						if (!result.empty())
 						{
 							// Add image objects into the image dictionary with ID as the key
@@ -677,7 +678,9 @@ namespace Plugins {
 		{
 			// load associated devices to make them available to python
 			std::vector<std::vector<std::string> > result;
+			Py_BEGIN_ALLOW_THREADS
 			result = m_sql.safe_query("SELECT Unit, ID, Name, nValue, sValue, DeviceID, Type, SubType, SwitchType, LastLevel, CustomImage, SignalLevel, BatteryLevel, LastUpdate, Options, Description, Color, Used FROM DeviceStatus WHERE (HardwareID==%d) AND (Unit==%d) ORDER BY Unit ASC", self->HwdID, self->Unit);
+			Py_END_ALLOW_THREADS
 			if (!result.empty())
 			{
 				for (const auto &sd : result)
@@ -1495,7 +1498,8 @@ namespace Plugins {
 	{
 		if (self->pTransport)
 		{
-			return PyLong_FromLong(self->pTransport->TotalBytes());
+			//GizMoCuz: change to PyLong_FromSize_t?
+			return PyLong_FromLong(static_cast<long>(self->pTransport->TotalBytes()));
 		}
 
 		return PyBool_FromLong(0);

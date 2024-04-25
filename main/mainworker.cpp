@@ -1022,7 +1022,7 @@ bool MainWorker::AddHardwareFromParams(
 		pHardware = new BleBox(ID, Mode1);
 		break;
 	case HTYPE_OpenWeatherMap:
-		pHardware = new COpenWeatherMap(ID, Username, Password, Mode1, Mode2, Mode3, Mode4);
+		pHardware = new COpenWeatherMap(ID, Username, Password, Mode1, Mode2, Mode3, Mode4, Mode5);
 		break;
 	case HTYPE_Ec3kMeterTCP:
 		pHardware = new Ec3kMeterTCP(ID, Address, Port);
@@ -1060,7 +1060,7 @@ bool MainWorker::AddHardwareFromParams(
 		pHardware = new USBtin(ID, SerialPort, Mode1, Mode2);
 		break;
 	case HTYPE_EnphaseAPI:
-		pHardware = new EnphaseAPI(ID, Address, Port, Mode1, Mode2, Mode3, Username, Password, Extra);
+		pHardware = new EnphaseAPI(ID, Address, Port, Mode1, Mode2, Mode4, Mode3, Username, Password, Extra);
 		break;
 	case HTYPE_Comm5SMTCP:
 		pHardware = new Comm5SMTCP(ID, Address, Port);
