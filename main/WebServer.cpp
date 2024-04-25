@@ -233,6 +233,12 @@ namespace http
 			m_pWebEm->RegisterPageCode("/uvccapture.cgi", [this](auto&& session, auto&& req, auto&& rep) { GetInternalCameraSnapshot(session, req, rep); });
 			// Maybe handle these differently? (Or remove)
 			m_pWebEm->RegisterPageCode("/images/floorplans/plan", [this](auto&& session, auto&& req, auto&& rep) { GetFloorplanImage(session, req, rep); });
+// imperihome API
+
+			m_pWebEm->RegisterPageCode("/rooms"  , [this](auto &&session, auto &&req, auto &&rep) { ImperihomeServices(session, req, rep); });
+			m_pWebEm->RegisterPageCode("/devices", [this](auto &&session, auto &&req, auto &&rep) { ImperihomeServices(session, req, rep); });
+			m_pWebEm->RegisterPageCode("/system" , [this](auto &&session, auto &&req, auto &&rep) { ImperihomeServices(session, req, rep); });
+
 			m_pWebEm->RegisterPageCode("/service-worker.js", [this](auto&& session, auto&& req, auto&& rep) { GetServiceWorker(session, req, rep); });
 
 			// End of 'Pages' to be moved...
