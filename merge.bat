@@ -1,3 +1,7 @@
+"C:\Program Files\Git\bin\"git merge OnlyUpdateNewValue
+pause
+"C:\Program Files\Git\bin\"git merge RawRfx
+
 "C:\Program Files\Git\bin\"git merge  BatteryAutomaticReplace
 pause
 "C:\Program Files\Git\bin\"git merge  scripteHumidity

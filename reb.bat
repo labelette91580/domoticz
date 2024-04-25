@@ -1,4 +1,3 @@
-OnlyUpdateNewValue
 
 
 "C:\Program Files\Git\bin\"git rebase development OnlyUpdateNewValue
