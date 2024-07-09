@@ -16,7 +16,6 @@ define(['app', 'log/Chart'], function (app) {
         return {
             chartParamsDay: chartParamsDay,
             chartParamsHour: chartParamsHour,
-            chartParamsWeek: chartParamsWeek,
             chartParamsMonthYear: chartParamsMonthYear,
             chartParamsCompare: chartParamsCompare,
             chartParamsCompareTemplate: chartParamsCompareTemplate
@@ -77,9 +76,6 @@ define(['app', 'log/Chart'], function (app) {
             return _.merge(
                 {
                     highchartTemplate: {
-                        chart: {
-                            marginRight: 10
-                        },
                         xAxis: {
                             dateTimeLabelFormats: {
                                 hour: '%H:00',
@@ -131,63 +127,10 @@ define(['app', 'log/Chart'], function (app) {
             );
         }
 
-        function chartParamsWeek(domoticzGlobals, ctrl, chartParamsTemplate, dataSupplierTemplate, seriesSuppliers) {
-            return _.merge(
-                {
-                    highchartTemplate: {
-                        chart: {
-                            type: 'column',
-                            zoomType: false,
-                            marginRight: 10
-                        },
-                        xAxis: {
-                            dateTimeLabelFormats: {
-                                day: '%a'
-                            },
-                            tickInterval: 24 * 3600 * 1000
-                        },
-                        plotOptions: {
-                            column: {
-                                pointPlacement: 0,
-                                stacking: undefined
-                            },
-                            series: {
-                                // colorByPoint: true
-                                stacking: undefined
-                            }
-                        },
-                        tooltip: {
-                            shared: false,
-                            crosshairs: false
-                        }
-                    },
-                    ctrl: ctrl,
-                    range: ctrl.range,
-                    device: ctrl.device,
-                    sensorType: 'counter',
-                    chartName: ctrl.device.SwitchTypeVal === chart.deviceTypes.EnergyGenerated ? $.t('Generated') : $.t('Usage'),
-                    autoRefreshIsEnabled: function () {
-                        return ctrl.logCtrl.autoRefresh;
-                    },
-                    dataSupplier:
-                        _.merge(
-                            {
-                                seriesSuppliers: seriesSuppliers
-                            },
-                            dataSupplierTemplate
-                        )
-                },
-                chartParamsTemplate
-            );
-        }
-
         function chartParamsMonthYear(domoticzGlobals, ctrl, chartParamsTemplate, dataSupplierTemplate, seriesSuppliers) {
             return _.merge(
                 {
                     highchartTemplate: {
-                        chart: {
-                            marginRight: 10
-                        },
                         tooltip: {
                             crosshairs: false
                         },

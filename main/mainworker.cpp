@@ -419,7 +419,7 @@ int MainWorker::FindDomoticzHardwareByType(const _eHardwareTypes HWType)
 	for (const auto& device : m_hardwaredevices)
 	{
 		if (device->HwdType == HWType)
-			return ii;
+			return device->m_HwdID;
 		ii++;
 	}
 	return -1;
@@ -1204,7 +1204,6 @@ bool MainWorker::Start()
 	return (m_thread != nullptr) && (m_rxMessageThread != nullptr);
 }
 
-
 bool MainWorker::Stop()
 {
 	if (m_thread)
@@ -1702,6 +1701,11 @@ void MainWorker::Do_Work()
 		struct tm ltime;
 		localtime_r(&atime, &ltime);
 
+		if (ltime.tm_hour != _ScheduleLastHour)
+		{
+			HandleHourPrice();
+		}
+
 		if (ltime.tm_min != _ScheduleLastMinute)
 		{
 			minute_counter++;
@@ -1715,6 +1719,7 @@ void MainWorker::Do_Work()
 				//check for 5 minute schedule
 				if (ltime.tm_min % m_sql.m_ShortLogInterval == 0)
 				{
+					HandleHourPrice();
 					m_sql.ScheduleShortlog();
 				}
 				std::string szPwdResetFile = szStartupFolder + "resetpwd";
@@ -1775,14 +1780,6 @@ void MainWorker::Do_Work()
 #endif
 					HandleAutomaticBackups();
 				}
-			}
-
-			if (
-				(minute_counter % 5 == 0)
-				|| (m_hourPriceElectricity.timestamp == 0)
-				)
-			{
-				HandleHourPrice();
 			}
 		}
 		if (heartbeat_counter++ > 12)
@@ -14039,34 +14036,79 @@ void MainWorker::HandleHourPrice()
 
 	if (iHP_E_Idx != 0)
 	{
-		auto result = m_sql.safe_query("SELECT Type, SubType, sValue, LastUpdate, AddjValue2 FROM DeviceStatus WHERE (ID==%" PRIu64 ")", iHP_E_Idx);
-		if (!result.empty())
+		if (iHP_E_Idx == 0x98765)
 		{
-			uint8_t devType = std::stoi(result[0][0]);
-			uint8_t subType = std::stoi(result[0][1]);
-			std::string sValue = result[0][2];
-			std::string sLastUpdate = result[0][3];
+			int iP1Hardware = m_mainworker.FindDomoticzHardwareByType(HTYPE_P1SmartMeter);
+			if (iP1Hardware == -1)
+				iP1Hardware = m_mainworker.FindDomoticzHardwareByType(HTYPE_P1SmartMeterLAN);
 
-			struct tm ntime;
-			time_t checktime;
-			ParseSQLdatetime(checktime, ntime, sLastUpdate, tm1.tm_isdst);
+			int nValue = 0;
+			m_sql.GetPreferencesVar("CostEnergy", nValue);
+			float priceT1 = (float)(nValue) / 10000.0F;
 
-			if (difftime(atime, checktime) < SensorTimeOut * 60)
+			m_sql.GetPreferencesVar("CostEnergyT2", nValue);
+			float priceT2 = (float)(nValue) / 10000.0F;
+
+			if (iP1Hardware != -1)
 			{
-				if ((devType == pTypeGeneral) && (subType == sTypeCustom))
+				P1MeterBase* pP1Meter = dynamic_cast<P1MeterBase*>(m_mainworker.GetHardware(iP1Hardware));
+				if (pP1Meter != nullptr)
 				{
-					fHourPriceE = static_cast<float>(atof(sValue.c_str()));
+					if (pP1Meter->m_current_tariff == 1)
+						fHourPriceE = priceT1;
+					else
+						fHourPriceE = priceT2;
 				}
-				else if ((devType == pTypeGeneral) && (subType == sTypeManagedCounter))
+			}
+			else
+			{
+				fHourPriceE = priceT1;
+			}
+		}
+		else
+		{
+			auto result = m_sql.safe_query("SELECT HardwareID, Type, SubType, sValue, LastUpdate, AddjValue2 FROM DeviceStatus WHERE (ID==%d)", iHP_E_Idx);
+			if (!result.empty())
+			{
+				uint8_t hwdID = std::stoi(result[0][0]);
+				const CDomoticzHardwareBase* pHardware = GetHardware(hwdID);
+				if (pHardware != nullptr)
 				{
-					std::vector<std::string> strarray;
-					StringSplit(sValue, ";", strarray);
-					if (strarray.size() == 2)
+					if (pHardware->HwdType == HTYPE_EneverPriceFeeds)
 					{
-						float AddjValue2 = std::stof(result[0][4]);
-						if (AddjValue2 == 0)
-							AddjValue2 = 1;
-						fHourPriceG = static_cast<float>(atof(strarray[1].c_str())) / AddjValue2;
+						//Make sure the prices are actual
+						Enever* pEnever = dynamic_cast<Enever*>(const_cast<CDomoticzHardwareBase*>(pHardware));
+						pEnever->ActualizePrices();
+						result = m_sql.safe_query("SELECT HardwareID, Type, SubType, sValue, LastUpdate, AddjValue2 FROM DeviceStatus WHERE (ID==%d)", iHP_E_Idx);
+					}
+				}
+
+				uint8_t devType = std::stoi(result[0][1]);
+				uint8_t subType = std::stoi(result[0][2]);
+				std::string sValue = result[0][3];
+				std::string sLastUpdate = result[0][4];
+
+				struct tm ntime;
+				time_t checktime;
+				ParseSQLdatetime(checktime, ntime, sLastUpdate, tm1.tm_isdst);
+
+				if (difftime(atime, checktime) < SensorTimeOut * 60)
+				{
+					if ((devType == pTypeGeneral) && (subType == sTypeCustom))
+					{
+						fHourPriceE = static_cast<float>(atof(sValue.c_str()));
+					}
+					else if ((devType == pTypeGeneral) && (subType == sTypeManagedCounter))
+					{
+						std::vector<std::string> strarray;
+						StringSplit(sValue, ";", strarray);
+						if (strarray.size() == 2)
+						{
+							float AddjValue2 = std::stof(result[0][5]);
+							if (AddjValue2 == 0)
+								AddjValue2 = 1;
+							fHourPriceG = static_cast<float>(atof(strarray[1].c_str())) / AddjValue2;
+						}
 					}
 				}
 			}
@@ -14074,41 +14116,56 @@ void MainWorker::HandleHourPrice()
 	}
 	if (iHP_G_Idx != 0)
 	{
-		auto result = m_sql.safe_query("SELECT Type, SubType, sValue, LastUpdate, AddjValue2 FROM DeviceStatus WHERE (ID==%" PRIu64 ")", iHP_G_Idx);
-		if (!result.empty())
+		if (iHP_G_Idx == 0x98765)
 		{
-			uint8_t devType = std::stoi(result[0][0]);
-			uint8_t subType = std::stoi(result[0][1]);
-			std::string sValue = result[0][2];
-			std::string sLastUpdate = result[0][3];
-
-			struct tm ntime;
-			time_t checktime;
-			ParseSQLdatetime(checktime, ntime, sLastUpdate, tm1.tm_isdst);
-
-			if (difftime(atime, checktime) < SensorTimeOut * 60)
+			int nValue = 0;
+			m_sql.GetPreferencesVar("CostGas", nValue);
+			fHourPriceG = (float)(nValue) / 10000.0F;
+		}
+		else
+		{
+			auto result = m_sql.safe_query("SELECT Type, SubType, sValue, LastUpdate, AddjValue2 FROM DeviceStatus WHERE (ID==%d)", iHP_G_Idx);
+			if (!result.empty())
 			{
-				if ((devType == pTypeGeneral) && (subType == sTypeCustom))
+				uint8_t devType = std::stoi(result[0][0]);
+				uint8_t subType = std::stoi(result[0][1]);
+				std::string sValue = result[0][2];
+				std::string sLastUpdate = result[0][3];
+
+				struct tm ntime;
+				time_t checktime;
+				ParseSQLdatetime(checktime, ntime, sLastUpdate, tm1.tm_isdst);
+
+				if (difftime(atime, checktime) < SensorTimeOut * 60)
 				{
-					fHourPriceG = static_cast<float>(atof(sValue.c_str()));
-				}
-				else if ((devType == pTypeGeneral) && (subType == sTypeManagedCounter))
-				{
-					std::vector<std::string> strarray;
-					StringSplit(sValue, ";", strarray);
-					if (strarray.size() == 2)
+					if ((devType == pTypeGeneral) && (subType == sTypeCustom))
 					{
-						float AddjValue2 = std::stof(result[0][4]);
-						if (AddjValue2 == 0)
-							AddjValue2 = 1;
-						fHourPriceG = static_cast<float>(atof(strarray[1].c_str())) / AddjValue2;
+						fHourPriceG = static_cast<float>(atof(sValue.c_str()));
+					}
+					else if ((devType == pTypeGeneral) && (subType == sTypeManagedCounter))
+					{
+						std::vector<std::string> strarray;
+						StringSplit(sValue, ";", strarray);
+						if (strarray.size() == 2)
+						{
+							float AddjValue2 = std::stof(result[0][4]);
+							if (AddjValue2 == 0)
+								AddjValue2 = 1;
+							fHourPriceG = static_cast<float>(atof(strarray[1].c_str())) / AddjValue2;
+						}
 					}
 				}
 			}
 		}
 	}
 	m_hourPriceElectricity.timestamp = atime;
-	m_hourPriceElectricity.price = fHourPriceE;
 	m_hourPriceGas.timestamp = atime;
+	m_hourPriceWater.timestamp = atime;
+
+	m_hourPriceElectricity.price = fHourPriceE;
 	m_hourPriceGas.price = fHourPriceG;
+
+	int nWaterPrice = 0;
+	m_sql.GetPreferencesVar("CostWater", nWaterPrice);
+	m_hourPriceWater.price = static_cast<float>(nWaterPrice) / 10000.0F;
 }

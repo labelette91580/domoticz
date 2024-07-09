@@ -319,7 +319,7 @@ using TOptionMap = std::map<std::string, std::string> ;
 
 class CSQLHelper : public StoppableTask
 {
-      public:
+public:
 	CSQLHelper();
 	~CSQLHelper();
 
@@ -458,7 +458,9 @@ class CSQLHelper : public StoppableTask
 
 	float GetCounterDivider(int metertype, int dType, float DefaultValue);
 
-      public:
+	bool CalcMeterPrice(const uint64_t idx, const float divider, const char* szDateStart, const char* szDateEnd, float &price);
+	bool CalcMultiMeterPrice(const uint64_t idx, const float divider, const char* szDateStart, const char* szDateEnd, float& price);
+public:
 	std::string m_LastSwitchID; // for learning command
 	std::string m_UniqueID;
 	uint64_t m_LastSwitchRowID;
@@ -469,6 +471,7 @@ class CSQLHelper : public StoppableTask
 	_eWeightUnit m_weightunit;
 	std::string m_tempsign;
 	std::string m_weightsign;
+	std::string m_currencysign;
 	float m_tempscale;
 	float m_weightscale;
 	bool m_bAcceptNewHardware;
@@ -481,8 +484,9 @@ class CSQLHelper : public StoppableTask
 	bool m_bLogEventScriptTrigger;
 	bool m_bDisableDzVentsSystem;
 	double m_max_kwh_usage;
+	std::map<uint64_t, float> m_actual_prices;
 
-      private:
+private:
 	std::mutex m_executeThreadMutex;
 	std::mutex m_sqlQueryMutex;
 	sqlite3 *m_dbase;
@@ -510,6 +514,8 @@ class CSQLHelper : public StoppableTask
 
 	void FixDaylightSavingTableSimple(const std::string &TableName);
 	void FixDaylightSaving();
+
+	void RefreshActualPrices();
 
 	// Returns DeviceRowID
 	uint64_t UpdateValueInt(const int HardwareID, const int OrgHardwareID, const char *ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, const unsigned char signallevel, const unsigned char batterylevel, const int nValue,
@@ -551,9 +557,6 @@ class CSQLHelper : public StoppableTask
 	void SendUpdateInt(const std::string& Idx);
 
 	void CorrectOffDelaySwitchStates();
-
-	float CalcMeterPrice(const uint64_t idx, const float divider, const char* szDateStart, const char* szDateEnd);
-	std::vector<float> CalcMultiMeterPrice(const uint64_t idx, const float divider, const char* szDateStart, const char* szDateEnd);
 
 	std::vector<std::vector<std::string>> query(const std::string &szQuery);
 	std::vector<std::vector<std::string>> queryBlob(const std::string &szQuery);

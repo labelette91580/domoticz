@@ -141,10 +141,11 @@ public:
 	};
 	_tHourPrice m_hourPriceElectricity;
 	_tHourPrice m_hourPriceGas;
+	_tHourPrice m_hourPriceWater;
+	void HandleHourPrice();
 private:
 	void HandleAutomaticBackups();
 	void HandleLogNotifications();
-	void HandleHourPrice();
 
 	std::map<std::string, std::pair<time_t, bool> > m_componentheartbeats;
 	std::mutex m_heartbeatmutex;

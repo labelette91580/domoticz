@@ -178,7 +178,6 @@ private:
 	void Cmd_GetActualHistory(WebEmSession & session, const request& req, Json::Value &root);
 	void Cmd_GetNewHistory(WebEmSession & session, const request& req, Json::Value &root);
 	void Cmd_GetConfig(WebEmSession& session, const request& req, Json::Value& root);
-	void Cmd_GetLocation(WebEmSession& session, const request& req, Json::Value& root);
 	void Cmd_GetForecastConfig(WebEmSession& session, const request& req, Json::Value& root);
 	void Cmd_SendNotification(WebEmSession & session, const request& req, Json::Value &root);
 	void Cmd_EmailCameraSnapshot(WebEmSession & session, const request& req, Json::Value &root);
@@ -307,6 +306,7 @@ private:
 	void Cmd_DeleteApplication(WebEmSession & session, const request& req, Json::Value &root);
 
 	void Cmd_GetDynamicPriceDevices(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_GetEnergyDashboardDevices(WebEmSession& session, const request& req, Json::Value& root);
 
 	// Plugin functions
 	void Cmd_PluginCommand(WebEmSession & session, const request& req, Json::Value &root);
