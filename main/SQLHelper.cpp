@@ -6448,16 +6448,19 @@ void CSQLHelper::UpdateRainLog()
 			int rate = atoi(splitresults[0].c_str());
 			float total = static_cast<float>(atof(splitresults[1].c_str()));
 
-			auto oldValues = safe_query("select Total, Rate from Rain where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
-			if ( isNewValues( tm1 ,oldValues , (double)0.1 , (double)total,(double)rate ) )
-			//insert record
-			safe_query(
-				"INSERT INTO Rain (DeviceRowID, Total, Rate) "
-				"VALUES ('%" PRIu64 "', '%.2f', '%d')",
-				ID,
-				total,
-				rate
-			);
+			if (rate < 1000)
+			{
+				auto oldValues = safe_query("select Total, Rate from Rain where DeviceRowID=%s  order by Date desc limit 1 ",sd[0].c_str() ); 
+				if ( isNewValues( tm1 ,oldValues , (double)0.1 , (double)total,(double)rate ) )
+				//insert record
+				safe_query(
+					"INSERT INTO Rain (DeviceRowID, Total, Rate) "
+					"VALUES ('%" PRIu64 "', '%.2f', '%d')",
+					ID,
+					total,
+					rate
+				);
+			}
 		}
 	}
 }
