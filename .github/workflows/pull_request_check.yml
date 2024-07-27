@@ -64,7 +64,7 @@ jobs:
       # get CMake
       - name: cmake-compile
         run: |
-          curl -sSL https://github.com/Kitware/CMake/releases/download/v3.28.1/cmake-3.28.1-Linux-x86_64.tar.gz -o cmake.tar.gz;
+          curl -sSL https://github.com/Kitware/CMake/releases/download/v3.29.7/cmake-3.29.7-Linux-x86_64.tar.gz -o cmake.tar.gz;
           sudo tar xf cmake.tar.gz --strip 1 -C /usr/local;
           export PATH=/usr/local/bin:$PATH;
 
@@ -127,7 +127,7 @@ jobs:
       # Artifact upload
       - name: Upload artifacts
       # if: ${{ false }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: domoticz_linux_x86_64-${{ github.event.pull_request.number }}-${{ github.run_number }}
           path: package/domoticz_linux_x86_64.tgz
