@@ -1899,14 +1899,11 @@ void MainWorker::CheckAndPushRxMessage(const CDomoticzHardwareBase* pHardware, c
 	rxMessage.rxMessageIdx = m_rxMessageIdx++;
 	rxMessage.hardwareId = pHardware->m_HwdID;
 	// defensive copy of the command
-	rxMessage.vrxCommand.resize(pRXCommand[0] + 1);
 	rxMessage.vrxCommand.insert(rxMessage.vrxCommand.begin(), pRXCommand, pRXCommand + pRXCommand[0] + 1);
 	rxMessage.crc = 0x0;
 #ifdef DEBUG_RXQUEUE
 	// CRC
-	boost::crc_optimal<16, 0x1021, 0xFFFF, 0, false, false> crc_ccitt2;
-	crc_ccitt2 = std::for_each(pRXCommand, pRXCommand + pRXCommand[0] + 1, crc_ccitt2);
-	rxMessage.crc = crc_ccitt2();
+	rxMessage.crc = crc16ccitt(pRXCommand, pRXCommand[0] + 1);
 #endif
 
 	if (m_TaskRXMessage.IsStopRequested(0)) {
@@ -1925,7 +1922,7 @@ void MainWorker::CheckAndPushRxMessage(const CDomoticzHardwareBase* pHardware, c
 		rxMessage.rxMessageIdx,
 		pHardware->m_HwdID,
 		pHardware->HwdType,
-		pHardware->Name.c_str(),
+		pHardware->m_Name.c_str(),
 		pRXCommand[1],
 		pRXCommand[2]);
 #endif
@@ -1948,7 +1945,7 @@ void MainWorker::CheckAndPushRxMessage(const CDomoticzHardwareBase* pHardware, c
 			}
 		}
 #ifdef DEBUG_RXQUEUE
-		if (moreThanTimeout) {
+		if (wait) {
 			_log.Log(LOG_STATUS, "RxQueue: rxMessage(%lu) processed", rxMessage.rxMessageIdx);
 		}
 #endif
@@ -2024,10 +2021,8 @@ void MainWorker::Do_Work_On_Rx_Messages()
 
 #ifdef DEBUG_RXQUEUE
 		// CRC
-		boost::uint16_t crc = rxQItem.crc;
-		boost::crc_optimal<16, 0x1021, 0xFFFF, 0, false, false> crc_ccitt2;
-		crc_ccitt2 = std::for_each(pRXCommand, pRXCommand + rxQItem.vrxCommand.size(), crc_ccitt2);
-		if (crc != crc_ccitt2()) {
+		uint16_t crc = crc16ccitt(pRXCommand, rxQItem.vrxCommand.size());
+		if (rxQItem.crc != crc) {
 			_log.Log(LOG_ERROR, "RxQueue: cannot process invalid rxMessage(%lu) from hardware with id=%d (type %d)",
 				rxQItem.rxMessageIdx,
 				rxQItem.hardwareId,
@@ -2040,7 +2035,7 @@ void MainWorker::Do_Work_On_Rx_Messages()
 			rxQItem.rxMessageIdx,
 			pHardware->m_HwdID,
 			pHardware->HwdType,
-			pHardware->Name.c_str(),
+			pHardware->m_Name.c_str(),
 			pRXCommand[1],
 			pRXCommand[2]);
 #endif
@@ -2281,6 +2276,9 @@ void MainWorker::ProcessRXMessage(const CDomoticzHardwareBase* pHardware, const 
 			break;
 		case pTypeDDxxxx:
 			decode_DDxxxx(pHardware, reinterpret_cast<const tRBUF*>(pRXCommand), procResult);
+			break;
+		case pTypeHoneywell_AL:
+			decode_Honeywell(pHardware, reinterpret_cast<const tRBUF*>(pRXCommand), procResult);
 			break;
 		default:
 			_log.Log(LOG_ERROR, "UNHANDLED PACKET TYPE:      FS20 %02X", pRXCommand[1]);
@@ -11266,6 +11264,81 @@ void MainWorker::decode_DDxxxx(const CDomoticzHardwareBase* pHardware, const tRB
 	procResult.DeviceRowIdx = DevRowIdx;
 }
 
+void MainWorker::decode_Honeywell(const CDomoticzHardwareBase* pHardware, const tRBUF* pResponse, _tRxMessageProcessingResult& procResult)
+{
+	char szTmp[100];
+	uint8_t devType = pResponse->HONEYWELL_AL.packettype;
+	uint8_t subType = pResponse->HONEYWELL_AL.subtype;
+
+	sprintf(szTmp, "%02X%02X%02X", pResponse->HONEYWELL_AL.id1, pResponse->HONEYWELL_AL.id2, pResponse->HONEYWELL_AL.id3);
+
+	std::string ID = szTmp;
+	uint8_t Unit = (pResponse->HONEYWELL_AL.knock << 4) | pResponse->HONEYWELL_AL.alert;
+	uint8_t cmnd = 1;
+	uint8_t SignalLevel = pResponse->HONEYWELL_AL.rssi;
+
+	sprintf(szTmp, "%d", 0);
+	uint64_t DevRowIdx = m_sql.UpdateValue(pHardware->m_HwdID, 0, ID.c_str(), Unit, devType, subType, SignalLevel, -1, cmnd, szTmp, procResult.DeviceName, true, procResult.Username.c_str());
+	if (DevRowIdx == (uint64_t)-1)
+		return;
+	CheckSceneCode(DevRowIdx, devType, subType, cmnd, szTmp, procResult.DeviceName);
+
+	if (_log.IsDebugLevelEnabled(DEBUG_RECEIVED))
+	{
+		WriteMessageStart();
+		char szTmp[100];
+
+		switch (pResponse->HONEYWELL_AL.subtype)
+		{
+		case sTypeSeries5:
+			WriteMessage("subtype       = Series5");
+			break;
+		case sTypePIR:
+			WriteMessage("subtype       = PIR");
+			break;
+		default:
+			sprintf(szTmp, "ERROR: Unknown Sub type for Packet type= %02X:%02X:", pResponse->HONEYWELL_AL.packettype, pResponse->HONEYWELL_AL.subtype);
+			WriteMessage(szTmp);
+			break;
+		}
+		sprintf(szTmp, "Sequence nbr  = %d", pResponse->HONEYWELL_AL.seqnbr);
+		WriteMessage(szTmp);
+
+		sprintf(szTmp, "id1-3         = %02X%02X%02X", pResponse->HONEYWELL_AL.id1, pResponse->HONEYWELL_AL.id2, pResponse->HONEYWELL_AL.id3);
+		WriteMessage(szTmp);
+
+		switch (pResponse->HONEYWELL_AL.alert)
+		{
+		case 0:
+			WriteMessage("Alert       = Normal");
+			break;
+		case 1:
+			WriteMessage("Alert       = Right halo light pattern");
+			break;
+		case 2:
+			WriteMessage("Alert       = Left halo light pattern");
+			break;
+		case 3:
+			WriteMessage("Alert       = High volume alarm");
+			break;
+		}
+
+		switch (pResponse->HONEYWELL_AL.knock)
+		{
+		case 0:
+			WriteMessage("Knock       = Yes");
+			break;
+		case 1:
+			WriteMessage("Knock       = No");
+			break;
+		}
+
+		sprintf(szTmp, "Signal level  = %d", pResponse->HONEYWELL_AL.rssi);
+		WriteMessage(szTmp);
+		WriteMessageEnd();
+	}
+	procResult.DeviceRowIdx = DevRowIdx;
+}
 
 bool MainWorker::GetSensorData(const uint64_t idx, int& nValue, std::string& sValue)
 {
@@ -12485,6 +12558,26 @@ MainWorker::eSwitchLightReturnCode MainWorker::SwitchLightInt(const std::vector<
 		if (!IsTesting) {
 			//send to internal for now (later we use the ACK)
 			lcmd.RADIATOR1.subtype = sTypeSmartwaresSwitchRadiator;
+			PushAndWaitRxMessage(m_hardwaredevices[hindex], (const uint8_t*)&lcmd, nullptr, -1, User.c_str());
+		}
+		return SL_OK;
+	}
+	break;
+	case pTypeHoneywell_AL:
+	{
+		level = 15;
+		tRBUF lcmd;
+		lcmd.HONEYWELL_AL.packetlength = sizeof(lcmd.HONEYWELL_AL) - 1;
+		lcmd.HONEYWELL_AL.packettype = dType;
+		lcmd.HONEYWELL_AL.subtype = dSubType;
+		lcmd.HONEYWELL_AL.seqnbr = m_hardwaredevices[hindex]->m_SeqNr++;
+		lcmd.HONEYWELL_AL.knock = (Unit & 0xF0) >> 4;
+		lcmd.HONEYWELL_AL.alert = Unit & 0x0F;
+		lcmd.CHIME.rssi = 12;
+		if (!WriteToHardware(HardwareID, (const char*)&lcmd, sizeof(lcmd.HONEYWELL_AL)))
+			return SL_ERROR;
+		if (!IsTesting) {
+			//send to internal for now (later we use the ACK)
 			PushAndWaitRxMessage(m_hardwaredevices[hindex], (const uint8_t*)&lcmd, nullptr, -1, User.c_str());
 		}
 		return SL_OK;

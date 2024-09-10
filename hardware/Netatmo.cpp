@@ -9,8 +9,11 @@
 #include "../main/json_helper.h"
 
 #define NETATMO_OAUTH2_TOKEN_URI "https://api.netatmo.net/oauth2/token"
-#define NETATMO_SCOPES "read_station read_thermostat write_thermostat read_homecoach read_smokedetector read_presence read_camera"
-#define NETATMO_REDIRECT_URI "http://localhost/netatmo"
+
+
+// 03/03/2022 - PP Changing the Weather polling from 600 to 900s. This has reduce the number of server errors, 
+// 08/05/2024 - Give the poll interfval a defined name:
+#define NETAMO_POLL_INTERVALL 900
 
 #ifdef _DEBUG
 //#define DEBUG_NetatmoWeatherStationR
@@ -59,28 +62,24 @@ CNetatmo::CNetatmo(const int ID, const std::string& username, const std::string&
 	: m_username(CURLEncode::URLDecode(username))
 	, m_password(CURLEncode::URLDecode(password))
 {
-	m_scopes = NETATMO_SCOPES;
-	m_redirectUri = NETATMO_REDIRECT_URI;
-	m_authCode = m_password;
+	m_HwdID = ID;
 
 	size_t pos = m_username.find(":");
 	if (pos != std::string::npos)
 	{
 		m_clientId = m_username.substr(0, pos);
 		m_clientSecret = m_username.substr(pos + 1);
+		m_scopes = m_password;
 	}
 	else
 	{
 		Log(LOG_ERROR, "The username does not contain the client_id:client_secret!");
-		Debug(DEBUG_HARDWARE,"The username does not contain the client_id:client_secret! (%s)", m_username.c_str());
 	}
 
 	m_nextRefreshTs = mytime(nullptr);
 	m_isLogged = false;
 	m_energyType = NETYPE_WEATHER_STATION;
 	m_weatherType = NETYPE_WEATHER_STATION;
-
-	m_HwdID = ID;
 
 	m_ActHome = 0;
 
@@ -140,6 +139,25 @@ bool CNetatmo::StopHardware()
 	return true;
 }
 
+std::string CNetatmo::ExtractHtmlStatusCode(const std::vector<std::string>& headers, const std::string& separator = ", ")
+{
+	std::string sReturn;
+
+	std::string sHeaders;
+	if (headers.size() > 0)
+		for (const auto header : headers)
+			if (header.find("HTTP") == 0)
+			{
+				if (!sHeaders.empty())
+					sHeaders.append(separator);
+				sHeaders.append( header);
+			}
+	if (sHeaders.empty())
+		sHeaders =  "Not defined";
+
+	return sHeaders;
+}
+
 void CNetatmo::Do_Work()
 {
 	int sec_counter = 600 - 5;
@@ -164,23 +182,17 @@ void CNetatmo::Do_Work()
 		{
 			if (RefreshToken())
 			{
-				//Weather / HomeCoach data is updated every 10 minutes
-				// 03/03/2022 - PP Changing the Weather polling from 600 to 900s. This has reduce the number of server errors, 
-				// but do not prevennt to have one time to time
-				if ((sec_counter % 900 == 0) || (bFirstTimeWS))
+				//Weather, HomeCoach, and Thernistat data is updated every  NETAMO_POLL_INTERVALL  seconds 
+				if ((sec_counter % NETAMO_POLL_INTERVALL == 0) || (bFirstTimeTH) || (bFirstTimeWS))
 				{
 					bFirstTimeWS = false;
-					if ((m_bPollWeatherData) || (sec_counter % 1200 == 0))
-						GetMeterDetails();
-				}
-
-				//Thermostat data is updated every 10 minutes
-				if ((sec_counter % 900 == 0) || (bFirstTimeTH))
-				{
 					bFirstTimeTH = false;
+					if (m_bPollWeatherData)
+						GetMeterDetails();
 					if (m_bPollThermostat)
 						GetThermostatDetails();
 				}
+
 				//Update Thermostat data when the
 				//manual set point reach its end
 				if (m_bForceSetpointUpdate)
@@ -200,9 +212,10 @@ void CNetatmo::Do_Work()
 }
 
 /// <summary>
-/// Login to Netatmon API
+/// Get refresh token from database when available, else 
+/// Login to Netatmon API to retreive a new one  (user needs to login at the Netatmo site)
 /// </summary>
-/// <returns>true if logged in, false otherwise</returns>
+/// <returns>true if logged in and refresh token is valid, false otherwise</returns>
 bool CNetatmo::Login()
 {
 	//Already logged noting
@@ -212,6 +225,7 @@ bool CNetatmo::Login()
 	//Check if a stored token is available
 	if (LoadRefreshToken())
 	{
+		Log(LOG_STATUS, "Use refresh token from database...");
 		//Yes : we refresh our take
 		if (RefreshToken(true))
 		{
@@ -221,59 +235,12 @@ bool CNetatmo::Login()
 		}
 	}
 
-	//Loggin on the API
-	std::stringstream sstr;
-	sstr << "grant_type=authorization_code&";
-	sstr << "client_id=" << m_clientId << "&";
-	sstr << "client_secret=" << m_clientSecret << "&";
-	sstr << "code=" << m_authCode << "&";
-	sstr << "redirect_uri=" << m_redirectUri << "&";
-	sstr << "scope=" << m_scopes;
-
-	std::string httpData = sstr.str();
-	std::vector<std::string> ExtraHeaders;
-
-	ExtraHeaders.push_back("Host: api.netatmo.net");
-	ExtraHeaders.push_back("Content-Type: application/x-www-form-urlencoded;charset=UTF-8");
-
-	std::string httpUrl(NETATMO_OAUTH2_TOKEN_URI);
-	std::string sResult;
-	bool ret = HTTPClient::POST(httpUrl, httpData, ExtraHeaders, sResult);
-
-	//Check for returned data
-	if (!ret)
+	if (m_refreshToken.empty())
 	{
-		Log(LOG_ERROR, "Error connecting to Server...");
+		Log (LOG_ERROR, "No refresh token available; please login to retreive a new one from Netatmo");
+		StoreRequestTokenFlag(true);
 		return false;
 	}
-
-	//Check the returned JSON
-	Json::Value root;
-	ret = ParseJSon(sResult, root);
-	if ((!ret) || (!root.isObject()))
-	{
-		Log(LOG_ERROR, "Invalid/no data received...");
-		return false;
-	}
-	//Check if access was granted
-	if (root["access_token"].empty() || root["expires_in"].empty() || root["refresh_token"].empty())
-	{
-		Log(LOG_ERROR, "No access granted, check credentials...");
-		Debug(DEBUG_HARDWARE, "No access granted, check credentials...(%s)(%s)", httpData.c_str(), root.toStyledString().c_str());
-		return false;
-	}
-
-	//Initial Access Token
-	m_accessToken = root["access_token"].asString();
-	m_refreshToken = root["refresh_token"].asString();
-
-	int expires = root["expires_in"].asInt();
-	m_nextRefreshTs = mytime(nullptr) + expires;
-
-	//Store the token in database in case
-	//of domoticz restart
-	StoreRefreshToken();
-	m_isLogged = true;
 	return true;
 }
 
@@ -300,6 +267,8 @@ bool CNetatmo::RefreshToken(const bool bForce)
 			return true; //no need to refresh the token yet
 	}
 
+	Log (LOG_STATUS, "Requesting refreshed tokens");
+
 	// Time to refresh the token
 	std::stringstream sstr;
 	sstr << "grant_type=refresh_token&";
@@ -309,18 +278,19 @@ bool CNetatmo::RefreshToken(const bool bForce)
 
 	std::string httpData = sstr.str();
 	std::vector<std::string> ExtraHeaders;
+	std::vector<std::string> returnHeaders;
 
 	ExtraHeaders.push_back("Host: api.netatmo.net");
 	ExtraHeaders.push_back("Content-Type: application/x-www-form-urlencoded;charset=UTF-8");
 
 	std::string httpUrl(NETATMO_OAUTH2_TOKEN_URI);
 	std::string sResult;
-	bool ret = HTTPClient::POST(httpUrl, httpData, ExtraHeaders, sResult);
+	bool ret = HTTPClient::POST(httpUrl, httpData, ExtraHeaders, sResult, returnHeaders);
 
 	//Check for returned data
 	if (!ret)
 	{
-		Log(LOG_ERROR, "Error connecting to Server...");
+		Log(LOG_ERROR, "Error connecting to Server (refresh tokens): %s", ExtractHtmlStatusCode(returnHeaders).c_str());
 		return false;
 	}
 
@@ -329,18 +299,24 @@ bool CNetatmo::RefreshToken(const bool bForce)
 	ret = ParseJSon(sResult, root);
 	if ((!ret) || (!root.isObject()))
 	{
-		Log(LOG_ERROR, "Invalid/no data received...");
+		Log(LOG_ERROR, "Invalid/no data received (refresh tokens)...");
 		//Force login next time
 		m_isLogged = false;
+		StoreRequestTokenFlag(true);
 		return false;
 	}
 
 	//Check if token was refreshed and access granted
 	if (root["access_token"].empty() || root["expires_in"].empty() || root["refresh_token"].empty())
 	{
+		if (!root["error"].empty())
+			sResult = root["error"].asString();
+		Log(LOG_ERROR, "No access granted, forcing login again (Refresh tokens): %s", sResult.c_str());
+
 		//Force login next time
-		Log(LOG_ERROR, "No access granted, forcing login again...");
+		StoreRefreshToken();
 		m_isLogged = false;
+		StoreRequestTokenFlag(true);
 		return false;
 	}
 
@@ -349,13 +325,16 @@ bool CNetatmo::RefreshToken(const bool bForce)
 	m_refreshToken = root["refresh_token"].asString();
 	int expires = root["expires_in"].asInt();
 	//Store the duration of validity of the token
-	m_nextRefreshTs = mytime(nullptr) + expires;
+	m_nextRefreshTs = mytime(nullptr) + expires * 2 / 3;
 
+	StoreRequestTokenFlag(false);
+	StoreRefreshToken();
 	return true;
 }
 
+
 /// <summary>
-/// Load an access token from the database
+/// Load a refresh token from the database
 /// </summary>
 /// <returns>true if token retrieved, store the token in member variables</returns>
 bool CNetatmo::LoadRefreshToken()
@@ -371,6 +350,14 @@ bool CNetatmo::LoadRefreshToken()
 	return true;
 }
 
+/// <summary>
+/// Store an access token in the database for reuse after domoticz restart
+/// (Note : we should also store token duration)
+/// </summary>
+void CNetatmo::StoreRequestTokenFlag(bool flag)
+{
+	m_sql.safe_query("UPDATE Hardware SET Mode1='%d' WHERE (ID == %d)", flag?1:0, m_HwdID);
+}
 /// <summary>
 /// Store an access token in the database for reuse after domoticz restart
 /// (Note : we should also store token duration)
@@ -742,15 +729,15 @@ void CNetatmo::GetMeterDetails()
 	Json::Value root; // root JSON object
 	bool bRet; //Parsing status
 	std::vector<std::string> ExtraHeaders; // HTTP Headers
-
+	std::vector<std::string> returnHeaders; // HTTP returned headers
 	//check if user has an energy device (only once)
 	if (m_bFirstTimeWeatherData)
 	{
 		//URI for energy device
 		httpUrl = MakeRequestURL(NETYPE_ENERGY);
-		if (!HTTPClient::GET(httpUrl, ExtraHeaders, sResult))
+		if (!HTTPClient::GET(httpUrl, ExtraHeaders, sResult, returnHeaders))
 		{
-			Log(LOG_ERROR, "Error connecting to Server...");
+			Log(LOG_ERROR, "Error connecting to Server (GetMeterDetails): %s", ExtractHtmlStatusCode(returnHeaders).c_str());
 			return;
 		}
 
@@ -758,7 +745,7 @@ void CNetatmo::GetMeterDetails()
 		bRet = ParseJSon(sResult, root);
 		if ((!bRet) || (!root.isObject()))
 		{
-			Log(LOG_ERROR, "Invalid data received...");
+			Log(LOG_ERROR, "Invalid data received (GetMeterDetails)...");
 			return;
 		}
 		if (!root["error"].empty())
@@ -780,9 +767,9 @@ void CNetatmo::GetMeterDetails()
 
 	//Check if user has a weather or homecoach device
 	httpUrl = MakeRequestURL(m_weatherType);
-	if (!HTTPClient::GET(httpUrl, ExtraHeaders, sResult))
+	if (!HTTPClient::GET(httpUrl, ExtraHeaders, sResult, returnHeaders))
 	{
-		Log(LOG_ERROR, "Error connecting to Server...");
+		Log(LOG_ERROR, "Error connecting to Server (GetMeterDetails): %s", ExtractHtmlStatusCode(returnHeaders).c_str());
 		return;
 	}
 
@@ -790,7 +777,7 @@ void CNetatmo::GetMeterDetails()
 	bRet = ParseJSon(sResult, root);
 	if ((!bRet) || (!root.isObject()))
 	{
-		Log(LOG_ERROR, "Invalid data received...");
+		Log(LOG_ERROR, "Invalid data received(GetMeterDetails)...");
 		return;
 	}
 	if (!root["error"].empty())
@@ -810,9 +797,9 @@ void CNetatmo::GetMeterDetails()
 		{
 			// URI for homecoach device
 			httpUrl = MakeRequestURL(NETYPE_HOMECOACH);
-			if (!HTTPClient::GET(httpUrl, ExtraHeaders, sResult))
+			if (!HTTPClient::GET(httpUrl, ExtraHeaders, sResult, returnHeaders))
 			{
-				Log(LOG_ERROR, "Error connecting to Server...");
+				Log(LOG_ERROR, "Error connecting to Server (ParseStationData): %s", ExtractHtmlStatusCode(returnHeaders).c_str());
 				return;
 			}
 
@@ -820,7 +807,7 @@ void CNetatmo::GetMeterDetails()
 			bool bRet = ParseJSon(sResult, root);
 			if ((!bRet) || (!root.isObject()))
 			{
-				Log(LOG_ERROR, "Invalid data received...");
+				Log(LOG_ERROR, "Invalid data received (ParseStationData)...");
 				return;
 			}
 			if (!root["error"].empty())
@@ -858,24 +845,25 @@ void CNetatmo::GetThermostatDetails()
 	std::string sResult;
 	std::stringstream sstr2;
 	std::vector<std::string> ExtraHeaders;
+	std::vector<std::string> returnHeaders;
 	bool ret;
 
 	if (m_energyType != NETYPE_ENERGY)
 	{
 		sstr2 << "https://api.netatmo.net/api/getthermostatsdata";
 		sstr2 << "?access_token=" << m_accessToken;
-		ret = HTTPClient::GET(sstr2.str(), ExtraHeaders, sResult);
+		ret = HTTPClient::GET(sstr2.str(), ExtraHeaders, sResult, returnHeaders);
 	}
 	else
 	{
 		sstr2 << "https://api.netatmo.net/api/homestatus";
 		std::string sPostData = "access_token=" + m_accessToken + "&home_id=" + m_Home_ID;
-		ret = HTTPClient::POST(sstr2.str(), sPostData, ExtraHeaders, sResult);
+		ret = HTTPClient::POST(sstr2.str(), sPostData, ExtraHeaders, sResult, returnHeaders);
 	}
 
 	if (!ret)
 	{
-		Log(LOG_ERROR, "Error connecting to Server...");
+		Log(LOG_ERROR, "Error connecting to Server (GetThermostatDetails): %s", ExtractHtmlStatusCode(returnHeaders).c_str());
 		return;
 	}
 	if (m_energyType != NETYPE_ENERGY)

@@ -664,8 +664,18 @@ namespace http
 			if (!ValidateHardware(htype, sport, address, port, username, password, mode1Str, mode2Str, mode3Str, mode4Str, mode5Str, mode6Str, extra, idx))
 				return;
 
+
 			root["status"] = "OK";
 			root["title"] = "UpdateHardware";
+
+			if (htype == HTYPE_Netatmo && extra == "") {
+				//Extra contains  private data (client sectret), and is not sent to the front-end because of security reason
+				//Avoid overwriting existing datas
+				std::vector<std::vector<std::string>> result;
+				result = m_sql.safe_query("SELECT Extra FROM Hardware WHERE ID=%q", idx.c_str());
+				if (!result.empty())
+					extra = result[0][0];
+			}
 
 			if (htype == HTYPE_Domoticz)
 			{
@@ -700,7 +710,7 @@ namespace http
 				}
 				else if ((htype == HTYPE_RFXtrx433) || (htype == HTYPE_RFXtrx868))
 				{
-					// No Extra field here, handled in CWebServer::SetRFXCOMMode
+					// No Extra field here, handled in CWebServer::SetRFXCOMMode 
 					m_sql.safe_query("UPDATE Hardware SET Name='%q', Enabled=%d, Type=%d, LogLevel=%d, Address='%q', Port=%d, SerialPort='%q', Username='%q', Password='%q', "
 						"Mode1=%d, Mode2=%d, Mode3=%d, Mode4=%d, Mode5=%d, Mode6=%d, DataTimeout=%d WHERE (ID == '%q')",
 						name.c_str(), (bEnabled == true) ? 1 : 0, htype, iLogLevelEnabled, address.c_str(), port, sport.c_str(), username.c_str(), password.c_str(),
@@ -3204,7 +3214,12 @@ namespace http
 					root["result"][ii]["SerialPort"] = sd[6];
 					root["result"][ii]["Username"] = sd[7];
 					root["result"][ii]["Password"] = sd[8];
-					root["result"][ii]["Extra"] = sd[9];
+					if (hType == HTYPE_Netatmo) {
+						root["result"][ii]["Extra"] = "";	//Don't pass the refresh token to the front-end because of security reasons
+					}
+					else {
+						root["result"][ii]["Extra"] = sd[9];
+					}
 
 					if (hType == HTYPE_PythonPlugin)
 					{
@@ -5006,7 +5021,7 @@ namespace http
 				(dType != pTypeLighting6) && (dType != pTypeFan) && (dType != pTypeColorSwitch) && (dType != pTypeSecurity1) && (dType != pTypeSecurity2) && (dType != pTypeEvohome) &&
 				(dType != pTypeEvohomeRelay) && (dType != pTypeCurtain) && (dType != pTypeBlinds) && (dType != pTypeRFY) && (dType != pTypeRego6XXValue) && (dType != pTypeChime) &&
 				(dType != pTypeThermostat2) && (dType != pTypeThermostat3) && (dType != pTypeThermostat4) && (dType != pTypeRemote) && (dType != pTypeGeneralSwitch) &&
-				(dType != pTypeHomeConfort) && (dType != pTypeFS20) && (!((dType == pTypeRadiator1) && (dSubType == sTypeSmartwaresSwitchRadiator))) && (dType != pTypeHunter) && (dType != pTypeDDxxxx)
+				(dType != pTypeHomeConfort) && (dType != pTypeFS20) && (!((dType == pTypeRadiator1) && (dSubType == sTypeSmartwaresSwitchRadiator))) && (dType != pTypeHunter) && (dType != pTypeDDxxxx) && (dType != pTypeHoneywell_AL)
 				)
 				return; // no light device! we should not be here!
 
