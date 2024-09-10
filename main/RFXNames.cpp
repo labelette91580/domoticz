@@ -1765,7 +1765,7 @@ void GetLightStatus(
 		case blinds_sLimit:
 			lstatus = "Limit";
 			break;
-		case blinds_slowerLimit:
+		case blinds_sLowerLimit:
 			lstatus = "Lower Limit";
 			break;
 		case blinds_sDeleteLimits:

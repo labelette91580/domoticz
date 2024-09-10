@@ -1445,7 +1445,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 					return;
 				}
 				if (scope  == "") {
-					alert("Plese enter one or more scopes, appropriate for the devices you own!");
+					alert("Please enter one or more scopes, appropriate for the devices you own!");
 					return;
 				}
 
@@ -2744,19 +2744,19 @@ define(['app','app/virtualThermostat.js'], function (app) {
 			else if (text.indexOf("Netatmo") >= 0) {
 				var clientid = $("#hardwarecontent #divnetatmo #clientid").val();
 				var clientsecret = $("#hardwarecontent #divnetatmo #clientsecret").val();
-				var scope = $("#hardwarecontent #divnetatmo scope").val();
+				var scope = $("#hardwarecontent #divnetatmo #scope").val();
 
 				if (clientid == "" || clientsecret == "") {
 					alert("Please enter a valid client ID and secret for your app from the Netatmo website!");
 					return;
 				}
 				if (scope  == "") {
-					alert("Plese enter one or more scopes, appropriate for the devices you own!");
+					alert("Please enter one or more scopes, appropriate for the devices you own!");
 					return;
 				}
 
 				if (typeof $scope.refreshToken == 'undefined' || $scope.refreshToken == "") {
-					alert("Plese login before adding a new Netatmo device");
+					alert("Please login before adding a new Netatmo device");
 					return;
 				}
 
@@ -3922,18 +3922,19 @@ define(['app','app/virtualThermostat.js'], function (app) {
 			});
 		}
 
-		DisableUpdateAndDeleteButtons = function () {
-			$('#updelclr #hardwareupdate').attr("class", "btnstyle3-dis");
-			$("#updelclr #hardwareupdate").removeAttr("href");
-			$('#updelclr #hardwaredelete').attr("class", "btnstyle3-dis");
-			$("#updelclr #hardwaredelete").removeAttr("href");
-		}
-
-		EnableUpdateAndDeleteButtons = function (hrefUpdate, hrefDelete) {
-			$('#updelclr #hardwareupdate').attr("class", "btnstyle3");
-			$("#updelclr #hardwareupdate").attr("href", hrefUpdate);
-			$('#updelclr #hardwaredelete').attr("class", "btnstyle3");
-			$("#updelclr #hardwaredelete").attr("href", hrefDelete);
+		EnableUpdateAndDeleteButtons = function (enableFlag,hrefUpdate = "", hrefDelete = "") {
+			if (enableFlag){
+				$('#updelclr #hardwareupdate').attr("class", "btnstyle3");
+				$("#updelclr #hardwareupdate").attr("href", hrefUpdate);
+				$('#updelclr #hardwaredelete').attr("class", "btnstyle3");
+				$("#updelclr #hardwaredelete").attr("href", hrefDelete);
+			}
+			else {
+				$('#updelclr #hardwareupdate').attr("class", "btnstyle3-dis");
+				$("#updelclr #hardwareupdate").removeAttr("href");
+				$('#updelclr #hardwaredelete').attr("class", "btnstyle3-dis");
+				$("#updelclr #hardwaredelete").removeAttr("href");
+			}
 		}
 
 		EnableNetatmoLoginButton= function(enableFlag) {
@@ -3951,7 +3952,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 
 		RefreshHardwareTable = function () {
 			$('#modal').show();
-			DisableUpdateAndDeleteButtons();
+			EnableUpdateAndDeleteButtons(false);
 
 			var oTable = $('#hardwaretable').dataTable();
 			oTable.fnClearTable();
@@ -4221,8 +4222,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 			$("#hardwaretable tbody").on('click', 'tr', function () {
 				if ($(this).hasClass('row_selected')) {
 					$(this).removeClass('row_selected');
-					DisableUpdateAndDeleteButtons();
-					EnableNetatmoLoginButton(false);
+					EnableUpdateAndDeleteButtons(false);
 				}
 				else {
 					var oTable = $('#hardwaretable').dataTable();
@@ -4234,12 +4234,14 @@ define(['app','app/virtualThermostat.js'], function (app) {
 						var idx = data["DT_RowId"];
 						if (data["Type"] != "PLUGIN") { // Plugins can have non-numeric Mode data
 							EnableUpdateAndDeleteButtons(
+								true,
 								"javascript:UpdateHardware(" + idx + "," + data["Mode1"] + "," + data["Mode2"] + "," + data["Mode3"] + "," + data["Mode4"] + "," + data["Mode5"] + "," + data["Mode6"] + ")",
 								"javascript:DeleteHardware(" + idx + ")"
 							);
 						}
 						else {
 							EnableUpdateAndDeleteButtons(
+								true,
 								"javascript:UpdateHardware(" + idx + ",'" + data["Mode1"] + "','" + data["Mode2"] + "','" + data["Mode3"] + "','" + data["Mode4"] + "','" + data["Mode5"] + "','" + data["Mode6"] + "')",
 								"javascript:DeleteHardware(" + idx + ")"
 							);
@@ -4621,7 +4623,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 
 							if (scopes.indexOf("_") > 0) 	// Old or new format?
 								scopes = scopes.split(",");	// New format: This field contains one or more scopes
-							else 
+							else
 								scopes = "";	// Old format: This field contained the authorization code
 
 
@@ -4738,10 +4740,10 @@ define(['app','app/virtualThermostat.js'], function (app) {
 		}
 
 		NetatmoEnableLogin = function () {
-			// Enable login option when the user has changed the client credentials or the  skope
+			// Enable login option when the user has changed the client credentials or the  scope
 			// This function may also called when the back-end lost its token and sets the mode1 flag
 
-			if ($("#hardwaretable tbody tr").hasClass('row_selected'))
+			// if ($("#hardwaretable tbody tr").hasClass('row_selected'))
 				EnableNetatmoLoginButton(true);
 		}
 
@@ -4758,7 +4760,8 @@ define(['app','app/virtualThermostat.js'], function (app) {
 		}
 
 		expandScope = function (scopeArray, separator) {
-			var scopeGroups = { station_R :	'read_station',
+			var scopeGroups = { 
+				station_R :			'read_station',
 				thermostat_RW :			'read_thermostat write_thermostat',
 				camera_RWA :			'read_camera write_camera access_camera',
 				doorbell_RA :			'read_doorbell access_doorbell',
@@ -4785,6 +4788,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 		}
 
 		OnNetatmoLogin = function (idx) {
+
 			var pwidth = 800;
 			var pheight = 600;
 
@@ -4803,15 +4807,33 @@ define(['app','app/virtualThermostat.js'], function (app) {
 			if (pos >= 0) {
 				redirectUri = redirectUri.substr(0, pos);
 			}
+
+			if (typeof(idx) == "undefined")
+				idx = -1;
+
 			var scope = $("#hardwarecontent #hardwareparamsnetatmo #scope").val();
 			var clientId = $("#hardwarecontent #hardwareparamsnetatmo #clientid").val();
 			var clientSecret = $("#hardwarecontent #hardwareparamsnetatmo #clientsecret").val();
 			var date = new Date();
 			var state = date.getTime() + '_' + idx;
 
-			var expandedScope = expandScope(scope, ' ');
+			if (clientId == "" || clientSecret == "") {
+				alert("Please enter a valid client ID and secret for your app from the Netatmo website!");
+				return;
+			}
+			if (scope  == "") {
+				alert("Please enter one or more scopes, appropriate for the devices you own!");
+				return;
+			}
 
-			var _url = 'https://api.netatmo.net/oauth2/authorize?client_id='+clientId
+			var href = $("#updelclr #hardwareupdate").attr("href");
+			if (typeof href == 'undefined') {
+				if (!confirm('No device selected, this data will be added as a new device; Do you want to Continue?'))
+					return;
+			}
+
+			var expandedScope = expandScope(scope, ' ');
+			var _url = 'https://api.netatmo.com/oauth2/authorize?client_id='+clientId
 				+ '&scope=' + expandedScope
 				+ '&state=' + state
 				+ '&redirect_uri=' + redirectUri;
@@ -4841,7 +4863,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 						win.close();
 
 						//Exchange the authorization code for tokens
-						var urlToken = "https://api.netatmo.net/oauth2/token";
+						var urlToken = "https://api.netatmo.com/oauth2/token";
 						$scope.loginRequired = true;
 
 						const xhr = new XMLHttpRequest();
@@ -4855,15 +4877,15 @@ define(['app','app/virtualThermostat.js'], function (app) {
 								const parsedJsonData = JSON.parse(data);
 								$scope.refreshToken = parsedJsonData.refresh_token;
 								if ($scope.refreshToken == "") {
-									alert('Access denied: Failed to rerreive a valid token from server: ' + decodeJsonValues(xhr.responseText), ', ');
-									console.log('Error: Access denied: Failed to rerreive a valid token from server: ' + data);
+									alert('Access denied: Failed to receive a valid token from server: ' + decodeJsonValues(xhr.responseText), ', ');
+									console.log('Error: Access denied: Failed to receive a valid token from server: ' + data);
 									$scope.loginRequired = true; //Still need to login
 								}
 								else
 									$scope.loginRequired = false //Login done: Notify server
 							} else {
-								alert('Access denied: Failed to rerreive a valid reponse from server (' + xhr.status + "): " + decodeJsonValues(xhr.responseText), ', ');
-								console.log(`Error: ${xhr.status}`);
+								alert('Access denied: Failed to receive a valid reponse from server (' + xhr.status + "): " + decodeJsonValues(xhr.responseText), ', ');
+								console.log(`Error: Access denied: Failed to receive a valid reponse from server:  ${xhr.status}`);
 								$scope.loginRequired = true; //Still need to login
 							}
 							var href = $("#updelclr #hardwareupdate").attr("href");
@@ -5301,6 +5323,8 @@ define(['app','app/virtualThermostat.js'], function (app) {
 			}
 			else if (text.indexOf("Netatmo") >= 0) {
 				$("#hardwarecontent #divnetatmo").show();
+				$("#hardwarecontent #hardwareparamsnetatmo #netatmologin").off("click");
+				$("#hardwarecontent #hardwareparamsnetatmo #netatmologin").on("click", function(){javascript:OnNetatmoLogin()});
 			}
 			else if (text.indexOf("Logitech Media Server") >= 0) {
 				$("#hardwarecontent #divremote").show();
