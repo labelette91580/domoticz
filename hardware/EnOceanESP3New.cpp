@@ -802,6 +802,15 @@ static void ClearTeachInStatus(WEB_CMD_ARG)
 	}
 	root["status"] = "OK";
 }
+static void SetTeachInStatus(WEB_CMD_ARG)
+{
+	std::string deviceId;
+	for (int i = 0; i < nbSelectedDevice; i++) {
+		deviceId = getDeviceId(req, i);  if (deviceId.empty())	return;
+		pEnocean->SetTeachInStatus(DeviceIdStringToUInt(deviceId), 1);
+	}
+	root["status"] = "OK";
+}
 //------------------------
 std::map < std::string, EnOcean_web_function > EnOcean_webcommands = {
 {			"GetNodeList"                     ,			GetNodeList                },
@@ -840,6 +849,7 @@ std::map < std::string, EnOcean_web_function > EnOcean_webcommands = {
 {			"SetLinkConfig"                   ,			SetLinkConfig              },
 {			"CreateSensor"                    ,			CreateSensor               },
 {			"ClearTeachInStatus"              ,			ClearTeachInStatus         },
+{			"SetTeachInStatus"                ,			SetTeachInStatus           },
 {			"GetDeviceConfiguration"          ,			GetDeviceConfiguration     },
 
 };
