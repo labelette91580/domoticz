@@ -873,7 +873,10 @@ void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::
 		return;
 	if (pEnocean->HwdType != HTYPE_EnOceanESP3)
 		return;
-	int nbSelectedDevice = req.parameters.size() - 5;
+	// function to erase given position 
+	http::server::request reqbis = req;
+	reqbis.parameters.erase( std::string("param"));
+	int nbSelectedDevice = reqbis.parameters.size() - 4;
 	//log arguments
 	{
 		std::string arg;
@@ -885,14 +888,14 @@ void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::
 		for (const auto& param : req.parameters)
 			params += param.first +":"+param.second + " , ";
 		//pEnocean->Debug(DEBUG_NORM, "WEBS: Server received cmd:%s Hwid:%s arg:%s Entry=%s ", cmd.c_str(), hwid.c_str(), arg.c_str(), http::server::request::findValue(&req, "entry").c_str());
-		pEnocean->Debug(DEBUG_NORM, "WEBS: params=%s", params.c_str());
+		pEnocean->Debug(DEBUG_NORM, "WEBS: NbSelected: %d params=%s", nbSelectedDevice, params.c_str());
 	}
 	//handle command if registered
 	auto pfunction = EnOcean_webcommands.find(cmd);
 	if (pfunction != EnOcean_webcommands.end())
 	{
 		pEnocean->setCommStatus(COM_OK);
-		pfunction->second(session, req, root, nbSelectedDevice, iHardwareID, pEnocean);
+		pfunction->second(session, reqbis, root, nbSelectedDevice, iHardwareID, pEnocean);
 		//		        pEnocean->setCommStatus(COM_OK);
 	}
 	return;
