@@ -256,6 +256,63 @@ int translateCmd(std::string& Cmd, TOptionMap& options)
 	return Level;
 }
 
+int VirtualThermostat::manageSwitch(std::string& SwitchIdxStr, int SwitchValue, std::string& OnCmd, std::string& OffCmd , int minute , std::string& LogDebug , const char* ThermostatName )
+{
+	int lastSwitchValue;
+	int switchtype;
+	uint64_t SwitchIdx = std::stoull(SwitchIdxStr);
+
+	//force to update state in database else only send RF commande with out database update 
+	//if the switch is a HomeEasy protocol with no RF acknoledge , send the RF command each minute with out database DEVICESTATUS table update  
+	auto resSw = m_sql.safe_query("SELECT nValue,Type,SubType,SwitchType,sValue,Name FROM DeviceStatus WHERE (ID == %s )", SwitchIdxStr.c_str());
+
+	if (!resSw.empty())
+	{
+		//SwitchSubType    = std::stoi(resSw[0][2]);
+		lastSwitchValue = std::stoi(resSw[0][0]);
+		switchtype = std::stoi(resSw[0][3]);
+		int LastLevel = std::stoi(resSw[0][4]);
+		std::string SwitchName = resSw[0][5];
+		int level = 0;
+
+		bool SwitchStateAsChanged = false;
+
+		std::string OutCmd;
+		if (SwitchValue == 1)
+			OutCmd = OnCmd;
+		else
+			OutCmd = OffCmd;
+
+		if (switchtype == STYPE_Selector)
+		{
+			//gey device option of switch
+			TOptionMap options = m_sql.GetDeviceOptions(SwitchIdxStr);
+			level = translateCmd(OutCmd, options);
+			//check if command switch state as changed
+			if (level != LastLevel)
+				SwitchStateAsChanged = true;
+		}
+		else
+		{
+			if ((OutCmd == "Off") && (lastSwitchValue != 0))
+				SwitchStateAsChanged = true;
+			if ((OutCmd == "On") && (lastSwitchValue == 0))
+				SwitchStateAsChanged = true;
+		}
+		if ((minute % 10) == 0 || (SwitchStateAsChanged))
+		{
+			m_mainworker.SwitchLight(SwitchIdx, OutCmd, level, _tColor(), false, 0, "VTHER" /*, !SwitchStateAsChanged */);
+			sleep_milliseconds(100);
+			LogDebug += std_format(" SwitchName: %s(%s) Cmd : %s Level : %d", SwitchName.c_str(), SwitchIdxStr.c_str(), OutCmd.c_str(), level);
+			SwitchStateAsChanged = true;
+		}
+		return SwitchStateAsChanged;
+	}
+	else {
+		Log(LOG_ERROR, "No switch device %s associated to Thermostat name =%s", SwitchIdxStr.c_str(), ThermostatName);
+		return 0;
+	}
+}
 void VirtualThermostat::ScheduleThermostat(int Minute)
 {
 
@@ -272,7 +329,6 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 	int lastPowerModulation;
 	double lastTemp;
 
-	long  SwitchIdx;
 	std::string SwitchIdxStr;
 
 	double CoefProportional, CoefIntegral;
@@ -281,8 +337,6 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 	std::string OffCmd;
 	long DeviceID;
 	std::string sDeviceID;
-
-	int switchtype;
 
 	try
 	{
@@ -294,6 +348,8 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 
 		for (unsigned int i = 0; i < nbDevices; i++)
 		{
+			std::string LogSwitchDebug = "";
+			std::string LogDebug = "";
 			double scrollDevice = double(MODULATION_DURATION) / nbDevices;
 			TSqlRowQuery* row = &result[i];
 			ThermostatName = (*row)[0].c_str();
@@ -312,20 +368,13 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 			getOption(Option, "Power", lastPowerModulation);
 			getOption(Option, "RoomTemp", lastTemp);
 			getOption(Option, "TempIdx", TemperatureId);
-			getOption(Option, "SwitchIdx", SwitchIdx);
-			getOption(Option, "SwitchIdx", SwitchIdxStr);
 			getOption(Option, "CoefProp", CoefProportional); //coef for propotianal command PID
 			getOption(Option, "CoefInteg", CoefIntegral);        //coef for propotianal command PID
-			getOption(Option, "OnCmd", OnCmd);      //switch command for power On the radiator
-			getOption(Option, "OffCmd", OffCmd);     //switch command for power Off the radiator
 
-			if (SwitchIdx <= 0) {
-				Log(LOG_ERROR, "No Switch device associted to Thermostat  name =%s", ThermostatName);
-			}
-			else if (ThermostatSetPoint == 0)
+			if (ThermostatSetPoint == 0)
 			{
 				if ((Minute % 10) == 0)
-					Debug(DEBUG_NORM, "VTHER: Mn:%02d  Therm:%-10s(%2d) SetPoint:%4.1f POWER OFF LightId(%2ld):%d ", Minute, ThermostatName, ThermostatId, ThermostatSetPoint, SwitchIdx, SwitchValue);
+					Debug(DEBUG_NORM, "VTHER: Mn:%02d  Therm:%-10s(%2d) SetPoint:%4.1f POWER OFF  ", Minute, ThermostatName, ThermostatId, ThermostatSetPoint );
 
 			}
 			//retrieve corresponding Temperature device name    
@@ -343,77 +392,37 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 
 					SwitchValue = ComputeThermostatOutput(minute, PowerModulation);
 
-					//force to update state in database else only send RF commande with out database update 
-					//if the switch is a HomeEasy protocol with no RF acknoledge , send the RF command each minute with out database DEVICESTATUS table update  
-					auto resSw = m_sql.safe_query("SELECT nValue,Type,SubType,SwitchType,sValue,Name FROM DeviceStatus WHERE (ID == %s )", SwitchIdxStr.c_str());
+					int SwitchStateAsChanged = 0;
 
-					if (!resSw.empty())
+					getOption(Option, "SwitchIdx", SwitchIdxStr);
+					getOption(Option, "OnCmd", OnCmd);      //switch command for power On the radiator
+					getOption(Option, "OffCmd", OffCmd);     //switch command for power Off the radiator
+
+					SwitchStateAsChanged |= manageSwitch( SwitchIdxStr, SwitchValue ,  OnCmd ,  OffCmd , minute, LogSwitchDebug, ThermostatName);
+
+					if ((abs(lastPowerModulation - PowerModulation) > 10) || (abs(lastTemp - RoomTemperature) > 0.2) || (SwitchStateAsChanged>0))
 					{
-						//SwitchSubType    = std::stoi(resSw[0][2]);
-						lastSwitchValue = std::stoi(resSw[0][0]);
-						switchtype = std::stoi(resSw[0][3]);
-						int LastLevel = std::stoi(resSw[0][4]);
-						std::string SwitchName = resSw[0][5];
-						std::string OutCmd; int level=0;
+						setOption(Option, "Power", PowerModulation);
+						setOption(Option, "RoomTemp", RoomTemperature);
+						setOption(Option, "Switch", SwitchValue);     //switch command value
+						m_sql.SetDeviceOptions(ThermostatId, Option);
 
-						bool SwitchStateAsChanged = false;
-
-						if (SwitchValue == 1)
-							OutCmd = OnCmd;
-						else
-							OutCmd = OffCmd;
-						if (switchtype == STYPE_Selector)
-						{
-							//gey device option of switch
-							TOptionMap options = m_sql.GetDeviceOptions(SwitchIdxStr);
-							level = translateCmd(OutCmd, options);
-							//check if command switch state as changed
-							if (level != LastLevel )
-								SwitchStateAsChanged = true;
-						}
-						else
-						{
-							if ( (OutCmd == "Off") && (lastSwitchValue != 0 ) )
-								SwitchStateAsChanged = true;
-							if ( (OutCmd == "On") && (lastSwitchValue == 0 ) )
-								SwitchStateAsChanged = true;
-						}
-						if ((minute % 10) == 0 || (SwitchStateAsChanged))
-						{
-							m_mainworker.SwitchLight(SwitchIdx, OutCmd, level, _tColor(), false, 0, "VTHER" /*, !SwitchStateAsChanged */);
-							sleep_milliseconds(100);
-							//Debug(DEBUG_NORM,"VTHER: Mn:%02d  Therm:%-10s(%2d) Room:%4.1f SetPoint:%4.1f Power:%3d%% SwitchName:%s(%2ld):%d Kp:%3.f Ki:%3.f Integr:%3.1f Cmd:%s Level:%d",Minute,ThermostatName, ThermostatId , RoomTemperature,ThermostatSetPoint,PowerModulation,SwitchName.c_str(),SwitchIdx,SwitchValue,CoefProportional,CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() /INTEGRAL_DURATION, OutCmd.c_str(),level);
-							SwitchStateAsChanged = true;
-						}
-						if ((abs(lastPowerModulation - PowerModulation) > 10) || (abs(lastTemp - RoomTemperature) > 0.2) || (SwitchStateAsChanged))
-						{
-							setOption(Option, "Power", PowerModulation);
-							setOption(Option, "RoomTemp", RoomTemperature);
-							setOption(Option, "Switch", SwitchValue);     //switch command value
-							m_sql.SetDeviceOptions(ThermostatId, Option);
-
-							//force display refresh
-							SendSetPointSensor((uint8_t)(DeviceID >> 24),(uint8_t)(DeviceID >> 16), (DeviceID >> 8) & 0xFF, (DeviceID) & 0xFF, 1, (float)ThermostatSetPoint, "");
-							Debug(DEBUG_NORM, "VTHER: Mn:%02d  Therm:%-10s(%2d) Room:%4.1f SetPoint:%4.1f Power:%3d%% SwitchName:%s(%2ld):%d Kp:%3.f Ki:%3.f Integr:%3.2f Cmd:%s Level:%d", Minute, ThermostatName, ThermostatId, RoomTemperature, ThermostatSetPoint, PowerModulation, SwitchName.c_str(), SwitchIdx, SwitchValue, CoefProportional, CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() / INTEGRAL_DURATION, OutCmd.c_str(), level);
-						}
-						else
-						{
-#ifdef ACCELERATED_TEST 
-							Debug(DEBUG_NORM, "VTHER: Mn:%02d  Therm:%-10s(%2d) Room:%4.1f SetPoint:%4.1f Power:%3d%% SwitchName:%s(%2ld):%d Kp:%3.f Ki:%3.f Integr:%3.2f Cmd:%s Level:%d", Minute, ThermostatName, ThermostatId, RoomTemperature, ThermostatSetPoint, PowerModulation, SwitchName.c_str(), SwitchIdx, SwitchValue, CoefProportional, CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() / INTEGRAL_DURATION, OutCmd.c_str(), level);
-#endif
-						}
-						//if ((Minute % 10 )==0)
-						//{
-						   // //compute delta room temperature
-						   // float DeltaTemp = RoomTemperature - Map_LastRoomTemp[ThermostatId] ;
-						   // Map_LastRoomTemp[ThermostatId] = RoomTemperature ;
-						   // if ( DeltaTemp == RoomTemperature ) DeltaTemp=0;  //first call
-						//		auto res=m_sql.safe_query("SELECT ID FROM DeviceStatus where Name=='his_%s'", ThermostatName ) ;
-						//		if (res.size() )m_sql.safe_query( "INSERT INTO Temperature (DeviceRowID, Temperature, Humidity ) VALUES (%s , %4.1f, %d )",res[0][0].c_str(),ThermostatSetPoint,PowerModulation	);
-						//}
+						//force display refresh
+						SendSetPointSensor((uint8_t)(DeviceID >> 24),(uint8_t)(DeviceID >> 16), (DeviceID >> 8) & 0xFF, (DeviceID) & 0xFF, 1, (float)ThermostatSetPoint, "");
+						LogDebug = std_format ( "VTHER: Mn:%02d  Therm:%-10s(%2d) Room:%4.1f SetPoint:%4.1f Power:%3d%% SwitchValue:%d Kp:%3.f Ki:%3.f Integr:%3.2f ", Minute, ThermostatName, ThermostatId, RoomTemperature, ThermostatSetPoint, PowerModulation,  SwitchValue, CoefProportional, CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() / INTEGRAL_DURATION );
 					}
 					else
-						Log(LOG_ERROR, "No switch device associted to Thermostat name =%s", ThermostatName);
+					{
+#ifdef ACCELERATED_TEST 
+						LogDebug = std_format("VTHER: Mn:%02d  Therm:%-10s(%2d) Room:%4.1f SetPoint:%4.1f Power:%3d%% SwitchValue:%d Kp:%3.f Ki:%3.f Integr:%3.2f ", Minute, ThermostatName, ThermostatId, RoomTemperature, ThermostatSetPoint, PowerModulation, SwitchValue, CoefProportional, CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() / INTEGRAL_DURATION);
+#endif
+					}
+
+					if (!LogDebug.empty())
+					{
+						LogDebug += LogSwitchDebug;
+						Debug(DEBUG_NORM, "%s", LogDebug.c_str());
+					}
 				}
 			}
 			else

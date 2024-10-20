@@ -53,6 +53,7 @@ public:
 	virtual std::string GetSetPoint(const std::string& devIdx);
 
 private:
+	int manageSwitch(std::string& SwitchIdxStr, int SwitchValue, std::string& OnCmd, std::string& OffCmd, int minute, std::string& LogDebug, const char* ThermostatName);
 	void	ScheduleThermostat(int Minute);
 	int		getPrevThermostatProg(const char* devID, char* CurrentTime, std::string& Time);
 	int		getNextThermostatProg(const char* devID, char* CurrentTime, std::string& Time);

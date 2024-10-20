@@ -70,6 +70,7 @@ function RefreshDeviceCombo(ComboName, filter, clear) {
 }
 
 function switchChange(selectObj) {
+	switchNb=""
 	if (this.selectedIndex < 0)
 		return;
 	var levelNames = $.List[this.selectedIndex].LevelNames;
@@ -84,10 +85,10 @@ function switchChange(selectObj) {
 		option = "Off"; options.push({ idx: option, name: option });
 		option = "On"; options.push({ idx: option, name: option });
 	}
-	UpdateDeviceCombo($("#dialog-virtualthermostatdevice  #OnCmd"), options, true);
-	UpdateDeviceCombo($("#dialog-virtualthermostatdevice  #OffCmd"), options, true);
-	$("#dialog-virtualthermostatdevice  #OnCmd").val("");
-	$("#dialog-virtualthermostatdevice  #OffCmd").val("");
+	UpdateDeviceCombo($("#dialog-virtualthermostatdevice  #OnCmd"  + switchNb), options, true);
+	UpdateDeviceCombo($("#dialog-virtualthermostatdevice  #OffCmd" + switchNb), options, true);
+	$("#dialog-virtualthermostatdevice  #OnCmd"  +switchNb).val("");
+	$("#dialog-virtualthermostatdevice  #OffCmd" +switchNb).val("");
 	//    var optionSelected = $("option:selected", this);
 	//    var valueSelected = this.value;
 	//    alert(valueSelected);
@@ -116,21 +117,8 @@ Editvirtualthermostatdevice = function (idx, isprotected, refresh, TempSign, HwI
 			});
 		}
 		else {
-			Item.Name = "";
-			Item.Description = "";
-			Item.Protected = false;
-			Item.SetPoint = 20.0;
-			Item.TempIdx = -1;
-			Item.SwitchIdx = -1;
-			Item.CoefProp = 100.0;
-			Item.CoefInteg = 20.0;
-			Item.EcoTemp = 16.0;
-			Item.ConforTemp = 20.0;
-			Item.OnCmd = "On";
-			Item.OffCmd = "Off";
-			Item.Power = 0;
-			Item.RoomTemp = 20.0;
-
+			//error
+			return;
 		}
 		$.Item = Item;
 
@@ -144,19 +132,18 @@ Editvirtualthermostatdevice = function (idx, isprotected, refresh, TempSign, HwI
 		RefreshDeviceCombo("#dialog-virtualthermostatdevice #comboTemperature", 'temp', true);
 
 		$("#dialog-virtualthermostatdevice  #comboTemperature").val(Item.TempIdx);
-		RefreshDeviceCombo("#dialog-virtualthermostatdevice #combosubdevice", 'light', true);
-		$("#dialog-virtualthermostatdevice  #combosubdevice").val(Item.SwitchIdx);
 
-		$("#dialog-virtualthermostatdevice  #combosubdevice").on('change', switchChange);
-
-		$("#dialog-virtualthermostatdevice  #combosubdevice").change();
+		RefreshDeviceCombo("#dialog-virtualthermostatdevice #SwitchIdx", 'light', true);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx").val(Item.SwitchIdx);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx").on('change', switchChange);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx").change();
+		$("#dialog-virtualthermostatdevice  #OnCmd").val(Item.OnCmd);
+		$("#dialog-virtualthermostatdevice  #OffCmd").val(Item.OffCmd);
 
 		$("#dialog-virtualthermostatdevice  #CoefProp").val(Item.CoefProp);
 		$("#dialog-virtualthermostatdevice  #CoefInteg").val(Item.CoefInteg);
 		$("#dialog-virtualthermostatdevice  #Eco").val(Item.EcoTemp);
 		$("#dialog-virtualthermostatdevice  #Confor").val(Item.ConforTemp);
-		$("#dialog-virtualthermostatdevice  #OnCmd").val(Item.OnCmd);
-		$("#dialog-virtualthermostatdevice  #OffCmd").val(Item.OffCmd);
 		$("#dialog-virtualthermostatdevice  #virtualThermostat").show();
 
 		$("#dialog-virtualthermostatdevice").i18n();
@@ -180,7 +167,7 @@ ButtonActionvirtualthermostatDialog = function (hwidx, devIdx) {
 			return;
 		}
 
-		if ($("#dialog-virtualthermostatdevice  #combosubdevice").val() == null) {
+		if ($("#dialog-virtualthermostatdevice  #SwitchIdx").val() == null) {
 			ShowNotify($.t('Please select a switch device!'), 2500, true);
 			return;
 		}
@@ -218,11 +205,11 @@ ButtonActionvirtualthermostatDialog = function (hwidx, devIdx) {
 			option.push("Power" + ':' + $.Item.Power);
 			option.push("RoomTemp" + ':' + $.Item.RoomTemp);
 			option.push("TempIdx" + ':' + $("#dialog-virtualthermostatdevice  #comboTemperature").val());
-			option.push("SwitchIdx" + ':' + $("#dialog-virtualthermostatdevice  #combosubdevice").val());
 			option.push("EcoTemp" + ':' + $("#dialog-virtualthermostatdevice  #Eco").val());
 			option.push("CoefProp" + ':' + $("#dialog-virtualthermostatdevice  #CoefProp").val());
 			option.push("ConforTemp" + ':' + $("#dialog-virtualthermostatdevice  #Confor").val());
 			option.push("CoefInteg" + ':' + $("#dialog-virtualthermostatdevice  #CoefInteg").val());
+			option.push("SwitchIdx" + ':' + $("#dialog-virtualthermostatdevice  #SwitchIdx").val());
 			option.push("OnCmd" + ':' + $("#dialog-virtualthermostatdevice  #OnCmd").val());
 			option.push("OffCmd" + ':' + $("#dialog-virtualthermostatdevice  #OffCmd").val());
 		}
@@ -358,8 +345,20 @@ CreatevirtualthermostatXmlDialog = function () {
         </tr>
         <tr id="SwitchDiv" >
             <td align="right" style="width:60px"><label for="Switch">Switch: </label></td>
-            <td><select id="combosubdevice" " style="width:250px" class ="combobox ui-corner-all">
+            <td><select id="SwitchIdx" " style="width:150px" class ="combobox ui-corner-all">
             </select></td>
+          <td align="right" style="width:60px"><label>On :</label></td>
+          <td><select type="text" id="OnCmd" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
+              <option value="On"          >On     </option>
+              <option value="Off"         >Off    </option>
+          </select></td>
+
+          <td align="right" style="width:60px"><label>Off:</label></td>
+          <td><select type="text" id="OffCmd" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
+              <option value="On"          >On     </option>
+              <option value="Off"         >Off    </option>
+          </select></td>
+
         <tr>
         <tr id="CoefPropDiv" >
           <td align="right" style="width:60px"><label>Kp: </label></td>
@@ -376,47 +375,6 @@ CreatevirtualthermostatXmlDialog = function () {
         <tr id="EcoDiv" >
           <td align="right" style="width:60px"><label data-i18n="Eco">Eco: </label></td>
           <td><input type="text" id="Eco" style="width: 50px; padding: .4em;" class ="text ui-widget-content ui-corner-all" /> &deg; <span id="Span2">C</span></td>
-        </tr>
-        <tr id="OnCmdDiv" >
-          <td align="right" style="width:60px"><label>On Command: </label></td>
-          <td><select type="text" id="OnCmd" style="width: 150px; padding: .4em;" class ="combobox ui-corner-all" >
-              <option value="On"          >On     </option>
-              <option value="Off"         >Off    </option>
-              <option value="Conf"        >Conf   </option>
-              <option value="Freeze"      >Freeze </option>
-              <option value="Set Level 10">Set Level 10</option>
-              <option value="Set Level 20">Set Level 20</option>
-              <option value="Set Level 30">Set Level 30</option>
-              <option value="Set Level 40">Set Level 40</option>
-              <option value="Set Level 50">Set Level 50</option>
-              <option value="Set Level 60">Set Level 60</option>
-              <option value="Set Level 70">Set Level 70</option>
-              <option value="Set Level 80">Set Level 80</option>
-              <option value="Set Level 90">Set Level 90</option>
-
-          </select></td>
-        </tr>
-        <tr id="OffCmdDiv" >
-          <td align="right" style="width:60px"><label>Off Command: </label></td>
-          <td><select type="text" id="OffCmd" style="width: 150px; padding: .4em;" class ="combobox ui-corner-all" >
-              <option value="On"          >On     </option>
-              <option value="Off"         >Off    </option>
-              <option value="Conf"        >Conf   </option>
-              <option value="Freeze"      >Freeze </option>
-              <option value="Set Level 10">Set Level 10</option>
-              <option value="Set Level 20">Set Level 20</option>
-              <option value="Set Level 30">Set Level 30</option>
-              <option value="Set Level 40">Set Level 40</option>
-              <option value="Set Level 50">Set Level 50</option>
-              <option value="Set Level 60">Set Level 60</option>
-              <option value="Set Level 70">Set Level 70</option>
-              <option value="Set Level 80">Set Level 80</option>
-              <option value="Set Level 90">Set Level 90</option>
-
-          </select></td>
-
-
-
         </tr>
         </table>
     </form>
