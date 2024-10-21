@@ -51,6 +51,8 @@
 
 #include "../hardware/Limitless.h"
 
+extern void RType_OpenEnOcean(http::server::WebEmSession& session, const http::server::request& req, Json::Value& root);
+
 extern std::string szStartupFolder;
 extern std::string szUserDataFolder;
 extern std::string szWWWFolder;
@@ -609,6 +611,8 @@ namespace http
 			});
 
 			// EnOcean helpers cmds
+			RegisterCommandCode("enocean", [this](auto &&session, auto &&req, auto &&root)  { RType_OpenEnOcean(session, req, root); });
+
 			RegisterCommandCode("enoceangetmanufacturers", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetManufacturers(session, req, root); });
 			RegisterCommandCode("enoceangetrorgs", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetRORGs(session, req, root); });
 			RegisterCommandCode("enoceangetprofiles", [this](auto&& session, auto&& req, auto&& root) { Cmd_EnOceanGetProfiles(session, req, root); });
