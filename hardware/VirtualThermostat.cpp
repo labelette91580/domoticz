@@ -394,11 +394,19 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 
 					int SwitchStateAsChanged = 0;
 
-					getOption(Option, "SwitchIdx", SwitchIdxStr);
-					getOption(Option, "OnCmd", OnCmd);      //switch command for power On the radiator
-					getOption(Option, "OffCmd", OffCmd);     //switch command for power Off the radiator
+					for (int sw = 1; sw <= 3; sw++)
+					{
+						std::string SwName = "SwitchIdx" + std::to_string(sw);
+						getOption(Option, SwName.c_str(), SwitchIdxStr);
+						std::string CmdOn = "OnCmd"; CmdOn += SwName;
+						getOption(Option, CmdOn .c_str(), OnCmd);      //switch command for power On the radiator
+						std::string CmdOff = "OffCmd"; CmdOff += SwName;
+						getOption(Option, CmdOff.c_str(), OffCmd);     //switch command for power Off the radiator
+						if ( (SwitchIdxStr.empty())  || (SwitchIdxStr=="null") ) SwitchIdxStr = "0";
 
-					SwitchStateAsChanged |= manageSwitch( SwitchIdxStr, SwitchValue ,  OnCmd ,  OffCmd , minute, LogSwitchDebug, ThermostatName);
+						if (SwitchIdxStr != "0"  || sw == 1)
+							SwitchStateAsChanged |= manageSwitch(SwitchIdxStr, SwitchValue, OnCmd, OffCmd, minute, LogSwitchDebug, ThermostatName);
+					}
 
 					if ((abs(lastPowerModulation - PowerModulation) > 10) || (abs(lastTemp - RoomTemperature) > 0.2) || (SwitchStateAsChanged>0))
 					{

@@ -49,6 +49,12 @@ function RefreshDeviceCombo(ComboName, filter, clear) {
 	//get list
 
 	$.List = [];
+	$.List.push({
+		idx: 0 ,
+		name: "",
+		LevelNames: ""
+	});
+
 	$.ajax({
 		url: "json.htm?type=devices&filter=" + filter + "&used=true&order=Name",
 		async: false,
@@ -70,7 +76,7 @@ function RefreshDeviceCombo(ComboName, filter, clear) {
 }
 
 function switchChange(selectObj) {
-	switchNb=""
+	switchNb =this.id
 	if (this.selectedIndex < 0)
 		return;
 	var levelNames = $.List[this.selectedIndex].LevelNames;
@@ -133,12 +139,26 @@ Editvirtualthermostatdevice = function (idx, isprotected, refresh, TempSign, HwI
 
 		$("#dialog-virtualthermostatdevice  #comboTemperature").val(Item.TempIdx);
 
-		RefreshDeviceCombo("#dialog-virtualthermostatdevice #SwitchIdx", 'light', true);
-		$("#dialog-virtualthermostatdevice  #SwitchIdx").val(Item.SwitchIdx);
-		$("#dialog-virtualthermostatdevice  #SwitchIdx").on('change', switchChange);
-		$("#dialog-virtualthermostatdevice  #SwitchIdx").change();
-		$("#dialog-virtualthermostatdevice  #OnCmd").val(Item.OnCmd);
-		$("#dialog-virtualthermostatdevice  #OffCmd").val(Item.OffCmd);
+		RefreshDeviceCombo("#dialog-virtualthermostatdevice #SwitchIdx1", 'light', true);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx1").val(Item.SwitchIdx1);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx1").on('change', switchChange);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx1").change();
+		$("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx1").val(Item.OnCmdSwitchIdx1);
+		$("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx1").val(Item.OffCmdSwitchIdx1);
+
+		RefreshDeviceCombo("#dialog-virtualthermostatdevice #SwitchIdx2", 'light', true);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx2").val(Item.SwitchIdx2);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx2").on('change', switchChange);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx2").change();
+		$("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx2").val(Item.OnCmdSwitchIdx2);
+		$("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx2").val(Item.OffCmdSwitchIdx2);
+
+		RefreshDeviceCombo("#dialog-virtualthermostatdevice #SwitchIdx3", 'light', true);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx3").val(Item.SwitchIdx3);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx3").on('change', switchChange);
+		$("#dialog-virtualthermostatdevice  #SwitchIdx3").change();
+		$("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx3").val(Item.OnCmdSwitchIdx3);
+		$("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx3").val(Item.OffCmdSwitchIdx3);
 
 		$("#dialog-virtualthermostatdevice  #CoefProp").val(Item.CoefProp);
 		$("#dialog-virtualthermostatdevice  #CoefInteg").val(Item.CoefInteg);
@@ -167,18 +187,40 @@ ButtonActionvirtualthermostatDialog = function (hwidx, devIdx) {
 			return;
 		}
 
-		if ($("#dialog-virtualthermostatdevice  #SwitchIdx").val() == null) {
+		if ($("#dialog-virtualthermostatdevice  #SwitchIdx1").val() == null) {
 			ShowNotify($.t('Please select a switch device!'), 2500, true);
 			return;
 		}
-		if ($("#dialog-virtualthermostatdevice  #OnCmd").val() == null) {
+		if ($("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx1").val() == null) {
 			ShowNotify($.t('Please select the switch On Command!'), 2500, true);
 			return;
 		}
-		if ($("#dialog-virtualthermostatdevice  #OffCmd").val() == null) {
+		if ($("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx1").val() == null) {
 			ShowNotify($.t('Please select the switch OffCmd Command!'), 2500, true);
 			return;
 		}
+
+		if ($("#dialog-virtualthermostatdevice  #SwitchIdx2").val() != null) {
+			if ($("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx2").val() == null) {
+				ShowNotify($.t('Please select the switch On Command!'), 2500, true);
+				return;
+			}
+			if ($("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx2").val() == null) {
+				ShowNotify($.t('Please select the switch OffCmd Command!'), 2500, true);
+				return;
+			}
+		}
+		if ($("#dialog-virtualthermostatdevice  #SwitchIdx3").val() != null) {
+			if ($("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx3").val() == null) {
+				ShowNotify($.t('Please select the switch On Command!'), 2500, true);
+				return;
+			}
+			if ($("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx3").val() == null) {
+				ShowNotify($.t('Please select the switch OffCmd Command!'), 2500, true);
+				return;
+			}
+		}
+
 		
 		if ($("#dialog-virtualthermostatdevice  #Eco").val() == "") {
 			ShowNotify($.t('Please enter Eco Temperature!'), 2500, true);
@@ -209,14 +251,20 @@ ButtonActionvirtualthermostatDialog = function (hwidx, devIdx) {
 			option.push("CoefProp" + ':' + $("#dialog-virtualthermostatdevice  #CoefProp").val());
 			option.push("ConforTemp" + ':' + $("#dialog-virtualthermostatdevice  #Confor").val());
 			option.push("CoefInteg" + ':' + $("#dialog-virtualthermostatdevice  #CoefInteg").val());
-			option.push("SwitchIdx" + ':' + $("#dialog-virtualthermostatdevice  #SwitchIdx").val());
-			option.push("OnCmd" + ':' + $("#dialog-virtualthermostatdevice  #OnCmd").val());
-			option.push("OffCmd" + ':' + $("#dialog-virtualthermostatdevice  #OffCmd").val());
+			option.push("SwitchIdx1" + ':' + $("#dialog-virtualthermostatdevice  #SwitchIdx1").val());
+			option.push("OnCmdSwitchIdx1" + ':' + $("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx1").val());
+			option.push("OffCmdSwitchIdx1" + ':' + $("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx1").val());
+			option.push("SwitchIdx2" + ':' + $("#dialog-virtualthermostatdevice  #SwitchIdx2").val());
+			option.push("OnCmdSwitchIdx2" + ':' + $("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx2").val());
+			option.push("OffCmdSwitchIdx2" + ':' + $("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx2").val());
+			option.push("SwitchIdx3" + ':' + $("#dialog-virtualthermostatdevice  #SwitchIdx3").val());
+			option.push("OnCmdSwitchIdx3" + ':' + $("#dialog-virtualthermostatdevice  #OnCmdSwitchIdx3").val());
+			option.push("OffCmdSwitchIdx3" + ':' + $("#dialog-virtualthermostatdevice  #OffCmdSwitchIdx3").val());
 		}
 		//if update
 		if (devIdx) {
 			$.ajax({
-				url: "json.htm?type=setused&idx=" + devIdx +
+				url: "json.htm?type=command&param=setused&idx=" + devIdx +
 					'&name=' + encodeURIComponent($("#dialog-virtualthermostatdevice #devicename").val()) +
 					'&description=' + encodeURIComponent($("#dialog-virtualthermostatdevice #devicedescription").val()) +
 					'&setpoint=' + $("#dialog-virtualthermostatdevice #setpoint").val() +
@@ -343,23 +391,42 @@ CreatevirtualthermostatXmlDialog = function () {
                 <!--#embed-->
             </select></td>
         </tr>
-        <tr id="SwitchDiv" >
+        <tr id="SwitchDiv1" >
             <td align="right" style="width:60px"><label for="Switch">Switch: </label></td>
-            <td><select id="SwitchIdx" " style="width:150px" class ="combobox ui-corner-all">
+            <td><select id="SwitchIdx1" " style="width:150px" class ="combobox ui-corner-all">
             </select></td>
           <td align="right" style="width:60px"><label>On :</label></td>
-          <td><select type="text" id="OnCmd" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
-              <option value="On"          >On     </option>
-              <option value="Off"         >Off    </option>
+          <td><select type="text" id="OnCmdSwitchIdx1" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
           </select></td>
-
           <td align="right" style="width:60px"><label>Off:</label></td>
-          <td><select type="text" id="OffCmd" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
-              <option value="On"          >On     </option>
-              <option value="Off"         >Off    </option>
+          <td><select type="text" id="OffCmdSwitchIdx1" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
           </select></td>
-
         <tr>
+        <tr id="SwitchDiv2" >
+            <td align="right" style="width:60px"><label for="Switch">Switch: </label></td>
+            <td><select id="SwitchIdx2" " style="width:150px" class ="combobox ui-corner-all">
+            </select></td>
+          <td align="right" style="width:60px"><label>On :</label></td>
+          <td><select type="text" id="OnCmdSwitchIdx2" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
+          </select></td>
+          <td align="right" style="width:60px"><label>Off:</label></td>
+          <td><select type="text" id="OffCmdSwitchIdx2" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
+          </select></td>
+        <tr>
+        <tr id="SwitchDiv3" >
+            <td align="right" style="width:60px"><label for="Switch">Switch: </label></td>
+            <td><select id="SwitchIdx3" " style="width:150px" class ="combobox ui-corner-all">
+            </select></td>
+          <td align="right" style="width:60px"><label>On :</label></td>
+          <td><select type="text" id="OnCmdSwitchIdx3" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
+          </select></td>
+          <td align="right" style="width:60px"><label>Off:</label></td>
+          <td><select type="text" id="OffCmdSwitchIdx3" style="width: 100px; padding: .4em;" class ="combobox ui-corner-all" >
+          </select></td>
+        <tr>
+
+
+
         <tr id="CoefPropDiv" >
           <td align="right" style="width:60px"><label>Kp: </label></td>
           <td><input type="text" id="CoefProp" style="width: 50px; padding: .4em;" class ="text ui-widget-content ui-corner-all" /></td>
