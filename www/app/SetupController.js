@@ -803,6 +803,9 @@ define(['app'], function (app) {
 					if (typeof data.IFTTTEnabled != 'undefined') {
 						$("#ifttttable #IFTTTEnabled").prop('checked', data.IFTTTEnabled == 1);
 					}
+					if (typeof data.AllowDeviceReplaceOnBatteryChanged != 'undefined') {
+						$("#AllowDeviceReplaceOnBatteryChanged").prop('checked', data.AllowDeviceReplaceOnBatteryChanged == 1);
+					}
 					if (typeof data.IFTTTAPI != 'undefined') {
 						$("#ifttttable #IFTTTAPI").val(atob(data.IFTTTAPI));
 					}
