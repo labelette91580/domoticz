@@ -22,6 +22,7 @@ define(['app'], function (app) {
 			var sdate = fline[0];
 			var stime = fline[1];
 
+			var loglength=1000;
 			for (i = 0; i < lines.length; i++) {
 				var lmessage = "";
 				if (i == 0) {
@@ -34,16 +35,16 @@ define(['app'], function (app) {
 				logclass = getLogClass(item.level);
 
 				//All
-				if ($scope.logitems.length >= 300)
-					$scope.logitems.splice(0, ($scope.logitems.length - 300));
+				if ($scope.logitems.length >= loglength)
+					$scope.logitems.splice(0, ($scope.logitems.length - loglength));
 				$scope.logitems = $scope.logitems.concat({
 					mclass: logclass,
 					text: lmessage
 				});
 				if (item.level == LOG_ERROR) {
 					//Error
-					if ($scope.logitems_error.length >= 300)
-						$scope.logitems_error.splice(0, ($scope.logitems_error.length - 300));
+					if ($scope.logitems_error.length >= loglength)
+						$scope.logitems_error.splice(0, ($scope.logitems_error.length - loglength));
 					$scope.logitems_error = $scope.logitems_error.concat({
 						mclass: logclass,
 						text: lmessage
@@ -51,8 +52,8 @@ define(['app'], function (app) {
 				}
 				else if (item.level == LOG_STATUS) {
 					//Status
-					if ($scope.logitems_status.length >= 300)
-						$scope.logitems_status.splice(0, ($scope.logitems_status.length - 300));
+					if ($scope.logitems_status.length >= loglength)
+						$scope.logitems_status.splice(0, ($scope.logitems_status.length - loglength));
 					$scope.logitems_status = $scope.logitems_status.concat({
 						mclass: logclass,
 						text: lmessage
