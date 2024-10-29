@@ -3844,8 +3844,8 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						senderID, pNode->name.c_str(), pNode->RORG, pNode->func, pNode->type);
 					return;
 				}
-				Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) EEP %02X-%02X-%02X",
-					senderID, pNode->name.c_str(), pNode->RORG, pNode->func, pNode->type);
+//				Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) EEP %02X-%02X-%02X",
+//					senderID, pNode->name.c_str(), pNode->RORG, pNode->func, pNode->type);
 
 				if (pNode->func == 0x01)
 				{ // D2-01-XX, Electronic Switches and Dimmers with Local Control
