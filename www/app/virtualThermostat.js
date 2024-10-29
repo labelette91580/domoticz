@@ -56,7 +56,7 @@ function RefreshDeviceCombo(ComboName, filter, clear) {
 	});
 
 	$.ajax({
-		url: "json.htm?type=devices&filter=" + filter + "&used=true&order=Name",
+		url: "json.htm?type=command&param=getdevices&filter=" + filter + "&used=true&order=Name",
 		async: false,
 		dataType: 'json',
 		success: function (data) {
@@ -111,7 +111,7 @@ Editvirtualthermostatdevice = function (idx, isprotected, refresh, TempSign, HwI
 		if (idx != 0) {
 
 			$.ajax({
-				url: "json.htm?type=devices&filter=utility&used=true&rid=" + idx,
+				url: "json.htm?type=command&param=getdevices&filter=utility&used=true&rid=" + idx,
 				async: false,
 				dataType: 'json',
 				success: function (data) {
@@ -281,7 +281,7 @@ ButtonActionvirtualthermostatDialog = function (hwidx, devIdx) {
 		}
 		else {
 			$.ajax({
-				url: "json.htm?type=createdevice&idx=" + hwidx +
+				url: "json.htm?type=command&param=createdevice&idx=" + hwidx +
 					"&sensorname=" + encodeURIComponent($("#dialog-virtualthermostatdevice #devicename").val()) +
 					"&devicetype=" + "242" +
 					"&devicesubtype=" + "01" +
@@ -320,7 +320,7 @@ CreatevirtualthermostatDialog = function (hwidx, devIdx, refresh) {
 			bootbox.confirm($.t("Are you sure to remove this Device?"), function (result) {
 				if (result == true) {
 					$.ajax({
-						url: "json.htm?type=setused&idx=" + devIdx +
+						url: "json.htm?type=command&param=setused&idx=" + devIdx +
 							'&name=' + encodeURIComponent($("#dialog-editsetpointdevice #devicename").val()) +
 							'&description=' + encodeURIComponent($("#dialog-editsetpointdevice #devicedescription").val()) +
 							'&used=false',
