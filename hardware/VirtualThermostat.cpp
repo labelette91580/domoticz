@@ -277,11 +277,12 @@ int VirtualThermostat::manageSwitch(std::string& SwitchIdxStr, int SwitchValue, 
 
 		bool SwitchStateAsChanged = false;
 
-		std::string OutCmd;
+		std::string OutCmd,Cmd;
 		if (SwitchValue == 1)
 			OutCmd = OnCmd;
 		else
 			OutCmd = OffCmd;
+		Cmd = OutCmd;
 
 		if (switchtype == STYPE_Selector)
 		{
@@ -303,7 +304,7 @@ int VirtualThermostat::manageSwitch(std::string& SwitchIdxStr, int SwitchValue, 
 		{
 			m_mainworker.SwitchLight(SwitchIdx, OutCmd, level, _tColor(), false, 0, "VTHER" /*, !SwitchStateAsChanged */);
 			sleep_milliseconds(100);
-			LogDebug += std_format(" SwitchName: %s(%s) Cmd : %s Level : %d", SwitchName.c_str(), SwitchIdxStr.c_str(), OutCmd.c_str(), level);
+			LogDebug += std_format(" SwitchName: %s(%s) Cmd %s: %s Level : %d", SwitchName.c_str(), SwitchIdxStr.c_str(), Cmd.c_str(), OutCmd.c_str(), level);
 			SwitchStateAsChanged = true;
 		}
 		return SwitchStateAsChanged;
