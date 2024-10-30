@@ -14,7 +14,7 @@
 
 #include "SQLHelper.h"
 
-#define MAX_LOG_LINE_BUFFER 100
+#define MAX_LOG_LINE_BUFFER 1000
 #define MAX_LOG_LINE_LENGTH (2048 * 3)
 
 #define MAX_ACLFLOG_LINES 100000
@@ -142,6 +142,7 @@ bool CLogger::SetDebugFlags(const std::string &sFlags)
 	}
 	if(IsDebugLevelEnabled(DEBUG_WEBSERVER))
 		SetACLFlogFlags(LOG_ACLF_ENABLED);
+	Log(LOG_STATUS, "SetDebugFlags : %s",sFlags.c_str());
 	return true;
 }
 
@@ -445,7 +446,7 @@ void CLogger::LogSequenceAdd(const char *logline)
 	if (!m_bInSequenceMode)
 		return;
 
-	m_sequencestring << logline << std::endl;
+	m_sequencestring << logline << " " ;
 }
 
 void CLogger::LogSequenceAddNoLF(const char *logline)
@@ -527,7 +528,7 @@ void CLogger::SetFilter(const std::string  &Filter)
 	Filter2StringList.clear();
 	KeepStringList.clear();
 	stdreplace(pFilter,"$$"," ");
-	_log.Debug(DEBUG_NORM, "debugfilter:%s", pFilter.c_str());
+	Log(LOG_STATUS, "debugfilter:%s", pFilter.c_str());
 	StringSplit(pFilter, ",", FilterList);
 	for (size_t i = 0; i < FilterList.size(); i++)
 	{
