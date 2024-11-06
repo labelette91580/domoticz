@@ -327,6 +327,7 @@ CEnOceanESP3::CEnOceanESP3(const int ID, const std::string &devname, const int t
 	m_id_base = 0;
 	m_id_chip = 0;
 	m_bOutputLog = false;
+	m_rbuflen = 0;
 
 }
 
@@ -1773,7 +1774,6 @@ bool CEnOceanESP3::OpenSerialDevice()
 	m_learn_mode_enabled = false;
 	m_RPS_teachin_nodeID = 0;
 
-	m_receivestate = ERS_SYNCBYTE;
 	setReadCallback([this](auto d, auto l) { ReadCallback(d, l); });
 
 	sOnConnected(this);
@@ -2236,116 +2236,139 @@ bool CEnOceanESP3::WriteToHardware(const char *pdata, const unsigned char length
 	return false;
 }
 
-void CEnOceanESP3::ReadCallback(const char *data, size_t len)
+int getDataLen(uint8_t* p_buffer )
 {
-	size_t nbyte = 0;
-	uint8_t db;
-	uint8_t *rbuf = nullptr;
-	size_t rbuflen = 0;
-	size_t rbufpos;
+	int datalen = (p_buffer[1] << 8) | p_buffer[2];
+	return datalen;
+}
+int getOptionallen(uint8_t* p_buffer)
+{
+	return  p_buffer[3];
+}
+int getPackettype(uint8_t* p_buffer)
+{
+	return p_buffer[4];
+}
+int getPacketDataLen(uint8_t* p_buffer)
+{
+	return getDataLen(p_buffer) + getOptionallen( p_buffer);
+}
+int cpCrc(uint8_t* p_buffer, int len)
+{
+	uint8_t crc = 0;
+	for (int i = 0; i < len; i++)
+		crc = proc_crc8(crc, p_buffer[i]);
+	return crc;
+}
+int getHeaderCrc (uint8_t* p_buffer)
+{
+	return p_buffer[5];
+}
+int cpHeaderCrc(uint8_t* p_buffer)
+{
+	return cpCrc( &p_buffer[1], 4 );
+}
+int cpDataCrc(uint8_t* p_buffer)
+{
+	int dataLen = getPacketDataLen(p_buffer);
 
-	while (nbyte < len || rbuf != nullptr)
+	return cpCrc(&p_buffer[6], dataLen);
+}
+int getDataCrc(uint8_t* p_buffer)
+{
+	int dataLen = getPacketDataLen(p_buffer);
+
+	return p_buffer[6+  dataLen];
+}
+std::string dumpHexa(const unsigned char* data, int datalen)
+{
+	std::stringstream sstr;
+	for (int i = 0; i < datalen; i++)
+		sstr << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (uint32_t)data[i];
+	return sstr.str();
+}
+
+void CEnOceanESP3::ReadCallback(const char* data, size_t len)
+{
+	int synchro = 0 ;
+	int packetDatalen = 0;
+	size_t packetlen  = 0;
+	size_t datalen = 0;
+	int packetType = 0;
+
+	//rbuflen : number of received data
+	// append received data
+	if (m_rbuflen + len < sizeof(m_rbuf))
 	{
-		if (rbuf == nullptr)
-			db = data[nbyte++];
-		else
+		memcpy(&m_rbuf[m_rbuflen], data, len);
+		m_rbuflen += len;
+		if(m_rbuflen != len)
+			Debug(DEBUG_NORM, "Rec:(%2d):%s ", len      , dumpHexa((const unsigned char*)data,  len).c_str());
+		Debug(DEBUG_NORM, "Raw:(%2d):%s ", m_rbuflen, dumpHexa((const unsigned char*)m_rbuf, m_rbuflen).c_str());
+	}
+	else
+	{
+		//error  over flow
+	}
+
+	while 	(m_rbuflen >= 6) // header received 
+	{
+		synchro = m_rbuf[0];
+		packetDatalen = getPacketDataLen(m_rbuf);
+		packetlen = packetDatalen + 7;
+		packetType = getPackettype(m_rbuf);
+		datalen = getDataLen(m_rbuf);
+
+		if (
+			(synchro == ESP3_SER_SYNC)
+			&& (getHeaderCrc(m_rbuf) == cpHeaderCrc(m_rbuf)) //valid header crc
+			&& (packetlen < ESP3_PACKET_BUFFER_SIZE)  //not oversized
+			&& (packetType  > 0) //valid packet type
+			&& (packetType <= 12) //valid packet type
+			)
 		{
-			db = rbuf[rbufpos++];
-			if (rbufpos == rbuflen) {
-				free(rbuf);
-				rbuf = nullptr;
+			Debug(DEBUG_NORM, "Rec:Valid Header received Packetlen:%d(%02X) Datalen:%d(%02X) OptDataLen:%d(%02X) PacketType:%d(%02X) crc:%d(%02X) ", packetlen, packetlen,
+				getDataLen(m_rbuf), getDataLen(m_rbuf), getOptionallen(m_rbuf), getOptionallen(m_rbuf), packetType, packetType, getHeaderCrc(m_rbuf), getHeaderCrc(m_rbuf));
+			if   (packetlen <= m_rbuflen)  //full packet received
+			{
+				if 	(getDataCrc(m_rbuf) == cpDataCrc(m_rbuf)) //valid data header 
+				{
+					//packet OK
+					// Parse ESP3 packet : type + data + optional data
+					uint8_t* data = m_rbuf + 6;
+					ParseESP3Packet(packetType, data, datalen, data + datalen  , getOptionallen(m_rbuf) );
+					//shift input buffer
+					m_rbuflen -= packetlen; //update buffer len
+					memcpy(m_rbuf, &m_rbuf[packetlen], m_rbuflen);
+				}
+				else
+				{
+					Log(LOG_ERROR, "Rec:Bad packet crc : %d(%02X) <> %d(%02X) ", getDataCrc(m_rbuf), getDataCrc(m_rbuf), cpDataCrc(m_rbuf), cpDataCrc(m_rbuf));
+					//shift buffer
+					if (m_rbuflen > 1)
+						memcpy(m_rbuf, &m_rbuf[1], m_rbuflen - 1);
+					m_rbuflen--;
+				}
+			}
+			else
+			{
+				/*wait full packet */
+				break;
 			}
 		}
-		switch (m_receivestate)
-		{
-			case ERS_SYNCBYTE: // Waiting for ESP3_SER_SYNC
-				if (db != ESP3_SER_SYNC)
-				{
-					Log(LOG_ERROR, "Read: Skip unexpected byte (0x%02X)", db);
-					continue;
-				}
-				// Serial synchronization ESP3_SER_SYNC received
-				m_bufferpos = 0;
-				m_wantedlen = ESP3_HEADER_LENGTH;
-				m_crc = 0;
-				m_receivestate = ERS_HEADER;
-				continue;
-
-			case ERS_HEADER: // Waiting for 4 byte header
-				m_buffer[m_bufferpos++] = db;
-				m_crc = proc_crc8(m_crc, db);
-				if (m_bufferpos < m_wantedlen)
-					continue;
-
-				// Header received
-
-				m_datalen = (m_buffer[0] << 8) | m_buffer[1];
-				m_optionallen = m_buffer[2];
-				m_packettype = m_buffer[3];
-
-				if ((m_datalen + m_optionallen) == 0)
-				{
-					Log(LOG_ERROR, "Read: Invalid packet size (no data)");
-					break;
-				}
-				if ((m_datalen + m_optionallen + 7) >= ESP3_PACKET_BUFFER_SIZE)
-				{
-					Log(LOG_ERROR, "Read: Invalid packet size (oversized)");
-					break;
-				}
-				m_receivestate = ERS_CRC8H;
-				continue;
-
-			case ERS_CRC8H: // Waiting for header CRC
-				m_buffer[m_bufferpos++] = db;
-				if (db != m_crc)
-				{
-					Log(LOG_ERROR, "Read: CRC8H error (expected 0x%02X got 0x%02X)", m_crc, db);
-					break;
-				}
-				m_crc = 0;
-				m_wantedlen += m_datalen + m_optionallen + 1;
-				m_receivestate = ERS_DATA;
-				continue;
-
-			case ERS_DATA: // Waiting for data CRC
-				m_buffer[m_bufferpos++] = db;
-				m_crc = proc_crc8(m_crc, db);
-				if (m_bufferpos < m_wantedlen)
-					continue;
-
-				// Data + Optional data received
-
-				m_receivestate = ERS_CRC8D;
-				continue;
-
-			case ERS_CRC8D:
-				m_buffer[m_bufferpos++] = db;
-				if (db != m_crc)
-				{
-					Log(LOG_ERROR, "Read: CRC8D error (expected 0x%02X got 0x%02X)", m_crc, db);
-					break;
-				}
-				// Parse ESP3 packet : type + data + optional data
-				uint8_t *data = m_buffer + ESP3_HEADER_LENGTH + 1;
-				uint8_t *optdata = data + m_datalen;
-				ParseESP3Packet(m_packettype, data, m_datalen, optdata, m_optionallen);
-
-				m_receivestate = ERS_SYNCBYTE;
-				continue;
-		}
-		// Rolling back (m_bufferpos) bytes
-		Log(LOG_ERROR, "Read: Rolling back %d bytes", m_bufferpos);
-		if (rbuf != nullptr)
-			rbufpos -= m_bufferpos;
 		else
 		{
-			rbuflen = m_bufferpos;
-			rbuf = (uint8_t *) calloc(rbuflen, sizeof(uint8_t));
-			memcpy(rbuf, m_buffer, rbuflen);
-			rbufpos = 0;
+				if      (synchro != ESP3_SER_SYNC)						Log(LOG_ERROR, "Rec:Skip  synchro %d(%02X) ", synchro, synchro);
+				else if (packetlen > ESP3_PACKET_BUFFER_SIZE)			Log(LOG_ERROR, "Rec:Oversized packet  %d ", packetlen);
+				else if (getHeaderCrc(m_rbuf) != cpHeaderCrc(m_rbuf))	Log(LOG_ERROR, "Rec:Bad header crc : %d(%02X) <> %d(%02X) ", getHeaderCrc(m_rbuf), getHeaderCrc(m_rbuf),  cpHeaderCrc(m_rbuf), cpHeaderCrc(m_rbuf));
+				else if (packetType           ==0 )						Log(LOG_ERROR, "Rec:Bad  Packettype %d(%02X) ", packetType, packetType);
+				else if (packetType			 > 12)						Log(LOG_ERROR, "Rec:Bad  Packettype %d(%02X) ", packetType, packetType);
+
+				//shift buffer
+				if (m_rbuflen > 1)
+					memcpy(m_rbuf, &m_rbuf[1], m_rbuflen - 1);
+				m_rbuflen--;
 		}
-		m_receivestate = ERS_SYNCBYTE;
 	}
 }
 
