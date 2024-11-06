@@ -103,8 +103,8 @@ private:
 
 //	enocean::T_NODES m_nodes;
 
-	uint8_t m_buffer[ESP3_PACKET_BUFFER_SIZE];
-	uint32_t m_bufferpos;
+	uint8_t m_rbuf[ESP3_PACKET_BUFFER_SIZE*10];
+	size_t  m_rbuflen ;
 
 	enum ReceiveState
 	{
@@ -114,14 +114,6 @@ private:
 		ERS_DATA,
 		ERS_CRC8D
 	};
-
-	ReceiveState m_receivestate;
-	uint32_t m_wantedlen;
-	uint8_t m_crc;
-
-	uint8_t m_packettype;
-	uint16_t m_datalen;
-	uint8_t m_optionallen;
 
 	std::mutex m_sendMutex;
 	std::vector<std::string> m_sendqueue;
