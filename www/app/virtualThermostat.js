@@ -123,8 +123,14 @@ Editvirtualthermostatdevice = function (idx, isprotected, refresh, TempSign, HwI
 			});
 		}
 		else {
-			//error
-			return;
+			//create 
+			//return;
+			Item.CoefProp = 100;
+			Item.CoefInteg = 20 ;
+			Item.EcoTemp   = 16 ;
+			Item.ConforTemp=20 ;
+			
+			
 		}
 		$.Item = Item;
 
