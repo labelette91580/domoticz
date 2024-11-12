@@ -12,6 +12,98 @@ define(['app', 'timers/factories', 'timers/components','timers/planning'], funct
         vm.deleteTimer = utils.confirmDecorator(deleteTimer, deleteConfirmationMessage);
         vm.clearTimers = utils.confirmDecorator(clearTimers, clearConfirmationMessage);
 
+        AddXmlDialog = function () {
+            var obj = $("#dialog-copy");
+            if (obj.length == 0)
+                $(document.body).append(`
+<div id="dialog-copy" title="Copy Timers" style="display:none;">
+		<form>
+				<label for="sensor"><span data-i18n="Sensor">Sensor</span>: </label>
+				<select id="sensor" style="width:250px" class="combobox ui-corner-all">
+
+				</select>
+		</form>
+</div>
+        `);
+
+        };
+
+        RefreshDeviceCombo = function (ComboName, filter, clear) {
+            //get list
+
+            $.List = [];
+            $.ajax({
+                url: "json.htm?type=command&param=getdevices&filter=" + filter + "&used=true&order=Name",
+                async: false,
+                dataType: 'json',
+                success: function (data) {
+                    if (typeof data.result != 'undefined') {
+                        $.each(data.result, function (i, item) {
+                            console.log("idx:" + item.idx + "name:" + item.Name);
+                            $.List.push({
+                                idx: item.idx,
+                                name: item.Name
+                            });
+                        });
+                    }
+                }
+            });
+            var Combo = $(ComboName);
+            if (clear) Combo.find('option').remove().end();
+            $.each($.List, function (i, item) {
+                var option = $('<option />');
+                option.attr('value', item.idx).text(item.name);
+                Combo.append(option);
+            });
+            var option = $('<option />');
+            option.attr('value', '0').text('');
+            //    Combo.append(option);
+        }
+
+        vm.copySetPoints = function () {
+            AddXmlDialog();
+            $("#dialog-copy").dialog({
+                autoOpen: false,
+                width: 400,
+                height: 160,
+                modal: true,
+                resizable: false,
+                buttons: {
+                    "OK": function () {
+                        var bValid = true;
+                        $(this).dialog("close");
+
+                        var SensorIdx = $("#dialog-copy #sensor option:selected").val();
+                        var SensorName = $("#dialog-copy #sensor option:selected").text();
+                        if (typeof SensorName == 'undefined') {
+                            bootbox.alert($.t('No Sensor Type Selected!'));
+                            return;
+                        }
+
+                        vm.refreshTimersFromIdx(SensorIdx);
+
+                        bootbox.alert($.t('Sensor Timer ' + SensorName + ' copied!'));
+
+                    },
+                    Cancel: function () {
+                        $(this).dialog("close");
+                    }
+                },
+                close: function () {
+                    $(this).dialog("close");
+                }
+            });
+            if (vm.device.isSetpointTimers)
+                RefreshDeviceCombo("#dialog-copy #sensor", "utility", true);
+            else
+                RefreshDeviceCombo("#dialog-copy #sensor", "light", true);
+
+            $("#dialog-copy").i18n();
+            $("#dialog-copy").dialog("open");
+
+        };
+
+
         init();
 
         function init() {
@@ -41,8 +133,9 @@ define(['app', 'timers/factories', 'timers/components','timers/planning'], funct
 				}
                 vm.isSetpointTimers = (device.Type === 'Setpoint' && device.SubType == 'SetPoint') || (device.Type === 'Radiator 1') || (device.Type === 'Thermostat 6');
 				vm.isBlind = (type == 'blinds');
-				//vm.isBlind = [3, 13, 14, 15, 21].includes(device.SwitchTypeVal);
-
+                //vm.isBlind = [3, 13, 14, 15, 21].includes(device.SwitchTypeVal);
+                vm.device.isSetpointTimers = vm.isSetpointTimers;
+                vm.device.isBlind = vm.isBlind;
                 vm.levelOptions = [];
 
                 deviceTimers = vm.isSetpointTimers
@@ -67,6 +160,12 @@ define(['app', 'timers/factories', 'timers/components','timers/planning'], funct
                     vm.timerSettings.level = vm.levelOptions[0].value;
                 }
 
+                vm.refreshTimersFromIdx = refreshTimersFromIdx;
+
+                deviceTimers = vm.isSetpointTimers
+                    ? deviceSetpointTimersApi
+                    : deviceRegularTimersApi;
+
 
                 if (!vm.isLED) 
                     $(document).trigger("timersInitialized", [vm, refreshTimers]);//<===Update for Planning
@@ -86,6 +185,16 @@ define(['app', 'timers/factories', 'timers/components','timers/planning'], funct
 
             deviceTimers.getTimers(vm.deviceIdx).then(function (items) {
                 $( document ).trigger( "timersLoaded", [items] );//<===Update for Planning
+                vm.timers = items;
+            });
+
+
+        }
+        function refreshTimersFromIdx(Idx) {
+            vm.selectedTimerIdx = null;
+
+            deviceTimers.getTimers(Idx).then(function (items) {
+                $(document).trigger("timersLoaded", [items]);//<===Update for Planning
                 vm.timers = items;
             });
 
