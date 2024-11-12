@@ -737,6 +737,7 @@ PlanningTimerSheet = function(options){
 							<div class="ts-actions">\
 								<div class="ts-clearTimeSheet" >'+ $.t('Clear') +'</div>\
 								<div class="ts-updateSetPoints" >'+ $.t('Update') +'</div>\
+								<div class="ts-copySetPoints"   >'+ $.t('Copy') +'</div>\
 								<input id="oew_oddeven" type="checkbox" '+ (defaults.odd_even_week ?"checked" :"") +' /><label for="oew_oddeven">' + $.t("Odd Week Numbers") + ' & ' + $.t("Even Week Numbers")  + '</label>\
 								<div class="ts-DisableSetPoints" >'+ $.t('deactivate all') +'</div>\
 								<div class="ts-EnableSetPoints" ">'+ $.t('activate all') +'</div>\
@@ -874,6 +875,9 @@ PlanningTimerSheet = function(options){
 
 		$element.find('.ts-updateSetPoints').click(function(){
 			updateSetPoints();
+		});
+		$element.find('.ts-copySetPoints').click(function () {
+			options.copySetPoints();
 		});
 
 		$element.find('.ts-DisableSetPoints').click(function(){
@@ -1036,6 +1040,7 @@ $( document ).on( "timersInitialized", function(event, vm,refreshTimers){
 							 "propValueAjax":"command"});
 	}
 	 options.device = vm.device;
+	options.copySetPoints = vm.copySetPoints;
 	PlanningTimerSheet(options);
 	$("#copyright").hide();
 });
