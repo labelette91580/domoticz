@@ -102,7 +102,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;NOMINMAX;ENABLE_PYTHON;WITH_OPENZWAVE;OPENZWAVE_USEDLL;_DEBUG;PTW32_STATIC_LIB;WWW_ENABLE_SSL;HAVE_SNPRINTF;JSON_DLL;WITH_TLS;_CONSOLE;BOOST_CONFIG_SUPPRESS_OUTDATED_MESSAGE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../msbuild/Windows Libraries/openzwave/openzwave;../hardware/plugins/Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../msbuild/Windows Libraries/openzwave/openzwave;../hardware/plugins/Include;../extern/jwtcpp/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <EnablePREfast>false</EnablePREfast>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -704,12 +704,11 @@
     <ClInclude Include="..\hardware\TeleinfoTCP.h" />
     <ClInclude Include="..\hardware\TelldusFunctions.h" />
     <ClInclude Include="..\hardware\Tellstick.h" />
-    <ClInclude Include="..\hardware\Thermosmart.h" />
-    <ClInclude Include="..\hardware\ThermostatHardware.h" />
     <ClInclude Include="..\hardware\ToonThermostat.h" />
     <ClInclude Include="..\hardware\TTNMQTT.h" />
     <ClInclude Include="..\hardware\USBtin.h" />
     <ClInclude Include="..\hardware\USBtin_MultiblocV8.h" />
+    <ClInclude Include="..\hardware\ThermostatHardware.h" />
     <ClInclude Include="..\hardware\VirtualThermostat.h" />
     <ClInclude Include="..\hardware\VisualCrossing.h" />
     <ClInclude Include="..\hardware\VolcraftCO20.h" />
@@ -1011,7 +1010,6 @@
     <ClCompile Include="..\hardware\TeleinfoTCP.cpp" />
     <ClCompile Include="..\hardware\Tellstick.cpp" />
     <ClCompile Include="..\hardware\TellstickFactory.cpp" />
-    <ClCompile Include="..\hardware\Thermosmart.cpp" />
     <ClCompile Include="..\hardware\ToonThermostat.cpp" />
     <ClCompile Include="..\hardware\TTNMQTT.cpp" />
     <ClCompile Include="..\hardware\USBtin.cpp" />
