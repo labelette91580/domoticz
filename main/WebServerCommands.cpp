@@ -523,7 +523,7 @@ namespace http
 					root["status"] = "OK";
 					break;
 				}
-				case "getlightswitchesscenescase"_sh:
+				case "getlightswitchesscenes"_sh:
 				{
 					root["title"] = "GetLightSwitchesScenes";
 					int ii = 0;
@@ -606,7 +606,7 @@ namespace http
 					root["status"] = "OK";
 					break;
 				}
-				case "getcamactivedevicescase"_sh:
+				case "getcamactivedevices"_sh:
 				{
 					root["title"] = "GetCameraActiveDevices";
 					std::string idx = request::findValue(&req, "idx");
@@ -660,7 +660,7 @@ namespace http
 					root["status"] = "OK";
 					break;
 				}
-				case "resetsecuritystatuscase"_sh:
+				case "resetsecuritystatus"_sh:
 				{
 					root["title"] = "ResetSecurityStatus";
 					std::string idx = request::findValue(&req, "idx");
@@ -684,6 +684,7 @@ namespace http
 					if (nValue >= 0)
 					{
 						m_sql.safe_query("UPDATE DeviceStatus SET nValue=%d WHERE (ID == '%q')", nValue, idx.c_str());
+						m_sql.UpdateLastUpdate(idx);
 					}
 					root["status"] = "OK";
 					break;

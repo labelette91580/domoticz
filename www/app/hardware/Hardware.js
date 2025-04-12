@@ -334,7 +334,8 @@ define(['app','app/virtualThermostat.js'], function (app) {
 				(text.indexOf("Evohome") >= 0 && text.indexOf("script") >= 0) ||
 				(text.indexOf("YeeLight") >= 0) ||
 				(text.indexOf("Arilux AL-LC0x") >= 0) ||
-				(text.indexOf("sysfs GPIO") >= 0)
+				(text.indexOf("sysfs GPIO") >= 0) ||
+				(text.indexOf("Tado") >= 0)
 				)
 			 {
 				// if hardwaretype == 1000 => I2C sensors grouping
@@ -1313,8 +1314,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 				(text.indexOf("ICY") >= 0) ||
 				(text.indexOf("Atag") >= 0) ||
 				(text.indexOf("Nest Th") >= 0 && text.indexOf("OAuth") === -1) ||
-				(text.indexOf("PVOutput") >= 0) ||
-				(text.indexOf("Tado") >= 0)
+				(text.indexOf("PVOutput") >= 0)
 			) {
 				var username = $("#hardwarecontent #divlogin #username").val();
 				var password = encodeURIComponent($("#hardwarecontent #divlogin #password").val());
@@ -1439,6 +1439,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 				var clientsecret = $("#hardwarecontent #divnetatmo #clientsecret").val();
 				var scope = $("#hardwarecontent #divnetatmo #scope").val();
 				var refreshtoken = (typeof $scope.refreshToken == 'undefined' ? "" : $scope.refreshToken);
+				var accesstoken = (typeof $scope.refreshToken == 'undefined' ? "" : $scope.refreshToken);
 
 				if (clientid == "" || clientsecret == "") {
 					alert("Please enter a valid client ID and secret for your app from the Netatmo website!");
@@ -1923,7 +1924,8 @@ define(['app','app/virtualThermostat.js'], function (app) {
 				(text.indexOf("Tellstick") >= 0) ||
 				(text.indexOf("Motherboard") >= 0) ||
 				(text.indexOf("YeeLight") >= 0) ||
-				(text.indexOf("Arilux AL-LC0x") >= 0)
+				(text.indexOf("Arilux AL-LC0x") >= 0) ||
+				(text.indexOf("Tado") >= 0)
 			) {
 				$.ajax({
 					url: "json.htm?type=command&param=addhardware&htype=" + hardwaretype +
@@ -2943,7 +2945,6 @@ define(['app','app/virtualThermostat.js'], function (app) {
 				(text.indexOf("Atag") >= 0) ||
 				(text.indexOf("Nest Th") >= 0 && text.indexOf("OAuth") === -1) ||
 				(text.indexOf("PVOutput") >= 0) ||
-				(text.indexOf("Tado") >= 0) ||
 				(text.indexOf("HTTP") >= 0)
 			) {
 				var username = $("#hardwarecontent #divlogin #username").val();
@@ -3924,16 +3925,16 @@ define(['app','app/virtualThermostat.js'], function (app) {
 
 		EnableUpdateAndDeleteButtons = function (enableFlag,hrefUpdate = "", hrefDelete = "") {
 			if (enableFlag){
-				$('#updelclr #hardwareupdate').attr("class", "btnstyle3");
 				$("#updelclr #hardwareupdate").attr("href", hrefUpdate);
-				$('#updelclr #hardwaredelete').attr("class", "btnstyle3");
 				$("#updelclr #hardwaredelete").attr("href", hrefDelete);
+				$('#updelclr #hardwareupdate').show();
+				$('#updelclr #hardwaredelete').show();
 			}
 			else {
-				$('#updelclr #hardwareupdate').attr("class", "btnstyle3-dis");
 				$("#updelclr #hardwareupdate").removeAttr("href");
-				$('#updelclr #hardwaredelete').attr("class", "btnstyle3-dis");
 				$("#updelclr #hardwaredelete").removeAttr("href");
+				$('#updelclr #hardwareupdate').hide();
+				$('#updelclr #hardwaredelete').hide();
 			}
 		}
 
@@ -4300,7 +4301,8 @@ define(['app','app/virtualThermostat.js'], function (app) {
 							(data["Type"].indexOf("PiFace") >= 0) ||
 							(data["Type"].indexOf("Tellstick") >= 0) ||
 							(data["Type"].indexOf("Yeelight") >= 0) ||
-							(data["Type"].indexOf("Arilux AL-LC0x") >= 0)
+							(data["Type"].indexOf("Arilux AL-LC0x") >= 0) ||
+							(data["Type"].indexOf("Tado") >= 0)
 						) {
 							//nothing to be set
 						}
@@ -4693,7 +4695,6 @@ define(['app','app/virtualThermostat.js'], function (app) {
 							(data["Type"].indexOf("MySensors Gateway with MQTT") >= 0) ||
 							(data["Type"].indexOf("Netatmo") >= 0) ||
 							(data["Type"].indexOf("HTTP") >= 0) ||
-							(data["Type"].indexOf("Tado") >= 0) ||
 							(data["Type"].indexOf("Tesla") >= 0) ||
 							(data["Type"].indexOf("Mercedes") >= 0) ||
 							(data["Type"].indexOf("Logitech Media Server") >= 0) ||
@@ -4876,24 +4877,25 @@ define(['app','app/virtualThermostat.js'], function (app) {
 
 								const parsedJsonData = JSON.parse(data);
 								$scope.refreshToken = parsedJsonData.refresh_token;
+								$scope.accessToken  = parsedJsonData.access_token;
 								if ($scope.refreshToken == "") {
 									alert('Access denied: Failed to receive a valid token from server: ' + decodeJsonValues(xhr.responseText), ', ');
 									console.log('Error: Access denied: Failed to receive a valid token from server: ' + data);
-									$scope.loginRequired = true; //Still need to login
+									$scope.loginRequired = true;     //Still need to login
 								}
 								else
-									$scope.loginRequired = false //Login done: Notify server
+									$scope.loginRequired = false     //Login done: Notify server
 							} else {
 								alert('Access denied: Failed to receive a valid reponse from server (' + xhr.status + "): " + decodeJsonValues(xhr.responseText), ', ');
 								console.log(`Error: Access denied: Failed to receive a valid reponse from server:  ${xhr.status}`);
-								$scope.loginRequired = true; //Still need to login
+								$scope.loginRequired = true;             //Still need to login
 							}
 							var href = $("#updelclr #hardwareupdate").attr("href");
 							if (typeof href == 'undefined') {
-								AddHardware ();	//Is Selected device, update
+								AddHardware ();	                         //Is not a selected device. so must be new
 							}
 							else
-								UpdateHardware (idx, 0, 0, 0, 0, 0, 0);	//Is not a selected device. so must be new
+								UpdateHardware (idx, 0, 0, 0, 0, 0, 0);	 //Is Selected device, update
 						}
 
 						var body = "grant_type=authorization_code"
@@ -5072,6 +5074,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 			if (!$.isNumeric($("#hardwarecontent #hardwareparamstable #combotype option:selected").val())) {
 				$("#hardwarecontent #extrahw").val("");
 				$("#hardwarecontent #divextrahwparams").empty();
+				$("#hardwarecontent #divextrahwparams").hide();
 				$("#hardwarecontent #divpythonplugin .plugin").hide();
 				var plugin = $("#hardwarecontent #hardwareparamstable #combotype option:selected").attr("id");
 				$("#hardwarecontent #divpythonplugin .plugin").each(function () { if ($(this).attr("id") === plugin) $(this).show(); });
@@ -5081,10 +5084,12 @@ define(['app','app/virtualThermostat.js'], function (app) {
 
 			if (extraHWTable[text]) {
 				loadExtraHWCode(extraHWTable[text], data);
+				$("#hardwarecontent #divextrahwparams").show();
 				return;
 			} else {
 				$("#hardwarecontent #extrahw").val("");
 				$("#hardwarecontent #divextrahwparams").empty();
+				$("#hardwarecontent #divextrahwparams").hide();
 			}
 
 			if (text.indexOf("eHouse") >= 0) {
@@ -5275,8 +5280,7 @@ define(['app','app/virtualThermostat.js'], function (app) {
 				(text.indexOf("ICY") >= 0) ||
 				(text.indexOf("Atag") >= 0) ||
 				(text.indexOf("Nest Th") >= 0 && text.indexOf("OAuth") === -1) ||
-				(text.indexOf("PVOutput") >= 0) ||
-				(text.indexOf("Tado") >= 0)
+				(text.indexOf("PVOutput") >= 0)
 			) {
 				$("#hardwarecontent #divlogin").show();
 			}
