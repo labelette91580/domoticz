@@ -48,7 +48,7 @@ class CNetatmo : public CDomoticzHardwareBase
         void SetSetpoint(unsigned long ID, const float temp);
         bool SetProgramState(const int uid, const int newState);
 	bool SetDimmerState(const int uid, const int newState);
-        void Get_Respons_API(const m_eNetatmoType& NType, std::string& sResult, std::string& home_id, bool& bRet, Json::Value& root, std::string extra_data);
+        void Get_Response_API(const m_eNetatmoType& NType, std::string& sResult, std::string& home_id, bool& bRet, Json::Value& root, std::string extra_data);
 
       private:
         struct m_tNetatmoDevice
@@ -74,18 +74,15 @@ class CNetatmo : public CDomoticzHardwareBase
 	std::string m_password;
 	std::string m_accessToken;
 	std::string m_refreshToken;
+	std::string m_netatmo_api_uri;
 	std::vector<m_tNetatmoDevice> m_known_thermotats;
 	std::map<int, std::string> m_thermostatModuleID;
 	bool m_bPollThermostat;
 	bool m_bPollWeatherData;
 	bool m_bPollHomecoachData;
 	bool m_bPollGetEvents;
-	bool m_bPollHomeData;
-	bool m_bPollHomesData;
 	bool m_bPollHomeStatus;
-	bool m_bPollHome;
 	bool m_bFirstTimeHomeStatus;
-	bool m_bFirstTimeThermostat;
 	bool m_bFirstTimeWeatherData;
 	bool m_bForceSetpointUpdate;
 	time_t m_tSetpointUpdateTime;
@@ -126,8 +123,8 @@ class CNetatmo : public CDomoticzHardwareBase
 	bool Login();
 	bool RefreshToken(bool bForce = false);
 	bool LoadRefreshToken();
-	void StoreRefreshToken();
-	void StoreRequestTokenFlag(bool bFlag = false);
+	void StoreRefreshToken(bool bFlag = false);
+
 	bool m_isLogged;
 	bool m_ErrorFlag;
 	bool m_bForceLogin;
@@ -137,7 +134,6 @@ class CNetatmo : public CDomoticzHardwareBase
 	m_eNetatmoType m_homecoachType;
 	m_eNetatmoType m_energyType;
 
-	int m_ActHome;
 	std::vector<std::string> m_homeid;
 	std::string m_Home_ID;
 	std::string m_Home_name;
