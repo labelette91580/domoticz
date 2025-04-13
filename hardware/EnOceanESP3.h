@@ -148,7 +148,7 @@ private:
 	uint32_t m_last_blind_nodeID = 0;
 	uint8_t m_last_blind_position = 0xFF;
 	std::string GetDbValue(const char *tableName, const char *fieldName, const char *whereFieldName, const char *whereFielValue);
-	void sendVld(unsigned int destID, int channel, int value);
-	void sendVld(unsigned int destID, unsigned char *data, int DataLen);
-	uint32_t sendVld(unsigned int destID, enocean::T_DATAFIELD *OffsetDes, ...);
+	void sendVld(unsigned int sID, unsigned int destID, int channel, int value);
+	void sendVld(unsigned int sID, unsigned int destID, unsigned char *data, int DataLen);
+	uint32_t sendVld(unsigned int unitBaseAddr, unsigned int destID, enocean::T_DATAFIELD *OffsetDes, ...);
 };

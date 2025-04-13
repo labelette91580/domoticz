@@ -2105,7 +2105,7 @@ bool CEnOceanESP3::WriteToHardware(const char *pdata, const unsigned char length
 		optbuf[6] = 0x00; // Seurity Level : Send = ignored
 
 		// Could be replaced by :
-		// sendVld(nodeID, D20100_CMD1, 1,0, tsen->LIGHTING2.unitcode - 1, (tsen->LIGHTING2.cmnd == light2_sOn) ? 0x64 : 0x00 , END_ARG_DATA);
+		// sendVld(m_id_src,nodeID, D20100_CMD1, 1,0, tsen->LIGHTING2.unitcode - 1, (tsen->LIGHTING2.cmnd == light2_sOn) ? 0x64 : 0x00 , END_ARG_DATA);
 
 		Debug(DEBUG_NORM, "Send switch %s to Node %08X (%s)",
 			(tsen->LIGHTING2.cmnd == light2_sOn) ? "On" : "Off", nodeID, pNode->name.c_str());
@@ -2138,7 +2138,7 @@ bool CEnOceanESP3::WriteToHardware(const char *pdata, const unsigned char length
 		Debug(DEBUG_NORM, "Send Set Pilot Wire Mode %d (%s) to Node %08X (%s)",
 			PilotWireMode, PilotWireModeStr[PilotWireMode], nodeID, pNode->name.c_str());
 
-		sendVld(nodeID, D20100_CMD8, 8, PilotWireMode, END_ARG_DATA);
+		sendVld(m_id_src,nodeID, D20100_CMD8, 8, PilotWireMode, END_ARG_DATA);
 		return true;
 	}
 	if ((pNode->RORG == RORG_VLD || pNode->RORG == UNKNOWN_RORG) && pNode->func == 0x05 && pNode->type >= 0x00 && pNode->type <= 0x05)
@@ -2166,10 +2166,10 @@ bool CEnOceanESP3::WriteToHardware(const char *pdata, const unsigned char length
 			m_last_blind_position = 0xFF;
 
 			// Send Stop Command
-			sendVld(nodeID, D2050X_CMD2, CHN, 2, END_ARG_DATA);
+			sendVld(m_id_src,nodeID, D2050X_CMD2, CHN, 2, END_ARG_DATA);
 
 			// Query Position and Angle
-			sendVld(nodeID, D2050X_CMD3, CHN, 3, END_ARG_DATA);
+			sendVld(m_id_src,nodeID, D2050X_CMD3, CHN, 3, END_ARG_DATA);
 			return true;
 
 		case gswitch_sOpen:
@@ -2190,7 +2190,7 @@ bool CEnOceanESP3::WriteToHardware(const char *pdata, const unsigned char length
 		}
 		m_last_blind_position = POS;
 
-		sendVld(nodeID, D2050X_CMD1, POS, 127, 0, 0, CHN, 1, END_ARG_DATA);
+		sendVld(m_id_src,nodeID, D2050X_CMD1, POS, 127, 0, 0, CHN, 1, END_ARG_DATA);
 		return true;
 	}
 	Log(LOG_ERROR, "Node %08X (%s) can not be used as a switch", nodeID, pNode->name.c_str());
@@ -3741,7 +3741,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 							CreateBlindSwitch(senderID, nbc, STYPE_BlindsPercentageWithStop, true, false, false, gswitch_sOpen, 100, pNode->name, m_Name, 255, rssi);
 
 							// Make sure blind control is enabled
-							sendVld(senderID, D2050X_CMD1, 127, 127, 0, 7, nbc - 1, 1, END_ARG_DATA);
+							sendVld(m_id_src,senderID, D2050X_CMD1, 127, 127, 0, 7, nbc - 1, 1, END_ARG_DATA);
 						}
 						return;
 					}
@@ -3870,7 +3870,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						//Value: 0x04 = Power [KW]
 
 						//send CMD 0x9 - Actuator Pilot Wire Mode Query
-						//sendVld(senderID, D20100_CMD9,  9 , END_ARG_DATA);
+						//sendVld(m_id_src,senderID, D20100_CMD9,  9 , END_ARG_DATA);
 						return;
 					}
 					if (CMD == 0xA)
@@ -4360,7 +4360,7 @@ std::string CEnOceanESP3::GetDbValue(const char *tableName, const char *fieldNam
 		return result[0][0];
 }
 
-void CEnOceanESP3::sendVld(unsigned int destID, int channel, int value)
+void CEnOceanESP3::sendVld(unsigned int sID, unsigned int destID, int channel, int value)
 {
 	unsigned char buff[16];
 
@@ -4368,10 +4368,10 @@ void CEnOceanESP3::sendVld(unsigned int destID, int channel, int value)
 	buff[1] = 0x01;
 	buff[2] = channel;
 	buff[3] = value;
-	buff[4] = (m_id_src >> 24) & 0xff; // Sender ID
-	buff[5] = (m_id_src >> 16) & 0xff;
-	buff[6] = (m_id_src >> 8) & 0xff;
-	buff[7] = m_id_src & 0xff;
+	buff[4] = (sID >> 24) & 0xff; // Sender ID
+	buff[5] = (sID >> 16) & 0xff;
+	buff[6] = (sID >> 8) & 0xff;
+	buff[7] = sID & 0xff;
 	buff[8] = 0; //status
 
 	//optionnal data
@@ -4385,7 +4385,7 @@ void CEnOceanESP3::sendVld(unsigned int destID, int channel, int value)
 }
 
 // Send a VLD datagramm with payload : data to device Id sID
-void CEnOceanESP3::sendVld(unsigned int destID, unsigned char *data, int DataLen)
+void CEnOceanESP3::sendVld(unsigned int sID, unsigned int destID, unsigned char *data, int DataLen)
 {
 	unsigned char buffer[256];
 
@@ -4397,10 +4397,10 @@ void CEnOceanESP3::sendVld(unsigned int destID, unsigned char *data, int DataLen
 	for (int i = 0; i < DataLen; i++)
 		*buff++ = *data++;
 
-	*buff++ = (m_id_src >> 24) & 0xff; // Sender ID
-	*buff++ = (m_id_src >> 16) & 0xff;
-	*buff++ = (m_id_src >> 8) & 0xff;
-	*buff++ = m_id_src & 0xff;
+	*buff++ = (sID >> 24) & 0xff; // Sender ID
+	*buff++ = (sID >> 16) & 0xff;
+	*buff++ = (sID >> 8) & 0xff;
+	*buff++ = sID & 0xff;
 	*buff++ = 0; //status
 
 	//optionnal data
@@ -4434,7 +4434,7 @@ void CEnOceanESP3::sendVld(unsigned int destID, unsigned char *data, int DataLen
  * sendVld(nodeID, D2050X_CMD2, 0, 2, END_ARG_DATA);
  *   send a Stop command to destID channel 0
  */
-uint32_t CEnOceanESP3::sendVld(unsigned int destID, T_DATAFIELD *OffsetDes, ...)
+uint32_t CEnOceanESP3::sendVld(unsigned int srcID, unsigned int destID, T_DATAFIELD *OffsetDes, ...)
 {
 	uint8_t data[256 + 2];
 	va_list value;
@@ -4446,7 +4446,7 @@ uint32_t CEnOceanESP3::sendVld(unsigned int destID, T_DATAFIELD *OffsetDes, ...)
 
 	uint32_t DataSize = SetRawValues(data, OffsetDes, value);
 	if (DataSize)
-		sendVld(destID, data, DataSize);
+		sendVld(srcID, destID, data, DataSize);
 	else
 		Log(LOG_ERROR, "sendVld: invalid argument number, cmd %s : %s ", OffsetDes->ShortCut.c_str(), OffsetDes->description.c_str());
 
