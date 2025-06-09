@@ -71,6 +71,7 @@ class MQTTAutoDiscover : public MQTT
 		bool bColor_mode = false;
 		std::map<std::string, uint8_t> supported_color_modes;
 		std::string color_temp_value_template;
+		std::string color_temp_command_template;
 		std::string hs_value_template;
 
 		int min_mireds = 153;
@@ -116,6 +117,9 @@ class MQTTAutoDiscover : public MQTT
 		std::string swing_state_template;
 		std::vector<std::string> swing_modes;
 
+		std::string action_topic;
+		std::string action_template;
+		std::vector<std::tuple<std::string, std::string>> action_modes;
 
 		double temp_step = 1;
 		double temp_max = 35;
@@ -190,6 +194,7 @@ private:
 	bool SendCoverCommand(_tMQTTASensor* pSensor, const std::string& DeviceName, std::string command, int level, const std::string& user);
 	void CleanValueTemplate(std::string& szValueTemplate);
 	void FixCommandTopic(std::string& command_topic, std::string& state_template);
+	bool parseMapTemplate(const std::string& templateStr, std::vector<std::tuple<std::string, std::string>>& valuesMap, std::string& szKey);
 	std::string GetValueTemplateKey(const std::string& szValueTemplate);
 	std::string GetValueFromTemplate(Json::Value root, std::string szValueTemplate, bool &isNull);
 	bool SetValueWithTemplate(Json::Value& root, std::string szValueTemplate, std::string szValue);

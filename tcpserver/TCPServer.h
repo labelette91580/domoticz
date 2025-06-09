@@ -63,6 +63,7 @@ public:
 	void stop() override;
 	/// Stop the specified connection.
 	void stopClient(CTCPClient_ptr c) override;
+	bool flghandle_stop_Completed;
 
 private:
 	void handleAccept(const boost::system::error_code& error);
@@ -98,7 +99,7 @@ public:
 	void DoDecodeMessage(const CTCPClientBase *pClient, const uint8_t* pData, size_t len);
 private:
 	std::mutex m_server_mutex;
-	CTCPServerInt *m_pTCPServer;
+	std::shared_ptr <CTCPServerInt> m_TCPServer;
 	std::shared_ptr<std::thread> m_thread;
 	bool StartHardware() override
 	{

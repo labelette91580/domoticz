@@ -11,6 +11,7 @@
 #include "../notifications/NotificationHelper.h"
 #include <iostream>
 #include <set>
+#include <regex>
 
 std::set<std::string> allowed_components = {
 		"binary_sensor",
@@ -44,6 +45,7 @@ enum SwitchCommands {
 #define FAN_PRESET_UNIT 3
 #define CLIMATE_FAN_MODE_UNIT 4
 #define CLIMATE_SWING_MODE_UNIT 5
+#define CLIMATE_ACTION_UNIT 6
 
 MQTTAutoDiscover::MQTTAutoDiscover(const int ID, const std::string& Name, const std::string& IPAddress, const unsigned short usIPPort, const std::string& Username, const std::string& Password,
 	const std::string& CAfilenameExtra, const int TLS_Version)
@@ -517,9 +519,55 @@ void MQTTAutoDiscover::FixCommandTopic(std::string& command_topic, std::string& 
 	command_topic = command_topic.substr(0, pos);
 }
 
+// Function to parse and process the template string
+bool MQTTAutoDiscover::parseMapTemplate(const std::string& templateStr, std::vector<std::tuple<std::string, std::string>>& valuesMap, std::string& szKey)
+{
+	// Define a regex pattern to match the dictionary in the template string
+	std::regex dictPattern(R"(\{\% set values.*?=.*?\{(.*?)\} %\})");
+	std::smatch matches;
+
+	if (std::regex_search(templateStr, matches, dictPattern)) {
+		std::string dictString = matches[1].str();
+
+		// Define a regex pattern to match key-value pairs in the dictionary string
+		std::regex kvPattern(R"(('[^']*'|\"[^\"]*\"|[^,:]+):('[^']*'|\"[^\"]*\"|[^,]*))");
+
+		auto dictBegin = dictString.cbegin(); // Use cbegin() for const_iterator
+		auto dictEnd = dictString.cend();    // Use cend() for const_iterator
+
+		while (std::regex_search(dictBegin, dictEnd, matches, kvPattern)) {
+			std::string key = matches[1].str();
+			std::string value = matches[2].str();
+
+			// Remove surrounding spaces/quotes if present
+			key.erase(0, key.find_first_not_of(" \t\r\n'\""));
+			key.erase(key.find_last_not_of(" \t\r\n'\"") + 1);
+			value.erase(0, value.find_first_not_of(" \t\r\n'\""));
+			value.erase(value.find_last_not_of(" \t\r\n'\"") + 1);
+
+			valuesMap.push_back(std::make_tuple(key, value));
+			dictBegin = matches.suffix().first;
+		}
+
+		// Extract the placeholder in the template string
+		std::regex placeholderPattern(R"(\{\{.*?values\[(.*?)\].*?\}\})");
+		if (std::regex_search(templateStr, matches, placeholderPattern)) {
+			szKey = matches[1].str();
+			szKey.erase(0, szKey.find_first_not_of(" \t\r\n'\""));
+			szKey.erase(szKey.find_last_not_of(" \t\r\n'\"") + 1);
+			return true;
+		}
+	}
+
+	// If no match or error, return an empty string or handle the error accordingly
+	valuesMap.clear();
+	return false;
+}
+
 void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message* message)
 {
 	std::string topic = message->topic;
+
 	std::string org_topic(topic);
 	std::string qMessage = std::string((char*)message->payload, (char*)message->payload + message->payloadlen);
 
@@ -1087,6 +1135,11 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 			pSensor->rgb_command_template = root["rgb_cmd_tpl"].asString();
 		CleanValueTemplate(pSensor->rgb_command_template);
 
+		if (!root["color_temp_command_template"].empty())
+			pSensor->color_temp_command_template = root["color_temp_command_template"].asString();
+		if (!root["color_temp_cmd_tpl"].empty())
+			pSensor->color_temp_command_template = root["color_temp_cmd_tpl"].asString();
+
 		if (!root["rgb_command_topic"].empty())
 			pSensor->rgb_command_topic = root["rgb_command_topic"].asString();
 		if (!root["rgb_cmd_t"].empty())
@@ -1394,6 +1447,23 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 			}
 		}
 
+		if (!root["action_topic"].empty())
+			pSensor->action_topic = root["action_topic"].asString();
+		if (!root["act_t"].empty())
+			pSensor->action_topic = root["act_t"].asString();
+		if (!root["action_template"].empty())
+			pSensor->action_template = root["action_template"].asString();
+		if (!root["act_tpl"].empty())
+			pSensor->action_template = root["act_tpl"].asString();
+		//Special case for Climate action_template
+		if (pSensor->component_type == "climate")
+		{
+			if (!pSensor->action_template.empty())
+			{
+				parseMapTemplate(pSensor->action_template, pSensor->action_modes, pSensor->action_template);
+			}
+		}
+
 		CleanValueTemplate(pSensor->mode_state_template);
 		CleanValueTemplate(pSensor->mode_command_template);
 		CleanValueTemplate(pSensor->fan_state_template);
@@ -1404,12 +1474,14 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 		CleanValueTemplate(pSensor->current_temperature_template);
 		CleanValueTemplate(pSensor->preset_mode_value_template);
 		CleanValueTemplate(pSensor->preset_mode_command_template);
+		CleanValueTemplate(pSensor->action_template);
 
 		FixCommandTopic(pSensor->mode_command_topic, pSensor->mode_command_template);
 		FixCommandTopic(pSensor->fan_command_topic, pSensor->fan_command_template);
 		FixCommandTopic(pSensor->swing_command_topic, pSensor->swing_command_template);
 		FixCommandTopic(pSensor->temperature_command_topic, pSensor->temperature_command_template);
 		FixCommandTopic(pSensor->preset_mode_command_topic, pSensor->preset_mode_command_template);
+		FixCommandTopic(pSensor->action_topic, pSensor->action_template);
 
 		//number (some configs use strings instead of numbers)
 		if (!root["min"].empty())
@@ -1550,6 +1622,9 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 			SubscribeTopic(pSensor->temperature_state_topic, pSensor->qos);
 			SubscribeTopic(pSensor->rgb_state_topic, pSensor->qos);
 			SubscribeTopic(pSensor->percentage_state_topic, pSensor->qos);
+			SubscribeTopic(pSensor->action_topic, pSensor->qos);
+			SubscribeTopic(pSensor->preset_mode_state_topic, pSensor->qos);
+
 		}
 	}
 	catch (const std::exception& e)
@@ -3647,6 +3722,158 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 		}
 	}
 
+	bValid = true;
+	if (!pSensor->action_modes.empty())
+	{
+		pSensor->devType = pTypeGeneralSwitch;
+		pSensor->subType = sSwitchGeneralSwitch;
+		int switchType = STYPE_Selector;
+
+		bool bIsNewDevice = false;
+
+		uint8_t unit = CLIMATE_ACTION_UNIT;
+
+		std::vector<std::vector<std::string>> result;
+		result = m_sql.safe_query("SELECT ID,Name,nValue,sValue,Options FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Type==%d) AND (SubType==%d) AND (Unit==%d)", m_HwdID, pSensor->unique_id.c_str(), pSensor->devType, pSensor->subType, unit);
+		if (result.empty())
+		{
+			// New switch, add it to the system
+			if (!m_sql.m_bAcceptNewHardware)
+			{
+				Log(LOG_NORM, "Accept new hardware disabled. Ignoring new sensor %s", pSensor->name.c_str());
+				return;
+			}
+			bIsNewDevice = true;
+			int iUsed = (pSensor->bEnabled_by_default) ? 1 : 0;
+			std::string szName = pSensor->name + " Action Mode";
+			m_sql.safe_query("INSERT INTO DeviceStatus (HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType, switchType, SignalLevel, BatteryLevel, Name, Used, nValue, sValue, Options) "
+				"VALUES (%d, %d, '%q', %d, %d, %d, %d, %d, %d, '%q', %d, %d, '0', null)",
+				m_HwdID, 0, pSensor->unique_id.c_str(), unit, pSensor->devType, pSensor->subType, switchType, pSensor->SignalLevel, pSensor->BatteryLevel, szName.c_str(), iUsed, 0);
+			result = m_sql.safe_query("SELECT ID,Name,nValue,sValue,Options FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Type==%d) AND (SubType==%d) AND (Unit==%d)", m_HwdID, pSensor->unique_id.c_str(), pSensor->devType, pSensor->subType, unit);
+			if (result.empty())
+				return; // should not happen!
+		}
+
+		if (
+			(pSensor->action_topic == topic)
+			|| (bIsNewDevice)
+			)
+		{
+			std::string current_mode;
+			if (!bIsNewDevice)
+			{
+				if (bIsJSON)
+				{
+					if (!pSensor->action_template.empty())
+					{
+						current_mode = GetValueFromTemplate(root, pSensor->action_template, isNull);
+						if ((pSensor->action_topic == topic) && current_mode.empty())
+						{
+							//Mode not provided
+							bValid = false;
+						}
+					}
+					else
+					{
+						//should have a template for a json value!
+						Log(LOG_ERROR, "Climate device no idea how to interpret action state values (no action template!)(%s)", pSensor->unique_id.c_str());
+						bValid = false;
+					}
+				}
+				else
+				{
+					if (!pSensor->action_template.empty())
+					{
+						current_mode = GetValueFromTemplate(qMessage, pSensor->action_template, isNull);
+						if ((pSensor->action_topic == topic) && current_mode.empty())
+						{
+							//silence error for now
+							current_mode = qMessage;
+							//Log(LOG_ERROR, "Climate device no idea how to interpret state values (%s)", pSensor->unique_id.c_str());
+							//bValid = false;
+						}
+					}
+					else
+						current_mode = qMessage;
+				}
+			}
+
+			if (bValid)
+			{
+				std::string szIdx = result[0][0];
+				uint64_t DevRowIdx = std::stoull(szIdx);
+				std::string szDeviceName = result[0][1];
+				int nValue = atoi(result[0][2].c_str());
+				std::string sValue = result[0][3];
+				std::string sOldOptions = result[0][4];
+				std::map<std::string, std::string> oldOptionsMap = m_sql.BuildDeviceOptions(sOldOptions);
+
+				std::vector<std::string> strarray;
+
+				size_t totalOldOptions = 0;
+				if (oldOptionsMap.find("LevelNames") != oldOptionsMap.end())
+				{
+					StringSplit(oldOptionsMap["LevelNames"], "|", strarray);
+					totalOldOptions = strarray.size();
+				}
+
+				int iActualIndex = current_mode.empty() ? 0 : -1;
+
+				// Build switch options
+				int iValueIndex = 0;
+				std::string tmpOptionString;
+
+				for (const auto& itt : pSensor->action_modes)
+				{
+					std::string szKey = std::get<0>(itt);
+					std::string szValue = std::get<1>(itt);
+
+					if (szKey == current_mode)
+						iActualIndex = iValueIndex;
+					if (!tmpOptionString.empty())
+						tmpOptionString += "|";
+					tmpOptionString += szValue;
+					iValueIndex += 10;
+				}
+
+				if (iActualIndex == -1)
+				{
+					Log(LOG_ERROR, "Climate device invalid/unknown action mode received! (%s: %s)", pSensor->unique_id.c_str(), current_mode.c_str());
+					bValid = false;
+				}
+
+				std::map<std::string, std::string> optionsMap;
+				optionsMap["SelectorStyle"] = "0";
+				optionsMap["LevelOffHidden"] = "false";
+
+				StringSplit(tmpOptionString, "|", strarray);
+				size_t totalOptions = strarray.size();
+
+				if (totalOptions != totalOldOptions)
+				{
+					//Avoid renamed level names by user in Domoticz
+					optionsMap["LevelNames"] = tmpOptionString;
+				}
+				else
+					optionsMap["LevelNames"] = oldOptionsMap["LevelNames"];
+
+
+				std::string newOptions = m_sql.FormatDeviceOptions(optionsMap);
+				if (newOptions != sOldOptions)
+					m_sql.SetDeviceOptions(DevRowIdx, optionsMap);
+
+				pSensor->nValue = (iActualIndex == 0) ? 0 : 2;
+				pSensor->sValue = std_format("%d", iActualIndex);
+
+				if ((pSensor->nValue != nValue) || (pSensor->sValue != sValue))
+				{
+					UpdateValueInt(m_HwdID, pSensor->unique_id.c_str(), unit, pSensor->devType, pSensor->subType, pSensor->SignalLevel, pSensor->BatteryLevel, pSensor->nValue,
+						pSensor->sValue.c_str(), szDeviceName);
+				}
+			}
+		}
+	}
+
 	// Create/update SetPoint Thermostat for config and update payloads 
 	bValid = true;
 	if (!pSensor->temperature_command_topic.empty())
@@ -3884,15 +4111,25 @@ void MQTTAutoDiscover::InsertUpdateSwitch(_tMQTTASensor* pSensor)
 
 		if (bHaveColor)
 		{
-			if (
-				(pSensor->supported_color_modes.find("rgbw") != pSensor->supported_color_modes.end())
-				|| (
-					(pSensor->supported_color_modes.find("rgb") != pSensor->supported_color_modes.end())
-					&& (pSensor->supported_color_modes.find("white") != pSensor->supported_color_modes.end())
-					)
-				)
+			if (pSensor->supported_color_modes.find("rgbw") != pSensor->supported_color_modes.end())
 			{
 				pSensor->subType = sTypeColor_RGB_W_Z;
+			}
+			else if ( (pSensor->supported_color_modes.find("rgb") != pSensor->supported_color_modes.end())
+				      && (pSensor->supported_color_modes.find("white") != pSensor->supported_color_modes.end()))
+			{
+				// if RGB and white, check if white contains coldWhite and warmWhite
+				if (
+					(pSensor->color_temp_command_template.find("coldWhite") != std::string::npos)
+					&& (pSensor->color_temp_command_template.find("warmWhite") != std::string::npos)
+					)
+				{
+					pSensor->subType = sTypeColor_RGB_CW_WW_Z;
+				}
+				else
+				{
+					pSensor->subType = sTypeColor_RGB_W_Z;
+				}
 			}
 			else if (
 				(pSensor->supported_color_modes.find("rgbww") != pSensor->supported_color_modes.end())
@@ -4523,6 +4760,8 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 	std::string command_topic = pSensor->command_topic;
 	SwitchCommands eCommand = SwitchCommands::COMMAND_UNKNOWN;
 
+	bool bSendBrightnessseparately = false;
+
 	if (
 		(pSensor->component_type != "climate")
 		&& (pSensor->component_type != "select")
@@ -4562,6 +4801,7 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 			if (pSensor->rgb_command_topic != pSensor->brightness_command_topic)
 			{
 				eCommand = SwitchCommands::COMMAND_SET_LEVEL_AND_COLOR;
+				bSendBrightnessseparately = !pSensor->brightness_command_topic.empty();
 			}
 			else
 			{
@@ -4754,15 +4994,23 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 					root["color"]["b"] = color.b;
 				}
 				if (
-					(pSensor->supported_color_modes.find("rgbw") != pSensor->supported_color_modes.end())
-					|| (pSensor->supported_color_modes.find("rgbww") != pSensor->supported_color_modes.end())
-					)
+					(pSensor->subType == sTypeColor_RGB_W_Z)
+					|| (pSensor->subType == sTypeColor_RGB_CW_WW_Z)
+					|| (pSensor->subType == sTypeColor_RGB_CW_WW)
+					) 
+				{
 					root["color"]["c"] = color.cw;
-				if (pSensor->supported_color_modes.find("rgbww") != pSensor->supported_color_modes.end())
+				}
+				if (
+					(pSensor->subType == sTypeColor_RGB_CW_WW_Z)
+					|| (pSensor->subType == sTypeColor_RGB_CW_WW)
+					)
+				{
 					root["color"]["w"] = color.ww;
+				}
 
 				// Check if the rgb_command_template suggests to use "red", "green"... instead of the default "r", "g"... (e.g. Fibaro FGRGBW)
-				if (!pSensor->rgb_command_template.empty() && pSensor->rgb_command_template.find("red: red") != std::string::npos)
+				if (pSensor->rgb_command_template.find("red: red") != std::string::npos)
 				{
 					// For the Fibaro FGRGBW dimmer:
 					//  "rgb_command_template": "{{ {'red': red, 'green': green, 'blue': blue}|to_json }}",  
@@ -4772,7 +5020,30 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 					colorDef["red"] = root["color"]["r"];
 					colorDef["green"] = root["color"]["g"];
 					colorDef["blue"] = root["color"]["b"];
-					colorDef["warmWhite"] = root["color"]["c"];		// In Domoticz cw is used for RGB_W dimmers, but Zwavejs requires warmWhite
+					
+					if (
+						(pSensor->subType == sTypeColor_RGB_CW_WW_Z)
+						|| (pSensor->subType == sTypeColor_RGB_CW_WW)
+						)
+					{
+						colorDef["coldWhite"] = root["color"]["c"];
+						colorDef["warmWhite"] = root["color"]["w"];
+					}
+					else if (pSensor->subType == sTypeColor_RGB_W_Z)
+					{
+						// only a single 'white'. check if this is warm or coldwhite. 
+						// If not coldwhite it is warmwhite
+						// Single white is stored as coldwhite within Domoticz
+						if (pSensor->color_temp_command_template.find("coldWhite"))
+						{
+							colorDef["coldWhite"] = root["color"]["c"];
+						}
+						else
+						{
+							colorDef["warmWhite"] = root["color"]["c"];
+						}
+					}
+
 					root["value"] = colorDef;
 					root.removeMember("color");
 				}
@@ -4798,12 +5069,22 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 					else
 						root["color_temp"] = iCT;
 				}
+				else if (pSensor->supported_color_modes.find("white") != pSensor->supported_color_modes.end())
+				{
+					Json::Value colorDef;
+
+					colorDef["coldWhite"] = color.cw;
+					colorDef["warmWhite"] = color.ww;
+
+					root["value"] = colorDef;
+
+				}
 				bCouldUseBrightness = true;
 			}
 			if (!pSensor->rgb_command_topic.empty())
 				command_topic = pSensor->rgb_command_topic;
 
-			if (bCouldUseBrightness && pSensor->bBrightness)
+			if (bCouldUseBrightness && pSensor->bBrightness && !bSendBrightnessseparately)
 			{
 				int slevel = (int)round((pSensor->brightness_scale / 100.0F) * level);
 
@@ -4881,6 +5162,12 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 				szCommandTopic = pSensor->swing_command_topic;
 				if (!pSensor->swing_command_template.empty())
 					state_template = pSensor->swing_command_template;
+			}
+			else if ((!pSensor->action_modes.empty()) && (Unit == CLIMATE_ACTION_UNIT))
+			{
+				//cant set action modes, only read them
+				Log(LOG_STATUS, "Action Mode is a read-only value!");
+				return false;
 			}
 		}
 		else if (
@@ -4962,6 +5249,15 @@ bool MQTTAutoDiscover::SendSwitchCommand(const std::string& DeviceID, const std:
 			command_topic = pSensor->preset_mode_command_topic;
 			if (!pSensor->preset_mode_value_template.empty())
 				state_template = pSensor->preset_mode_value_template;
+			if (state_template.find("value_json.") == 0)
+			{
+				std::string szKey = state_template.substr(state_template.find('.') + 1);
+				//check if command topic ends with szKey
+				if (command_topic.find(szKey) == command_topic.size() - szKey.size())
+				{
+					state_template.clear();
+				}
+			}
 
 			if (!state_template.empty())
 			{

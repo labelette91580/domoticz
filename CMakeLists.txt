@@ -5,6 +5,7 @@ project(domoticz)
 
 INCLUDE(CheckIncludeFile)
 INCLUDE(CheckIncludeFiles)
+INCLUDE(CheckFunctionExists)
 INCLUDE(InstallRequiredSystemLibraries)
 INCLUDE(TestBigEndian)
 
@@ -38,6 +39,8 @@ option(USE_OPENSSL_STATIC "Link OpenSSL static" NO)
 option(USE_STATIC_BOOST "Build with static BOOST libraries" YES)
 option(USE_STATIC_OPENZWAVE "Build with static OpenZwave libraries" YES)
 
+# Disable updater functionality
+option(DISABLE_UPDATER "Disable updater functionality" NO)
 
 # Developer-oriented options
 option(USE_PRECOMPILED_HEADER "Use precompiled header feature to speed up build time " YES)
@@ -176,6 +179,7 @@ main/WebServerCommands.cpp
 main/WebServerHandleGraph.cpp
 main/WebServerHelper.cpp
 main/WindCalculation.cpp
+mdns/mdns.cpp
 iamserver/IamService.cpp
 push/BasePush.cpp
 push/FibaroPush.cpp
@@ -513,7 +517,7 @@ include_directories(${CMAKE_SOURCE_DIR}/main)
 ADD_CUSTOM_TARGET(revisiontag ALL)
 
 # creates appversion.h using cmake script
-ADD_CUSTOM_COMMAND(TARGET revisiontag COMMAND ${CMAKE_COMMAND}
+ADD_CUSTOM_COMMAND(TARGET revisiontag PRE_BUILD COMMAND ${CMAKE_COMMAND}
    -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
    -P ${CMAKE_CURRENT_SOURCE_DIR}/getgit.cmake)
 
@@ -788,19 +792,26 @@ ELSE()
   message(STATUS "Not found telldus-core (telldus-core.h), not adding tellstick support")
 ENDIF(TELLDUSCORE_INCLUDE)
 
-target_link_libraries(domoticz ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${MINIZIP_LIBRARIES} ${CURL_LIBRARIES} pthread ${MQTT_LIBRARIES} ${LUA_LIBRARIES} ${CMAKE_DL_LIBS} ${TELLDUS_LIBRARIES})
-target_link_libraries(domoticztester ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${MINIZIP_LIBRARIES} ${CURL_LIBRARIES} pthread ${MQTT_LIBRARIES} ${LUA_LIBRARIES} ${CMAKE_DL_LIBS} ${TELLDUS_LIBRARIES})
+# Handle resolving
+check_function_exists(res_init HAVE_LIBC_RESOLV)
+if(HAVE_LIBC_RESOLV)
+  set(RESOLV_LIBRARIES)
+else()
+  set(RESOLV_LIBRARIES -lresolv)
+endif()
 
-IF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  target_link_libraries(domoticz -lresolv)
-ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
+target_link_libraries(domoticz ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${MINIZIP_LIBRARIES} ${RESOLV_LIBRARIES} ${CURL_LIBRARIES} pthread ${MQTT_LIBRARIES} ${LUA_LIBRARIES} ${CMAKE_DL_LIBS} ${TELLDUS_LIBRARIES})
+target_link_libraries(domoticztester ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${MINIZIP_LIBRARIES} ${RESOLV_LIBRARIES} ${CURL_LIBRARIES} pthread ${MQTT_LIBRARIES} ${LUA_LIBRARIES} ${CMAKE_DL_LIBS} ${TELLDUS_LIBRARIES})
+
+IF(EXECINFO_LIBRARIES)
   target_link_libraries(domoticz ${EXECINFO_LIBRARIES})
-ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-  target_link_libraries(domoticz ${EXECINFO_LIBRARIES})
-ELSE()
-  target_link_libraries(domoticz -lrt -lresolv ${EXECINFO_LIBRARIES})
-  target_link_libraries(domoticztester -lrt -lresolv ${EXECINFO_LIBRARIES})
-ENDIF()
+ENDIF(EXECINFO_LIBRARIES)
+
+find_library(LIBRT rt)
+if(LIBRT)
+  target_link_libraries(domoticz -lrt)
+  target_link_libraries(domoticztester -lrt)
+endif()
 
 IF(USE_PRECOMPILED_HEADER)
   message(STATUS "Using precompiled headers")

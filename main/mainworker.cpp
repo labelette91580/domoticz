@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <set>
 
+#include "../mdns/mdns.hpp"
+
 //Hardware Devices
 #include "../hardware/hardwaretypes.h"
 #include "../hardware/RFXBase.h"
@@ -195,19 +197,14 @@ extern http::server::_eWebCompressionMode g_wwwCompressMode;
 extern http::server::CWebServerHelper m_webservers;
 extern bool g_bUseEventTrigger;
 extern bool bNoCleanupDev;
+extern domoticz_mdns::mDNS m_mdns;
+extern bool bEnableMDNS;
 
 CFibaroPush m_fibaropush;
 CGooglePubSubPush m_googlepubsubpush;
 CHttpPush m_httppush;
 CInfluxPush m_influxpush;
 CMQTTPush m_mqttpush;
-
-
-namespace tcp {
-	namespace server {
-		class CTCPClient;
-	} //namespace server
-} //namespace tcp
 
 MainWorker::MainWorker()
 {
@@ -1192,6 +1189,42 @@ bool MainWorker::Start()
 		LoadSharedUsers();
 	}
 
+	if (bEnableMDNS)
+	{
+		if (
+			m_webserver_settings.listening_port.empty()
+#ifdef WWW_ENABLE_SSL
+			&& m_secure_webserver_settings.listening_port.empty()
+#endif
+			)
+		{
+			_log.Log(LOG_STATUS, "Mainworker: mDNS enabled, but webserver ports are disabled. Not starting service!");
+		}
+		else
+		{
+			std::string sValue;
+			std::string szInstanceName = "Domoticz";
+			if (m_sql.GetPreferencesVar("Title", sValue))
+			{
+				szInstanceName = sValue;
+			}
+			stdlower(szInstanceName);
+
+			m_mdns.setServiceHostname(szInstanceName);
+			m_mdns.setServicePort(atoi(m_webserver_settings.listening_port.c_str()));
+#ifdef WWW_ENABLE_SSL
+			if (m_secure_webserver_settings.is_enabled())
+			{
+				m_mdns.setServicePort(atoi(m_secure_webserver_settings.listening_port.c_str()));
+			}
+#endif
+			m_mdns.addServiceTxtRecord("app", "Domoticz");
+			m_mdns.addServiceTxtRecord("version", szAppVersion);
+			m_mdns.addServiceTxtRecord("path", "/");
+			m_mdns.startService();
+		}
+	}
+
 	HandleHourPrice();
 
 	m_thread = std::make_shared<std::thread>([this] { Do_Work(); });
@@ -1217,10 +1250,10 @@ bool MainWorker::Stop()
 	}
 	if (m_thread)
 	{
-		m_webservers.StopServers();
-		m_sharedserver.StopServer();
 		_log.Log(LOG_STATUS, "Stopping all hardware...");
 		StopDomoticzHardware();
+		m_webservers.StopServers();
+		m_sharedserver.StopServer();
 		m_scheduler.StopScheduler();
 		m_eventsystem.StopEventSystem();
 		m_notificationsystem.Stop();
@@ -1232,6 +1265,8 @@ bool MainWorker::Stop()
 #ifdef ENABLE_PYTHON
 		m_pluginsystem.StopPluginSystem();
 #endif
+		if (m_mdns.isServiceRunning())	// Stop mDNS service
+			m_mdns.stopService();
 
 		//    m_cameras.StopCameraGrabber();
 
