@@ -1974,6 +1974,7 @@ namespace http
 			std::string nvalue = request::findValue(&req, "nvalue");
 			std::string svalue = request::findValue(&req, "svalue");
 			std::string ptrigger = request::findValue(&req, "parsetrigger");
+			std::string deviceName = request::findValue(&req, "name");
 
 			bool parseTrigger = (ptrigger != "false");
 
@@ -1985,7 +1986,7 @@ namespace http
 			int signallevel = 12;
 			int batterylevel = 255;
 
-			if (idx.empty())
+			if (idx.empty() && deviceName.empty() )
 			{
 				// No index supplied, check if raw parameters where supplied
 				if ((hid.empty()) || (did.empty()) || (dunit.empty()) || (dtype.empty()) || (dsubtype.empty()))
@@ -1995,7 +1996,12 @@ namespace http
 			{
 				// Get the raw device parameters
 				std::vector<std::vector<std::string>> result;
-				result = m_sql.safe_query("SELECT HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType FROM DeviceStatus WHERE (ID=='%q')", idx.c_str());
+
+				if (deviceName.empty())
+					result = m_sql.safe_query("SELECT HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType FROM DeviceStatus WHERE (ID=='%q')", idx.c_str());
+				else
+					result = m_sql.safe_query("SELECT HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType FROM DeviceStatus WHERE (Name=='%q')", deviceName.c_str());
+
 				if (result.empty())
 					return;
 				hid = result[0][0];
@@ -2016,6 +2022,20 @@ namespace http
 			// uint64_t ulIdx = std::stoull(idx);
 
 			int invalue = atoi(nvalue.c_str());
+
+			if (svalue == "toggle")
+			{
+				std::vector<std::vector<std::string>> result;
+				result = m_sql.safe_query("SELECT nValue  FROM DeviceStatus WHERE ( (HardwareID=='%q') and (OrgHardwareID=='%q') and (DeviceID=='%q') and (Unit=='%q') and (Type=='%q') and (SubType=='%q')  )", 
+					hid.c_str() , ohid.c_str(), did.c_str(), dunit.c_str(), dtype.c_str(), dsubtype.c_str());
+				if (result.empty())
+					return;
+				invalue = atoi(result[0][0].c_str());
+
+				if (invalue == 1)invalue = 0;
+				else
+					if (invalue == 0)invalue = 1;
+			}
 
 			std::string sSignalLevel = request::findValue(&req, "rssi");
 			if (!sSignalLevel.empty())
