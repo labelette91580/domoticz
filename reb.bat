@@ -1,5 +1,7 @@
 
 
+"C:\Program Files\Git\bin\"git rebase development UpdateToggleName
+pause
 "C:\Program Files\Git\bin\"git rebase development CopyPlanning
 pause
 "C:\Program Files\Git\bin\"git rebase development OnlyUpdateNewValue
