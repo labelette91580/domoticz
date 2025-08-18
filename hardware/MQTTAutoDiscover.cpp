@@ -175,7 +175,20 @@ void MQTTAutoDiscover::CleanValueTemplate(std::string& szValueTemplate)
 
 	szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find("|"));
 	szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find(".split("));
-	szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find("if value_json."));
+
+	if (
+		(szValueTemplate.find("% if value_json.") == 0)
+		|| (szValueTemplate.find("%if value_json.") == 0)
+		)
+	{
+		szValueTemplate = szValueTemplate.substr(szValueTemplate.find("value_json."));
+		szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find(" "));
+	}
+	else
+	{
+		//still needed?
+		szValueTemplate = szValueTemplate.substr(0, szValueTemplate.find("if value_json."));
+	}
 
 	stdstring_trim(szValueTemplate);
 
@@ -525,42 +538,78 @@ bool MQTTAutoDiscover::parseMapTemplate(const std::string& templateStr, std::vec
 	// Define a regex pattern to match the dictionary in the template string
 	std::regex dictPattern(R"(\{\% set values.*?=.*?\{(.*?)\} %\})");
 	std::smatch matches;
+	
+	valuesMap.clear();
 
+	std::string dictString;
 	if (std::regex_search(templateStr, matches, dictPattern)) {
-		std::string dictString = matches[1].str();
-
-		// Define a regex pattern to match key-value pairs in the dictionary string
-		std::regex kvPattern(R"(('[^']*'|\"[^\"]*\"|[^,:]+):('[^']*'|\"[^\"]*\"|[^,]*))");
-
-		auto dictBegin = dictString.cbegin(); // Use cbegin() for const_iterator
-		auto dictEnd = dictString.cend();    // Use cend() for const_iterator
-
-		while (std::regex_search(dictBegin, dictEnd, matches, kvPattern)) {
-			std::string key = matches[1].str();
-			std::string value = matches[2].str();
-
-			// Remove surrounding spaces/quotes if present
-			key.erase(0, key.find_first_not_of(" \t\r\n'\""));
-			key.erase(key.find_last_not_of(" \t\r\n'\"") + 1);
-			value.erase(0, value.find_first_not_of(" \t\r\n'\""));
-			value.erase(value.find_last_not_of(" \t\r\n'\"") + 1);
-
-			valuesMap.push_back(std::make_tuple(key, value));
-			dictBegin = matches.suffix().first;
+		dictString = matches[1].str();
+	}
+	else {
+		std::vector<std::string> strarray;
+		StringSplit(templateStr, "[value_json.", strarray);
+		if (strarray.size() != 2)
+		{
+			szKey.clear();
+			return false;
 		}
 
-		// Extract the placeholder in the template string
-		std::regex placeholderPattern(R"(\{\{.*?values\[(.*?)\].*?\}\})");
-		if (std::regex_search(templateStr, matches, placeholderPattern)) {
-			szKey = matches[1].str();
-			szKey.erase(0, szKey.find_first_not_of(" \t\r\n'\""));
-			szKey.erase(szKey.find_last_not_of(" \t\r\n'\"") + 1);
-			return true;
+		std::string tstring = strarray[0];
+		tstring.erase(0, tstring.find_first_not_of(" {}"));
+		tstring.erase(tstring.find_last_not_of(" {}") + 1);
+		if (tstring.empty())
+		{
+			szKey.clear();
+			return false;
 		}
+		dictString = tstring;
+		tstring = strarray[1];
+		if (tstring.find(']') == std::string::npos)
+		{
+			szKey.clear();
+			return false;
+		}
+		tstring = tstring.substr(0, tstring.find(']'));
+		if (tstring.empty())
+		{
+			szKey.clear();
+			return false;
+		}
+		szKey = "value_json." + tstring;
 	}
 
-	// If no match or error, return an empty string or handle the error accordingly
-	valuesMap.clear();
+
+	// Define a regex pattern to match key-value pairs in the dictionary string
+	std::regex kvPattern(R"(('[^']*'|\"[^\"]*\"|[^,:]+):('[^']*'|\"[^\"]*\"|[^,]*))");
+
+	auto dictBegin = dictString.cbegin(); // Use cbegin() for const_iterator
+	auto dictEnd = dictString.cend();    // Use cend() for const_iterator
+
+	while (std::regex_search(dictBegin, dictEnd, matches, kvPattern)) {
+		std::string key = matches[1].str();
+		std::string value = matches[2].str();
+
+		// Remove surrounding spaces/quotes if present
+		key.erase(0, key.find_first_not_of(" \t\r\n'\""));
+		key.erase(key.find_last_not_of(" \t\r\n'\"") + 1);
+		value.erase(0, value.find_first_not_of(" \t\r\n'\""));
+		value.erase(value.find_last_not_of(" \t\r\n'\"") + 1);
+
+		valuesMap.push_back(std::make_tuple(key, value));
+		dictBegin = matches.suffix().first;
+	}
+
+	if (!szKey.empty())
+		return true;
+	// Extract the placeholder in the template string
+	std::regex placeholderPattern(R"(\{\{.*?values\[(.*?)\].*?\}\})");
+	if (std::regex_search(templateStr, matches, placeholderPattern)) {
+		szKey = matches[1].str();
+		szKey.erase(0, szKey.find_first_not_of(" \t\r\n'\""));
+		szKey.erase(szKey.find_last_not_of(" \t\r\n'\"") + 1);
+		return true;
+	}
+	szKey.clear();
 	return false;
 }
 
@@ -1678,6 +1727,7 @@ void MQTTAutoDiscover::handle_auto_discovery_sensor_message(const struct mosquit
 			|| (pSensor->current_temperature_topic == topic)
 			|| (pSensor->percentage_state_topic == topic)
 			|| (pSensor->preset_mode_state_topic == topic)
+			|| (pSensor->action_topic == topic)
 			)
 		{
 			std::string szValue;
@@ -2523,7 +2573,10 @@ void MQTTAutoDiscover::handle_auto_discovery_sensor(_tMQTTASensor* pSensor, cons
 	}
 
 	if (
-		(pSensor->object_id.find("battery") != std::string::npos)
+		(
+			(pSensor->object_id == "battery")
+			|| (pSensor->object_id == "battery_low")
+		)
 		&& is_number(pSensor->last_value)
 		)
 	{
@@ -2558,6 +2611,15 @@ void MQTTAutoDiscover::handle_auto_discovery_sensor(_tMQTTASensor* pSensor, cons
 
 	if (!GuessSensorTypeValue(pSensor, pSensor->devType, pSensor->subType, pSensor->szOptions, pSensor->nValue, pSensor->sValue))
 		return;
+
+	if (
+		(pSensor->devType == pTypeGeneral)
+		&& (pSensor->subType == sTypeTextStatus)
+		)
+	{
+		handle_auto_discovery_text(pSensor, message);
+		return;
+	}
 
 	if (
 		(pSensor->devType == pTypeTEMP)
@@ -2766,6 +2828,7 @@ void MQTTAutoDiscover::handle_auto_discovery_sensor(_tMQTTASensor* pSensor, cons
 			//Update
 			if (message->retain)
 				return; //only update when a new value is received
+
 			UpdateValueInt(m_HwdID, pSensor->unique_id.c_str(), pSensor->devUnit, pSensor->devType, pSensor->subType, pSensor->SignalLevel, pSensor->BatteryLevel, pSensor->nValue,
 				pSensor->sValue.c_str(), result[0][0]);
 		}
@@ -3109,7 +3172,11 @@ void MQTTAutoDiscover::handle_auto_discovery_select(_tMQTTASensor* pSensor, cons
 		optionsMap["LevelNames"] = tmpOptionString;
 	}
 	else
+	{
 		optionsMap["LevelNames"] = oldOptionsMap["LevelNames"];
+		if (oldOptionsMap.find("LevelActions") != oldOptionsMap.end())
+			optionsMap["LevelActions"] = oldOptionsMap["LevelActions"];
+	}
 
 	std::string newOptions = m_sql.FormatDeviceOptions(optionsMap);
 	if (newOptions != sOldOptions)
@@ -3263,7 +3330,7 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 				if (bValid)
 				{
 					std::map<std::string, std::string> optionsMap;
-					optionsMap["SelectorStyle"] = "0";
+					optionsMap["SelectorStyle"] = (pSensor->climate_modes.size() > 5) ? "1" : "0";
 					optionsMap["LevelOffHidden"] = "false";
 
 					StringSplit(tmpOptionString, "|", strarray);
@@ -3275,7 +3342,13 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 						optionsMap["LevelNames"] = tmpOptionString;
 					}
 					else
+					{
 						optionsMap["LevelNames"] = oldOptionsMap["LevelNames"];
+						if (oldOptionsMap.find("LevelActions") != oldOptionsMap.end())
+							optionsMap["LevelActions"] = oldOptionsMap["LevelActions"];
+						optionsMap["SelectorStyle"] = oldOptionsMap["SelectorStyle"];
+						optionsMap["LevelOffHidden"] = oldOptionsMap["LevelOffHidden"];
+					}
 
 					std::string newOptions = m_sql.FormatDeviceOptions(optionsMap);
 					if (newOptions != sOldOptions)
@@ -3395,7 +3468,7 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 				if (bValid)
 				{
 					std::map<std::string, std::string> optionsMap;
-					optionsMap["SelectorStyle"] = "0";
+					optionsMap["SelectorStyle"] = (pSensor->preset_modes.size() > 5) ? "1" : "0";
 					optionsMap["LevelOffHidden"] = "false";
 
 					StringSplit(tmpOptionString, "|", strarray);
@@ -3407,7 +3480,13 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 						optionsMap["LevelNames"] = tmpOptionString;
 					}
 					else
+					{
 						optionsMap["LevelNames"] = oldOptionsMap["LevelNames"];
+						if (oldOptionsMap.find("LevelActions") != oldOptionsMap.end())
+							optionsMap["LevelActions"] = oldOptionsMap["LevelActions"];
+						optionsMap["SelectorStyle"] = oldOptionsMap["SelectorStyle"];
+						optionsMap["LevelOffHidden"] = oldOptionsMap["LevelOffHidden"];
+					}
 
 					std::string newOptions = m_sql.FormatDeviceOptions(optionsMap);
 					if (newOptions != sOldOptions)
@@ -3544,7 +3623,7 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 				}
 
 				std::map<std::string, std::string> optionsMap;
-				optionsMap["SelectorStyle"] = "0";
+				optionsMap["SelectorStyle"] = (pSensor->fan_modes.size() > 5) ? "1" : "0";
 				optionsMap["LevelOffHidden"] = "false";
 
 				StringSplit(tmpOptionString, "|", strarray);
@@ -3556,7 +3635,13 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 					optionsMap["LevelNames"] = tmpOptionString;
 				}
 				else
+				{
 					optionsMap["LevelNames"] = oldOptionsMap["LevelNames"];
+					if (oldOptionsMap.find("LevelActions") != oldOptionsMap.end())
+						optionsMap["LevelActions"] = oldOptionsMap["LevelActions"];
+					optionsMap["SelectorStyle"] = oldOptionsMap["SelectorStyle"];
+					optionsMap["LevelOffHidden"] = oldOptionsMap["LevelOffHidden"];
+				}
 
 				std::string newOptions = m_sql.FormatDeviceOptions(optionsMap);
 				if (newOptions != sOldOptions)
@@ -3691,7 +3776,7 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 				}
 
 				std::map<std::string, std::string> optionsMap;
-				optionsMap["SelectorStyle"] = "0";
+				optionsMap["SelectorStyle"] = (pSensor->swing_modes.size() > 5) ? "1" : "0";
 				optionsMap["LevelOffHidden"] = "false";
 
 				StringSplit(tmpOptionString, "|", strarray);
@@ -3703,7 +3788,13 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 					optionsMap["LevelNames"] = tmpOptionString;
 				}
 				else
+				{
 					optionsMap["LevelNames"] = oldOptionsMap["LevelNames"];
+					if (oldOptionsMap.find("LevelActions") != oldOptionsMap.end())
+						optionsMap["LevelActions"] = oldOptionsMap["LevelActions"];
+					optionsMap["SelectorStyle"] = oldOptionsMap["SelectorStyle"];
+					optionsMap["LevelOffHidden"] = oldOptionsMap["LevelOffHidden"];
+				}
 
 
 				std::string newOptions = m_sql.FormatDeviceOptions(optionsMap);
@@ -3843,7 +3934,7 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 				}
 
 				std::map<std::string, std::string> optionsMap;
-				optionsMap["SelectorStyle"] = "0";
+				optionsMap["SelectorStyle"] = (pSensor->action_modes.size() > 5) ? "1" : "0";
 				optionsMap["LevelOffHidden"] = "false";
 
 				StringSplit(tmpOptionString, "|", strarray);
@@ -3855,8 +3946,13 @@ void MQTTAutoDiscover::handle_auto_discovery_climate(_tMQTTASensor* pSensor, con
 					optionsMap["LevelNames"] = tmpOptionString;
 				}
 				else
+				{
 					optionsMap["LevelNames"] = oldOptionsMap["LevelNames"];
-
+					if (oldOptionsMap.find("LevelActions") != oldOptionsMap.end())
+						optionsMap["LevelActions"] = oldOptionsMap["LevelActions"];
+					optionsMap["SelectorStyle"] = oldOptionsMap["SelectorStyle"];
+					optionsMap["LevelOffHidden"] = oldOptionsMap["LevelOffHidden"];
+				}
 
 				std::string newOptions = m_sql.FormatDeviceOptions(optionsMap);
 				if (newOptions != sOldOptions)
@@ -4044,7 +4140,7 @@ void MQTTAutoDiscover::handle_auto_discovery_text(_tMQTTASensor* pSensor, const 
 	pSensor->nValue = 0;
 	pSensor->sValue = pSensor->last_value;
 
-	auto result = m_sql.safe_query("SELECT Name,nValue,sValue FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit == %d) AND (Type==%d) AND (Subtype==%d)", m_HwdID,
+	auto result = m_sql.safe_query("SELECT ID, Name, nValue, sValue FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit == %d) AND (Type==%d) AND (Subtype==%d)", m_HwdID,
 		pSensor->unique_id.c_str(), 1, pSensor->devType, pSensor->subType);
 	if (result.empty())
 	{
@@ -4063,11 +4159,15 @@ void MQTTAutoDiscover::handle_auto_discovery_text(_tMQTTASensor* pSensor, const 
 	else
 	{
 		// Update
-		std::string oldsValue = result[0].at(2);
+		std::string szIdx = result[0].at(0);
+		std::string oldsValue = result[0].at(3);
 		if (oldsValue != pSensor->sValue)
 		{
-			UpdateValueInt(m_HwdID, pSensor->unique_id.c_str(), 1, pSensor->devType, pSensor->subType, pSensor->SignalLevel, pSensor->BatteryLevel, pSensor->nValue,
-				pSensor->sValue.c_str(), result[0][0]);
+			//Prevent log entry
+			m_sql.safe_query(
+				"UPDATE DeviceStatus SET sValue='%q', LastUpdate='%s' WHERE (ID = %s)", pSensor->sValue.c_str(), TimeToString(nullptr, TF_DateTime).c_str(), szIdx.c_str());
+			//UpdateValueInt(m_HwdID, pSensor->unique_id.c_str(), 1, pSensor->devType, pSensor->subType, pSensor->SignalLevel, pSensor->BatteryLevel, pSensor->nValue,
+				//pSensor->sValue.c_str(), result[0][0]);
 		}
 	}
 }
@@ -4402,6 +4502,24 @@ void MQTTAutoDiscover::InsertUpdateSwitch(_tMQTTASensor* pSensor)
 				{
 					bool isNull = false;
 					std::string szValue = GetValueFromTemplate(root, pSensor->state_value_template, isNull);
+					if (!szValue.empty())
+					{
+						bHandledValue = true;
+						if (szValue == pSensor->state_on)
+							szSwitchCmd = pSensor->payload_on;
+						else if (szValue == pSensor->state_off)
+							szSwitchCmd = pSensor->payload_off;
+						else
+							szSwitchCmd = szValue;
+					}
+				}
+			}
+			else if (!pSensor->value_template.empty())
+			{
+				if (pSensor->state_topic == pSensor->last_topic)
+				{
+					bool isNull = false;
+					std::string szValue = GetValueFromTemplate(root, pSensor->value_template, isNull);
 					if (!szValue.empty())
 					{
 						bHandledValue = true;
