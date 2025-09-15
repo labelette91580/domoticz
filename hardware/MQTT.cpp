@@ -759,28 +759,30 @@ void MQTT::SendHeartbeat()
 	// not necessary for normal MQTT servers
 }
 
-void MQTT::SendMessage(const std::string &Topic, const std::string &Message)
+bool MQTT::SendMessage(const std::string &Topic, const std::string &Message)
 {
-	SendMessageEx(Topic, Message, QOS, m_bRetain);
+	return SendMessageEx(Topic, Message, QOS, m_bRetain);
 }
 
-void MQTT::SendMessageEx(const std::string& Topic, const std::string& Message, int qos, bool retain)
+bool MQTT::SendMessageEx(const std::string& Topic, const std::string& Message, int qos, bool retain)
 {
 	if (!m_IsConnected)
 	{
 		Log(LOG_STATUS, "Not Connected, failed to send message: %s", Message.c_str());
-		return;
+		return false;
 	}
 	if (Topic.empty())
-		return;
+		return false;
 	try
 	{
-		publish(nullptr, Topic.c_str(), static_cast<int>(Message.size()), Message.c_str(), qos, retain);
+		int ret = publish(nullptr, Topic.c_str(), static_cast<int>(Message.size()), Message.c_str(), qos, retain);
+		return (ret == MOSQ_ERR_SUCCESS);
 	}
 	catch (...)
 	{
 		Log(LOG_ERROR, "Failed to send message: %s", Message.c_str());
 	}
+	return false;
 }
 
 void MQTT::WriteInt(const std::string &sendStr)
@@ -818,13 +820,19 @@ void MQTT::SendDeviceInfo(const int HwdID, const uint64_t DeviceRowIdx, const st
 	}
 
 	std::vector<std::vector<std::string>> result;
-	result = m_sql.safe_query("SELECT HardwareID, OrgHardwareID, DeviceID, Unit, Name, [Type], SubType, nValue, sValue, SwitchType, SignalLevel, BatteryLevel, Options, Description, LastLevel, Color, LastUpdate "
+	result = m_sql.safe_query("SELECT Used, HardwareID, OrgHardwareID, DeviceID, Unit, Name, [Type], SubType, nValue, sValue, SwitchType, SignalLevel, BatteryLevel, Options, Description, LastLevel, Color, LastUpdate "
 				  "FROM DeviceStatus WHERE (HardwareID==%d) AND (ID==%" PRIu64 ")",
 				  HwdID, DeviceRowIdx);
 	if (!result.empty())
 	{
 		int iIndex = 0;
 		std::vector<std::string> sd = result[0];
+		bool bUsed = (atoi(sd[iIndex++].c_str()) != 0);
+		if (!bUsed)
+		{
+			//Device is not used, not publishing information
+			return;
+		}
 		std::string hwid = sd[iIndex++];
 		std::string org_hwid = sd[iIndex++];
 		std::string did = sd[iIndex++];

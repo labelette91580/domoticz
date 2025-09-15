@@ -40,6 +40,24 @@ Example
 #define ENPAHSE_API_REPORT_CONSUMPTION "{ip}/ivp/meters/reports/consumption"
 #define ENPAHSE_API_LIVEDATA_STATUS "{ip}/ivp/livedata/status"
 
+/*
+#define ENPAHSE_API_LIMIT_POWER "{ip}/ivp/ss/dpel"
+with data:
+{
+	"dynamic_pel_settings": {
+		"enable": true,
+		"export_limit": true,
+		"limit_value_W": 250.0,
+		"slew_rate": 50.0,
+		"enable_dynamic_limiting": false.
+	},
+	"filename": "site_settings",
+	"version": "00.00.01".
+}
+*/
+
+//3 August 2025, found a great website with all the API endpoints: https://github.com/Matthew1471/Enphase-API
+
 #ifdef DEBUG_EnphaseAPI_W
 void SaveString2Disk(std::string str, std::string filename)
 {
@@ -1385,6 +1403,8 @@ bool EnphaseAPI::getInverterDetails()
 		return false;
 	}
 
+	time_t atime = time(nullptr);
+
 	for (const auto& itt : root)
 	{
 		if (itt["serialNumber"].empty())
@@ -1393,6 +1413,14 @@ bool EnphaseAPI::getInverterDetails()
 
 		int musage = itt["lastReportWatts"].asInt();
 		int mtotal = itt["maxReportWatts"].asInt();
+
+		time_t last_reported = static_cast<time_t>(itt["lastReportDate"].asInt());
+
+		bool bTimeout = false;
+
+		if (last_reported < atime - 3600 * 24) {
+			bTimeout = true;
+		}
 
 		std::string szDeviceID = szSerialNumber;
 		std::string sDeviceName = "Inv " + szSerialNumber;
@@ -1406,6 +1434,13 @@ bool EnphaseAPI::getInverterDetails()
 			m_HwdID, szDeviceID.c_str(), 1, devType, subType);
 		if (result.empty())
 		{
+			if (bTimeout)
+			{
+				//nothing received for the last hour!
+				std::string szLogMsg = "Last update more then 1 day ago from inverter " + TimeToString(&last_reported, TF_DateTime) + ", serial: " + szSerialNumber + ")";
+				Log(LOG_ERROR, "%s", szLogMsg.c_str());
+				continue;
+			}
 			// Insert
 			int iUsed = 0;
 			m_sql.safe_query("INSERT INTO DeviceStatus (HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType, SignalLevel, BatteryLevel, Name, Used, nValue, sValue) "
@@ -1421,6 +1456,13 @@ bool EnphaseAPI::getInverterDetails()
 		}
 		else
 		{
+			if (bTimeout)
+			{
+				//nothing received for the last hour!
+				std::string szLogMsg = "Last update more then 1 day ago from inverter: \"" + result[0][0] + "\" (" + TimeToString(&last_reported, TF_DateTime) + ", serial: " + szSerialNumber + ")";
+				Log(LOG_ERROR, "%s", szLogMsg.c_str());
+				continue;
+			}
 			// Update
 			UpdateValueInt(szDeviceID.c_str(), 1, devType, subType, 12, 255, nValue, sValue.c_str(), result[0][0]);
 		}
