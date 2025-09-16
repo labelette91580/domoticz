@@ -2660,10 +2660,10 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						buf[2] = DATA_BYTE2;
 						buf[3] = DATA_BYTE1;
 						buf[1] = 0xF0; // Successful teach-in
-						buf[5] = bitrange(m_id_chip, 24, 0xFF); // Sender ID
-						buf[6] = bitrange(m_id_chip, 16, 0xFF);
-						buf[7] = bitrange(m_id_chip, 8, 0xFF);
-						buf[8] = bitrange(m_id_chip, 0, 0xFF);
+						buf[5] = bitrange(m_id_src, 24, 0xFF); // Sender ID
+						buf[6] = bitrange(m_id_src, 16, 0xFF);
+						buf[7] = bitrange(m_id_src, 8, 0xFF);
+						buf[8] = bitrange(m_id_src, 0, 0xFF);
 						buf[9] = 0x00; // Status
 
 						Debug(DEBUG_NORM, "Send 4BS teach-in accepted response");
@@ -3677,10 +3677,10 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					buf[5] = node_type;
 					buf[6] = node_func;
 					buf[7] = node_RORG;
-					buf[8] = bitrange(m_id_chip, 24, 0xFF); // Sender ID
-					buf[9] = bitrange(m_id_chip, 16, 0xFF);
-					buf[10] = bitrange(m_id_chip, 8, 0xFF);
-					buf[11] = bitrange(m_id_chip, 0, 0xFF);
+					buf[8] = bitrange(m_id_src, 24, 0xFF); // Sender ID
+					buf[9] = bitrange(m_id_src, 16, 0xFF);
+					buf[10] = bitrange(m_id_src, 8, 0xFF);
+					buf[11] = bitrange(m_id_src, 0, 0xFF);
 					buf[12] = 0x00; // Status
 
 					optbuf[0] = 0x03; // SubTelNum : Send = 0x03
