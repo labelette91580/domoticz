@@ -240,6 +240,7 @@ namespace http
 
 							bool bIsBlinds = (
 								switchtype == STYPE_Blinds
+								|| switchtype == STYPE_BlindsWithStop
 								|| switchtype == STYPE_BlindsPercentage
 								|| switchtype == STYPE_BlindsPercentageWithStop
 								|| switchtype == STYPE_VenetianBlindsEU
@@ -685,6 +686,11 @@ namespace http
 					{
 						m_sql.safe_query("UPDATE DeviceStatus SET nValue=%d WHERE (ID == '%q')", nValue, idx.c_str());
 						m_sql.UpdateLastUpdate(idx);
+						uint64_t ulID = std::stoull(idx.c_str());
+						m_sql.safe_query(
+							"INSERT INTO LightingLog (DeviceRowID, nValue, User) "
+							"VALUES ('%" PRIu64 "', '%d', '%q')",ulID,nValue, szSwitchUser.c_str());
+						m_mainworker.m_eventsystem.GetCurrentStates();
 					}
 					root["status"] = "OK";
 					break;

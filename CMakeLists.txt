@@ -185,6 +185,7 @@ main/WebServerHelper.cpp
 main/WindCalculation.cpp
 mdns/mdns.cpp
 iamserver/IamService.cpp
+mcpserver/McpService.cpp
 push/BasePush.cpp
 push/FibaroPush.cpp
 push/GooglePubSubPush.cpp
@@ -530,8 +531,8 @@ MESSAGE(STATUS "Compiling Revision #${ProjectRevision}")
 MESSAGE(STATUS "###########################")
 
 # The version number.
-set (domoticz_VERSION_MAJOR 2020)
-set (domoticz_VERSION_MINOR 1)
+set (domoticz_VERSION_MAJOR 2025)
+set (domoticz_VERSION_MINOR 2)
 set (domoticz_VERSION_PATCH ${ProjectRevision})
 
 # explicitly say that the executable depends on the revisiontag

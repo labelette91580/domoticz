@@ -11613,6 +11613,7 @@ MainWorker::eSwitchLightReturnCode MainWorker::SwitchLightInt(const std::vector<
 
 	const bool bIsBlinds = (
 		switchtype == STYPE_Blinds
+		|| switchtype == STYPE_BlindsWithStop
 		|| switchtype == STYPE_BlindsPercentage
 		|| switchtype == STYPE_BlindsPercentageWithStop
 		|| switchtype == STYPE_VenetianBlindsEU
@@ -12981,7 +12982,7 @@ bool MainWorker::SetSetPoint(const std::string& idx, const float TempValue)
 	//Get Device details
 	std::vector<std::vector<std::string> > result;
 	result = m_sql.safe_query(
-		"SELECT HardwareID, DeviceID,Unit,Type,SubType,SwitchType,StrParam1,ID,Options FROM DeviceStatus WHERE (ID == '%q')",
+		"SELECT HardwareID,DeviceID,Unit,Type,SubType,SwitchType,StrParam1,ID,Options FROM DeviceStatus WHERE (ID == '%q')",
 		idx.c_str());
 	if (result.empty())
 		return false;
@@ -13170,7 +13171,7 @@ bool MainWorker::SetSetPointInt(const std::vector<std::string>& sd, const float 
 		else if (pHardware->HwdType == HTYPE_MQTTAutoDiscovery)
 		{
 			MQTTAutoDiscover* pGateway = dynamic_cast<MQTTAutoDiscover*>(pHardware);
-			return pGateway->SetSetpoint(sd[1], TempValue);
+			return pGateway->SetSetpoint(sd[1], Unit, TempValue);
 		}
 		else if (pHardware->HwdType == HTYPE_AlfenEveCharger)
 		{
