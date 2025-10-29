@@ -26,6 +26,7 @@
 #include "LuaHandler.h"
 #include "Logger.h"
 #include "SQLHelper.h"
+#include "KWHStats.h"
 #include "../httpclient/HTTPClient.h"
 #include "../hardware/hardwaretypes.h"
 #include "../webserver/Base64.h"
@@ -972,22 +973,21 @@ namespace http
 			if (idx.empty())
 				return;
 
-			int iVarID = atoi(idx.c_str());
+			const int iVarID = atoi(idx.c_str());
 
-			std::vector<std::vector<std::string>> result;
-			result = m_sql.safe_query("SELECT ID, Name, ValueType, Value, LastUpdate FROM UserVariables WHERE (ID==%d)", iVarID);
-			int ii = 0;
-			for (const auto& sd : result)
+			auto result = m_sql.safe_query("SELECT ID, Name, ValueType, Value, LastUpdate FROM UserVariables WHERE (ID==%d)", iVarID);
+			if (!result.empty())
 			{
-				root["result"][ii]["idx"] = sd[0];
-				root["result"][ii]["Name"] = sd[1];
-				root["result"][ii]["Type"] = sd[2];
-				root["result"][ii]["Value"] = sd[3];
-				root["result"][ii]["LastUpdate"] = sd[4];
-				ii++;
+				//gizmocuz, this should now have been an array [0], but maybe some users expect it now
+				auto sd = result[0];
+				root["result"][0]["idx"] = sd[0];
+				root["result"][0]["Name"] = sd[1];
+				root["result"][0]["Type"] = sd[2];
+				root["result"][0]["Value"] = sd[3];
+				root["result"][0]["LastUpdate"] = sd[4];
+				root["status"] = "OK";
+				root["title"] = "GetUserVariable";
 			}
-			root["status"] = "OK";
-			root["title"] = "GetUserVariable";
 		}
 
 		void CWebServer::Cmd_AllowNewHardware(WebEmSession& session, const request& req, Json::Value& root)
@@ -5228,6 +5228,35 @@ namespace http
 				}
 			}
 		}
-		
+
+		void CWebServer::Cmd_GetkWhStats(WebEmSession& session, const request& req, Json::Value& root)
+		{
+			if (request::findValue(&req, "idx").empty())
+				return;
+			uint64_t idx = std::stoull(request::findValue(&req, "idx"));
+
+			Json::Value result;
+			CKWHStats::GetJSONStats(idx, result);
+			root["result"] = result;
+			root["status"] = "OK";
+			root["title"] = "GetkWhStats";
+		}
+
+		void CWebServer::Cmd_ResetkWhStats(WebEmSession& session, const request& req, Json::Value& root)
+		{
+			if (session.rights != URIGHTS_ADMIN)
+			{
+				session.reply_status = reply::forbidden;
+				return; //Only admin user allowed
+			}
+			if (request::findValue(&req, "idx").empty())
+				return;
+			uint64_t idx = std::stoull(request::findValue(&req, "idx"));
+
+			CKWHStats::ResetJSONStats(idx);
+			root["status"] = "OK";
+			root["title"] = "ResetkWhStats";
+		}
+
 	} // namespace server
 } // namespace http

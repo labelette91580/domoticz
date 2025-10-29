@@ -156,6 +156,8 @@
 // load notifications configuration
 #include "../notifications/NotificationHelper.h"
 
+#include "KWHStats.h"
+
 #ifdef WITH_GPIO
 #include "../hardware/Gpio.h"
 #include "../hardware/GpioPin.h"
@@ -940,7 +942,7 @@ bool MainWorker::AddHardwareFromParams(
 		pHardware = new CAnnaThermostat(ID, Address, Port, Username, Password);
 		break;
 	case HTYPE_Tado:
-		pHardware = new CTado(ID);
+		pHardware = new CTado(ID, Mode1);
 		break;
 	case HTYPE_Tesla:
 		pHardware = new CeVehicle(ID, CeVehicle::Tesla, Username, Password, Mode1, Mode2, Mode3, Extra);
@@ -1080,7 +1082,7 @@ bool MainWorker::AddHardwareFromParams(
 		pHardware = new AlfenEve(ID, Address, 443, 30, Username, Password);
 		break;
 	case HTYPE_EneverPriceFeeds:
-		pHardware = new Enever(ID, Username, Extra);
+		pHardware = new Enever(ID, Username, Extra, (Mode1 != 0));
 		break;
 	case HTYPE_MitsubishiWF:
 		pHardware = new MitsubishiWF(ID, Address);
@@ -1227,6 +1229,8 @@ bool MainWorker::Start()
 
 	HandleHourPrice();
 
+	CKWHStats::InitGlobal();
+
 	m_thread = std::make_shared<std::thread>([this] { Do_Work(); });
 	SetThreadName(m_thread->native_handle(), "MainWorker");
 	m_rxMessageThread = std::make_shared<std::thread>([this] { Do_Work_On_Rx_Messages(); });
@@ -1276,6 +1280,8 @@ bool MainWorker::Stop()
 		m_thread->join();
 		m_thread.reset();
 	}
+	CKWHStats::ExitGlobal();
+
 	return true;
 }
 
@@ -1743,6 +1749,9 @@ void MainWorker::Do_Work()
 			bool bDoCleanupShortlog = false;
 			if (difftime(atime, _ScheduleLastMinuteTime) > 30) //avoid RTC/NTP clock drifts
 			{
+#ifdef _DEBUG
+				CKWHStats::HandleKWHStatsHour();
+#endif
 				_ScheduleLastMinuteTime = atime;
 				_ScheduleLastMinute = ltime.tm_min;
 
@@ -1787,6 +1796,8 @@ void MainWorker::Do_Work()
 
 					m_sql.CheckDeviceTimeout();
 					m_sql.CheckBatteryLow();
+
+					CKWHStats::HandleKWHStatsHour();
 
 					//check for daily schedule
 					if (ltime.tm_hour == 0)

@@ -2261,6 +2261,9 @@
     <ClInclude Include="..\mdns\mdns.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\main\KWHStats.h">
+      <Filter>Helpers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\webserver\Base64.cpp">
@@ -3051,6 +3054,9 @@
     </ClCompile>
     <ClCompile Include="..\mdns\mdns.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\main\KWHStats.cpp">
+      <Filter>Helpers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

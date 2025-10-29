@@ -42,7 +42,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#define DB_VERSION 169
+#define DB_VERSION 170
 
 #define DEFAULT_ADMINUSER "admin"
 #define DEFAULT_ADMINPWD "domoticz"
@@ -226,6 +226,13 @@ constexpr auto sqlCreateMultiMeter_Calendar =
 "[Counter4] BIGINT DEFAULT 0, "
 "[Price] FLOAT DEFAULT 0, "
 "[Date] DATETIME DEFAULT (datetime('now','localtime')));";
+
+constexpr auto sqlCreateKWHStats =
+"CREATE TABLE IF NOT EXISTS [KWHStats] ("
+"[ID] INTEGER PRIMARY KEY, "
+"[DeviceRowID] BIGINT(10) NOT NULL, "
+"[Value] TEXT, "
+"[LastUpdate] DATETIME DEFAULT(datetime('now', 'localtime')));";
 
 constexpr auto sqlCreateNotifications =
 "CREATE TABLE IF NOT EXISTS [Notifications] ("
@@ -733,6 +740,7 @@ bool CSQLHelper::OpenDatabase()
 	query(sqlCreateMeter_Calendar);
 	query(sqlCreateMultiMeter);
 	query(sqlCreateMultiMeter_Calendar);
+	query(sqlCreateKWHStats);
 	query(sqlCreateNotifications);
 	query(sqlCreateHardware);
 	query(sqlCreateUsers);
@@ -3223,7 +3231,11 @@ bool CSQLHelper::OpenDatabase()
 				}
 			}
 		}
-
+		if (dbversion < 170)
+		{
+			// Update Philips Hue to use HTTPS
+			m_sql.safe_query("UPDATE HARDWARE SET Port=443, SerialPort=433 WHERE ([Type]==%d) AND Port=80", HTYPE_Philips_Hue);
+		}
 	}
 	else if (bNewInstall)
 	{
@@ -8349,6 +8361,7 @@ void CSQLHelper::DeleteDevices(const std::string& idx)
 			safe_exec_no_return("DELETE FROM Meter_Calendar WHERE (DeviceRowID == '%q')", str.c_str());
 			safe_exec_no_return("DELETE FROM MultiMeter WHERE (DeviceRowID == '%q')", str.c_str());
 			safe_exec_no_return("DELETE FROM MultiMeter_Calendar WHERE (DeviceRowID == '%q')", str.c_str());
+			safe_exec_no_return("DELETE FROM KWHStats WHERE (DeviceRowID == '%q')", str.c_str());
 			safe_exec_no_return("DELETE FROM Percentage WHERE (DeviceRowID == '%q')", str.c_str());
 			safe_exec_no_return("DELETE FROM Percentage_Calendar WHERE (DeviceRowID == '%q')", str.c_str());
 			safe_exec_no_return("DELETE FROM Fan WHERE (DeviceRowID == '%q')", str.c_str());
