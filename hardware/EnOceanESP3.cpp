@@ -2394,7 +2394,7 @@ void CEnOceanESP3::ParseESP3Packet(uint8_t packettype, uint8_t *data, uint16_t d
 			if (m_id_base == 0 && datalen == 5)
 			{ // Base ID Information
 				m_id_base = GetNodeID(data[1], data[2], data[3], data[4]);
-				Log(LOG_STATUS, "HwdID %d ID_Base %08X", m_HwdID, m_id_base);
+				Log(LOG_STATUS, "HwdID %d ID_Base %08X Remaining write cycles for Base ID:%d", m_HwdID, m_id_base, data[4]);
 
 				// To ensure backward compatibility with previous Domoticz versions
 				// Make sure virtual EnOcean ESP3 switches have been teached-in
@@ -3918,7 +3918,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					{ // Actuator Measurement Response
 
 						std::string mes = printRawDataValues(&data[1], D20100_CMD7);
-						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) Reply Measurement Response\n%s",
+						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) Reply Measurement Response:%s",
 							senderID, pNode->name.c_str(), mes.c_str());
 
 						int unit = GetRawValue(&data[1], D20100_CMD7, D20100_CMD7_UN);
@@ -3966,7 +3966,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 						uint8_t PM = GetRawValue(&data[1], D20100_CMD10, D20100_CMD10_PM);
 
 						std::string mes = printRawDataValues(&data[1], D20100_CMD10);
-						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) status\n%s", senderID, pNode->name.c_str(), mes.c_str());
+						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) status:%s", senderID, pNode->name.c_str(), mes.c_str());
 
 						std::string sValue = std::to_string(PM * 10);
 						SendSelectorSwitch(senderID, 1, sValue, pNode->name, 0, false, "Off|Conf|Eco|Freeze|Conf-1|Conf-2", "00|10|20|30|40|50|60", false, m_Name);
@@ -3975,7 +3975,7 @@ void CEnOceanESP3::ParseERP1Packet(uint8_t *data, uint16_t datalen, uint8_t *opt
 					if (CMD == 0xD)
 					{ // Actuator External Interface Settings Response
 						std::string mes = printRawDataValues(&data[1], D20100_CMD13);
-						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) Actuator External Interface Settings Response (not supported)\n%s",
+						Debug(DEBUG_NORM, "VLD msg: Node %08X (%s) Actuator External Interface Settings Response (not supported):%s",
 							senderID, pNode->name.c_str(), mes.c_str());
 						return;
 					}
