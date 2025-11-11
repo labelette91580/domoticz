@@ -23,6 +23,8 @@
 
 using namespace enocean;
 
+#define ID_RANGE_BASE_ADDRESS 0xFF99DF00
+
 // Enable running SP3 protocol tests
 // They tests are launched when ESP3 worker is started
 // Just uncomment the needed ones
@@ -2394,7 +2396,20 @@ void CEnOceanESP3::ParseESP3Packet(uint8_t packettype, uint8_t *data, uint16_t d
 			if (m_id_base == 0 && datalen == 5)
 			{ // Base ID Information
 				m_id_base = GetNodeID(data[1], data[2], data[3], data[4]);
-				Log(LOG_STATUS, "HwdID %d ID_Base %08X Remaining write cycles for Base ID:%d", m_HwdID, m_id_base, data[4]);
+				Log(LOG_STATUS, "HwdID %d ID_Base %08X Remaining write cycles for Base ID:%d", m_HwdID, m_id_base, data[5]);
+
+				if (m_id_base != ID_RANGE_BASE_ADDRESS )
+				{
+					uint8_t cmd[5];
+					cmd[0] = CO_WR_IDBASE;
+					DeviceIntToArray(ID_RANGE_BASE_ADDRESS, &cmd[1]);
+
+					Debug(DEBUG_HARDWARE, "Write base ID:%08X", ID_RANGE_BASE_ADDRESS);
+					SendESP3PacketQueued(PACKET_COMMON_COMMAND, cmd, 5, nullptr, 0);
+					m_id_base = 0;
+
+
+				}
 
 				// To ensure backward compatibility with previous Domoticz versions
 				// Make sure virtual EnOcean ESP3 switches have been teached-in
