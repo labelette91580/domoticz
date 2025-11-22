@@ -289,6 +289,18 @@ define(['app'], function (app) {
 		    var data = oTable.fnGetData(anSelected[0]);
 		    EnOceanDeviceSendDialogOpen($.hwid, data[5], data[0], data[7]);
 		}
+		EnOceanSetMeasurement = function () {
+			var oTable = $('#nodestable').dataTable();
+			var anSelected = fnGetSelected(oTable);
+			var data = oTable.fnGetData(anSelected[0]);
+			//$.hwid, data[5], data[0] , data[7]);
+			//hwid  , profil , deviceId , baseAdd
+			profil = data[5]
+			devIdx = data[0]
+			$.baseAddr = data[7]
+			EnOceanSendSetMeasurements(profil, devIdx);
+
+		}
 		function ShowWaiting(txt, iserror) {
 				$("#notification").html('<p>' + txt + '</p>');
 
