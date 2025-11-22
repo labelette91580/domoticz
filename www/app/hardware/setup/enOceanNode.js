@@ -290,6 +290,11 @@ EnOceanButtonActionOk = function (profil, deviceId)
 	}
 }
 
+EnOceanSendSetMeasurements = function (profil, devIdx) {
+	EnOceanSendActuatorSetMeasurement(profil, devIdx, 0, 0, 0, 16, 1, 300, 60);
+	setTimeout(() => { EnOceanSendActuatorSetMeasurement(profil, devIdx, 0, 1, 0, 100, 3, 300, 60); }, 2000);
+};
+
 EnOceanDeviceSendCreateDialog = function (profil, deviceId) {
     var dialog_buttons = {};
 
