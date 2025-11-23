@@ -27,6 +27,7 @@
 #include "Logger.h"
 #include "SQLHelper.h"
 #include "KWHStats.h"
+#include "../hardware/VirtualThermostat.h"
 #include "../httpclient/HTTPClient.h"
 #include "../hardware/hardwaretypes.h"
 #include "../webserver/Base64.h"
@@ -4540,6 +4541,11 @@ namespace http
 			{
 //				m_sql.safe_query("UPDATE DeviceStatus SET Options='%q' WHERE (ID == '%q')", devoptions.c_str(), idx.c_str());
 				uint64_t ullidx = std::stoull(idx);
+				_eHardwareTypes Type = m_sql.GetHardwareTypeFromHardwareID(HwdID);
+				if (VirtualThermostat::isVirtualThermostat(Type))
+				{
+					VirtualThermostat::UpdateDeviceTimer( idx,  devoptions);
+				}
 				m_sql.SetDeviceOptions(ullidx, m_sql.BuildDeviceOptions(devoptions, false));
 			}
 

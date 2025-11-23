@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ThermostatHardware.h"
+#include "../main/RFXNames.h"
 
 //duratoiopn of integration window in min
 #define INTEGRAL_DURATION 10
@@ -51,6 +52,12 @@ public:
 	//return the thermostat room temperature 
 	virtual std::string GetRoomTemperature(const std::string& devIdx);
 	virtual std::string GetSetPoint(const std::string& devIdx);
+
+	static bool isVirtualThermostat(const _eHardwareTypes Type) {
+		return  Type == HTYPE_VirtualThermostat;
+	};
+	static void UpdateDeviceTimer(std::string& idx, std::string& devoptions);
+
 
 private:
 	int manageSwitch(std::string& SwitchIdxStr, int SwitchValue, std::string& OnCmd, std::string& OffCmd, int minute, std::string& LogDebug, const char* ThermostatName);

@@ -674,3 +674,47 @@ TOptionMap  BuildDeviceOptions(int NbOptions, ...)
 
 	return optionsMap;
 }
+void VirtualThermostat::UpdateDeviceTimer(std::string& idx, std::string& devoptions)
+{
+	double CurrentConforTemp;
+	double CurrentEcoTemp;
+	double ConforTemp;
+	double EcoTemp;
+
+	TOptionMap Option = m_sql.BuildDeviceOptions(devoptions, false);
+	getOption(Option, "ConforTemp", ConforTemp);
+	getOption(Option, "EcoTemp", EcoTemp);
+
+	TOptionMap CurrentDeviceOption = m_sql.GetDeviceOptions(idx);
+	getOption(CurrentDeviceOption, "ConforTemp", CurrentConforTemp);
+	getOption(CurrentDeviceOption, "EcoTemp"   , CurrentEcoTemp);
+
+	//if update of Confor Temperature
+	if (CurrentConforTemp != ConforTemp)
+	{
+		//setpointtimers update 
+		m_sql.safe_query(
+		"UPDATE SetpointTimers SET Temperature=%.1f  WHERE (DeviceRowID = %s ) and ( Temperature = %.1f) ",
+			ConforTemp,
+			idx.c_str(),
+			CurrentConforTemp
+			);
+		_log.Log(LOG_STATUS, "Update SetPoint timers Current Confor Temperature from  %.1f to  %.1f", CurrentConforTemp, ConforTemp);
+
+	}
+	//if update of Eco  Temperature
+	if (CurrentEcoTemp != EcoTemp)
+	{
+		//setpointtimers update 
+		m_sql.safe_query(
+			"UPDATE SetpointTimers SET Temperature=%.1f  WHERE (DeviceRowID = %s ) and ( Temperature = %.1f) ",
+			EcoTemp,
+			idx.c_str(),
+			CurrentEcoTemp
+		);
+		_log.Log(LOG_STATUS, "Update SetPoint timers Current Confor Temperature from  %.1f to  %.1f", CurrentEcoTemp, EcoTemp);
+
+	}
+	//	auto result = m_sql.safe_query("SELECT Time,Temperature FROM SetpointTimers where (DeviceRowID==%s) and ( Time < '%s' ) order by time desc limit 1", devID, CurrentTime);
+
+}
