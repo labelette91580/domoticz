@@ -295,12 +295,33 @@ define(['app'], function (app) {
 			var data = oTable.fnGetData(anSelected[0]);
 			//$.hwid, data[5], data[0] , data[7]);
 			//hwid  , profil , deviceId , baseAdd
-			profil = data[5]
-			devIdx = data[0]
-			$.baseAddr = data[7]
+			profil = data[5];
+			devIdx = data[0];
+			$.baseAddr = data[7];
+			if (typeof profil == "undefined") {
+				ShowNotify($.t("Please select a device!"), 2500, true);
+				return;
+			}
+
 			EnOceanSendSetMeasurements(profil, devIdx);
 
 		}
+		EnOceanQueryMeasurement = function () {
+			var oTable = $('#nodestable').dataTable();
+			var anSelected = fnGetSelected(oTable);
+			var data = oTable.fnGetData(anSelected[0]);
+			//$.hwid, data[5], data[0] , data[7]);
+			//hwid  , profil , deviceId , baseAdd
+			profil = data[5];
+			devIdx = data[0];
+			$.baseAddr = data[7];
+			if (typeof profil == "undefined") {
+				ShowNotify($.t("Please select a device!"), 2500, true);
+				return;
+			}
+			EnOceanSendQueryMeasurements(profil, devIdx);
+		}
+		
 		function ShowWaiting(txt, iserror) {
 				$("#notification").html('<p>' + txt + '</p>');
 
