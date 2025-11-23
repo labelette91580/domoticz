@@ -40,10 +40,12 @@ define(['app', 'timers/factories', 'timers/components','timers/planning'], funct
                     if (typeof data.result != 'undefined') {
                         $.each(data.result, function (i, item) {
                             console.log("idx:" + item.idx + "name:" + item.Name);
-                            $.List.push({
-                                idx: item.idx,
-                                name: item.Name
-                            });
+                            if (item.Timers == "true" ){
+				    $.List.push({
+	                                idx: item.idx,
+	                                name: item.Name
+	                            });
+			    }
                         });
                     }
                 }
