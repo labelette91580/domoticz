@@ -148,6 +148,7 @@ ENDIF()
 set(
 domoticz_SRCS
 main/stdafx.cpp
+main/Alexa.cpp
 main/BaroForecastCalculator.cpp
 main/CmdLine.cpp
 main/Camera.cpp
@@ -175,6 +176,7 @@ main/RFXNames.cpp
 main/Scheduler.cpp
 main/SignalHandler.cpp
 main/SQLHelper.cpp
+main/StoppableTask.cpp
 main/SunRiseSet.cpp
 main/TrendCalculator.cpp
 main/WebServer.cpp
@@ -307,6 +309,7 @@ hardware/P1MeterTCP.cpp
 hardware/PhilipsHue/PhilipsHue.cpp
 hardware/PhilipsHue/PhilipsHueHelper.cpp
 hardware/PhilipsHue/PhilipsHueSensors.cpp
+hardware/PhilipsHue/PhilipsHueV2Sensors.cpp
 hardware/PiFace.cpp
 hardware/Pinger.cpp
 hardware/PVOutput_Input.cpp

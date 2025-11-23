@@ -345,6 +345,9 @@
     <Filter Include="Devices\AccuWeather">
       <UniqueIdentifier>{3a086069-f89a-44b7-b3a8-19cb9b7509eb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Alexa">
+      <UniqueIdentifier>{4b8294bc-714f-458e-9a88-5e5b20672ea8}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Pushers">
       <UniqueIdentifier>{b669cde0-9cf1-43ae-a5c0-5f01851e9b45}</UniqueIdentifier>
     </Filter>
@@ -512,6 +515,9 @@
     </Filter>
     <Filter Include="Devices\ZWave\ControlPanel">
       <UniqueIdentifier>{dd597942-82d6-4aaf-aba7-da17ce1f9392}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Webserver\IamService">
+      <UniqueIdentifier>{81a998bf-9440-48ed-acad-561718cb579e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -1697,6 +1703,9 @@
     <ClInclude Include="..\hardware\PhilipsHue\PhilipsHueSensors.h">
       <Filter>Devices\Philips Hue</Filter>
     </ClInclude>
+    <ClInclude Include="..\hardware\PhilipsHue\PhilipsHueV2Sensors.h">
+      <Filter>Devices\Philips Hue</Filter>
+    </ClInclude>
     <ClInclude Include="..\hardware\EvohomeBase.h">
       <Filter>Devices\EvoHome</Filter>
     </ClInclude>
@@ -2219,9 +2228,6 @@
     <ClInclude Include="..\hardware\VisualCrossing.h">
       <Filter>Devices\VisualCrossing</Filter>
     </ClInclude>
-    <ClInclude Include="..\iamserver\iam_settings.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\hardware\AlfenEve.h">
       <Filter>Devices\AlfenEve</Filter>
     </ClInclude>
@@ -2233,9 +2239,6 @@
     </ClInclude>
     <ClInclude Include="..\main\mosquitto_helper.h">
       <Filter>Devices\MQTT</Filter>
-    </ClInclude>
-    <ClInclude Include="..\hardware\CounterHelper.h">
-      <Filter>Devices</Filter>
     </ClInclude>
     <ClInclude Include="..\push\MQTTPush.h">
       <Filter>Pushers\MQTT</Filter>
@@ -2266,6 +2269,12 @@
     </ClInclude>
     <ClInclude Include="..\mcpserver\McpService.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iamserver\iam_settings.hpp">
+      <Filter>Webserver\IamService</Filter>
+    </ClInclude>
+    <ClInclude Include="..\hardware\CounterHelper.h">
+      <Filter>Helpers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -2341,6 +2350,9 @@
     <ClCompile Include="..\main\SQLHelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\main\StoppableTask.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\main\stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -2354,9 +2366,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\main\WebServerHandleGraph.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\iamserver\IamService.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WindowsHelper.cpp">
@@ -2492,6 +2501,9 @@
       <Filter>Devices\Philips Hue</Filter>
     </ClCompile>
     <ClCompile Include="..\hardware\PhilipsHue\PhilipsHueSensors.cpp">
+      <Filter>Devices\Philips Hue</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hardware\PhilipsHue\PhilipsHueV2Sensors.cpp">
       <Filter>Devices\Philips Hue</Filter>
     </ClCompile>
     <ClCompile Include="..\hardware\EvohomeBase.cpp">
@@ -2896,6 +2908,9 @@
     <ClCompile Include="..\hardware\DenkoviUSBDevices.cpp">
       <Filter>Devices\Denkovi</Filter>
     </ClCompile>
+    <ClCompile Include="..\main\Alexa.cpp">
+      <Filter>Alexa</Filter>
+    </ClCompile>
     <ClCompile Include="..\main\BaroForecastCalculator.cpp">
       <Filter>Helpers</Filter>
     </ClCompile>
@@ -3034,9 +3049,6 @@
     <ClCompile Include="..\main\mosquitto_helper.cpp">
       <Filter>Devices\MQTT</Filter>
     </ClCompile>
-    <ClCompile Include="..\hardware\CounterHelper.cpp">
-      <Filter>Devices</Filter>
-    </ClCompile>
     <ClCompile Include="..\push\MQTTPush.cpp">
       <Filter>Pushers\MQTT</Filter>
     </ClCompile>
@@ -3063,6 +3075,12 @@
     </ClCompile>
     <ClCompile Include="..\mcpserver\McpService.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iamserver\IamService.cpp">
+      <Filter>Webserver\IamService</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hardware\CounterHelper.cpp">
+      <Filter>Helpers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
