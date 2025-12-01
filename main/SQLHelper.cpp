@@ -6277,7 +6277,7 @@ void CSQLHelper::UpdateTemperatureLog()
 	GetPreferencesVar("SensorTimeout", SensorTimeOut);
 
 	std::vector<std::vector<std::string> > result;
-	result = safe_query("SELECT ID,Type,SubType,nValue,sValue,LastUpdate,Options,HardwareID FROM DeviceStatus WHERE (Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR (Type=%d AND SubType=%d) OR (Type=%d AND SubType=%d) OR (Type=%d AND SubType=%d))",
+	result = safe_query("SELECT ID,Type,SubType,nValue,sValue,LastUpdate FROM DeviceStatus WHERE (Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR Type=%d OR (Type=%d AND SubType=%d) OR (Type=%d AND SubType=%d) OR (Type=%d AND SubType=%d))",
 		pTypeTEMP,
 		pTypeHUM,
 		pTypeTEMP_HUM,
@@ -6342,8 +6342,7 @@ void CSQLHelper::UpdateTemperatureLog()
 				break;
 			case pTypeSetpoint:
 				{
-
-					const std::string& HwdId = sd[7];
+					std::string HwdId = GetDeviceValue("HardwareID", sd[0]);
 					//get virtual thermostat hardware
 					CDomoticzHardwareBase* Hardware = m_mainworker.GetHardwareByIDType( HwdId, HTYPE_VirtualThermostat);
 					//if not a virtual thermostat
@@ -6355,7 +6354,7 @@ void CSQLHelper::UpdateTemperatureLog()
 					{
 						//for virtual thermostat record Room Temperature / set point & power level 0..100%
 						//set point temperature record as chill
-						std::string Options  = sd[6];
+						std::string Options  = GetDeviceValue("Options", sd[0]);
 						chill = std::stof(splitresults[0]);
 						//record power % as humidity
 						humidity = std::stoi(VirtualThermostatGetOption("Power", Options));
