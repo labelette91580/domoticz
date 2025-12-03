@@ -49,7 +49,7 @@ define(['app', 'livesocket'], function (app) {
 			$("#dialog-editsetpoint #devicedescription").val(unescape(description));
 			$("#dialog-editsetpoint #setpoint").val(setpoint);
 			if (mode.indexOf("Override") == -1)
-				$(":button:contains('Cancel Override')").attr("disabled", "d‌​isabled").addClass('ui-state-disabled');
+				$(":button:contains('Cancel Override')").attr("disabled", "disabled").addClass('ui-state-disabled');
 			else
 				$(":button:contains('Cancel Override')").removeAttr("disabled").removeClass('ui-state-disabled');
 			$("#dialog-editsetpoint #until").datetimepicker({
@@ -97,12 +97,22 @@ define(['app', 'livesocket'], function (app) {
 
 		RefreshItem = function (item) {
 			item.searchText = GenerateLiveSearchTextT(item);
+			var query = $('.jsLiveSearch').val();
+			if (query && query.length > 0) {
+				var match = item.searchText.toLowerCase().indexOf(query.toLowerCase()) !== -1;
+				if (!match) {
+					return; // Don't update items that don't match the filter
+				}
+			}
 			ctrl.temperatures.forEach(function (olditem, oldindex, oldarray) {
 				if (olditem.idx == item.idx) {
 					oldarray[oldindex] = item;
 					if (!document.hidden) {
 						if ($scope.config.ShowUpdatedEffect == true) {
-							$("#tempwidgets #" + item.idx + " #name").effect("highlight", { color: '#EEFFEE' }, 1000);
+							// Must be delay in another way effect is finished before angular finished to draw the widget
+							setTimeout(function() { 
+								$("#tempwidgets #" + item.idx + " #name").effect("highlight", { color: '#EEFFEE' }, 1000);
+							}, 500);
 						}
 					}
 				}
@@ -555,7 +565,7 @@ define(['app', 'livesocket'], function (app) {
 						return typeof item.Temp != 'undefined';
 					};
 					ctrl.displaySetPoint = function () {
-						return (item.SubType == 'Zone' || item.SubType == 'Hot Water') && typeof item.SetPoint != 'undefined';
+					return (item.SubType == 'Zone' || item.SubType == 'Hot Water' || item.SubType == 'Temp/Setpoint' || item.SubType == 'Temp/Hum/Setpoint' || item.SubType == 'Temp/Baro/Setpoint' || item.SubType == 'Temp/Hum/Baro/Setpoint') && typeof item.SetPoint != 'undefined';
 					};
 					ctrl.isSetPointOn = function () {
 						return item.SetPoint != 325.1;
@@ -661,6 +671,13 @@ define(['app', 'livesocket'], function (app) {
 
 					ctrl.EditSetPoint = function (fn) {
 						return EditSetPoint(item.idx, escape(item.Name), escape(item.Description), item.SetPoint, item.Status, item.Until, fn);
+					};
+					
+					ctrl.ShowSetpointPopup = function (event) {
+						var step = item.step || 0.5;
+						var min = item.min || -200;
+						var max = item.max || 200;
+						ShowSetpointPopup(event, item.idx, item.Protected, item.SetPoint, false, step, min, max);
 					};
 
 					ctrl.EditState = function (fn) {
