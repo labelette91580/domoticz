@@ -78,6 +78,7 @@ private:
 	const char* GetTypeDevice(DeviceTypeEnum dev);
 	void ManageAction(std::string& device, std::string& action, std::string& actionType, std::string actionValue);
 	DeviceTypeEnum LightType(TSqlRowQuery* row, Json::Value& params);
+	void updateRoot(std::string pidx, std::string pname, DeviceTypeEnum ApType, std::string proom, DeviceTypeEnum TypeForName);
 	void updateRoot(std::string pidx, std::string pname, DeviceTypeEnum ApType);
 	void updateRoot(std::string pidx, std::string pname, DeviceTypeEnum ApType, std::string proom);
 	void DeviceContent(std::string& rep_content);
@@ -184,7 +185,6 @@ T_GRAPHIC GraphicTable[] = {
 	{ DevTempHygro          ,"hygro"         ,"TEMPERATURE"       ,"Humidity"          , 1.0         , 0.0      },
 };
 
-
 bool DevGraphable[DevSize];
 
 void InitDevGraphable()
@@ -224,7 +224,6 @@ CDomoticzHardwareBase* GetDeviceHardwareFromDeviceId(const std::string& deviceid
 	CDomoticzHardwareBase* pHardware = m_mainworker.GetHardware(HardwareID);
 	return pHardware;
 }
-
 //get DomoticzHardwareBase object from device Idx :deviceidx in device status table
 CDomoticzHardwareBase* ImperiHome::GetDeviceHardwareFromDeviceID(const std::string& deviceidx)
 {
@@ -236,7 +235,6 @@ CDomoticzHardwareBase* ImperiHome::GetDeviceHardwareFromDeviceID(const std::stri
 	}
 	return DomoticzHardware;
 }
-
 /**
 * Returns the level name   associated to a integer value 
 */
@@ -246,14 +244,12 @@ std::map<std::string, std::string> statuses;
 		GetSelectorSwitchStatuses(options, statuses);
 		return statuses[std::to_string(llevel)];
 }
-
 void ImperiHome::getValueFromRow(TSqlRowQuery* row, std::vector<std::string>& sValueGlb, std::string& nValueGlb) {
 	StringSplit((*row)[sValue], ";", sValueGlb);
 	for (int i = sValueGlb.size(); i < 5; i++)
 		sValueGlb.push_back("");
 	nValueGlb = (*row)[nValue];
 }
-
 void ImperiHome::setGenericSensor(TSqlRowQuery* row) {
 	std::string dID = (*row)[ID];
 	std::string dName = (*row)[Name];
@@ -265,7 +261,6 @@ void ImperiHome::setGenericSensor(TSqlRowQuery* row) {
 		SetKey(PKEYVALUE, nValueGlb);
 	updateRoot(dID, dName, DevGenericSensor);
 }
-
 const char* ImperiHome::GetTypeDevice(DeviceTypeEnum dev)
 {
 	if (dev < sizeof(DeviceTypeString) / sizeof(char*))
@@ -273,14 +268,12 @@ const char* ImperiHome::GetTypeDevice(DeviceTypeEnum dev)
 	else
 		return "UNKNOWN";
 }
-
 //device name is devXXX_type
 std::string getDeviceIdFromIdType(std::string& device)
 {
 	//the dev Id is DEVnnn_zzz : nnn is the ID 
 	return  device.substr(3, device.find("_") - 3);
 }
-
 std::string getDeviceTypeName(std::string& device)
 {
 	//the dev Id is DEVnnn_zzz : nnn is the ID 
@@ -291,43 +284,57 @@ std::string getDeviceTypeName(std::string& device)
 	else
 		return  device.substr(posUnder + 1, 100);
 }
-
+DeviceTypeEnum getDeviceType(std::string& device)
+{
+	std::string TypeName = getDeviceTypeName(device);
+	DeviceTypeEnum IssType = (DeviceTypeEnum)std::stoi(TypeName.c_str());
+	return IssType;
+}
+//return device idx 
 std::string getDeviceIdFromName(std::string& device)
 {
 	//the dev Id is DEVName_zzz : Name of devive
-	std::string name = device.substr(3, device.find("_") - 3);
+	std::string name = getDeviceIdFromIdType( device);
 	
 	stdreplace(name, "+", " ");
 
-	auto result=m_sql.safe_query("SELECT ID FROM DeviceStatus where Name=='%s'", name.c_str() ) ;
-	if (result.size() > 0)
+	DeviceTypeEnum dType = getDeviceType(device);
+	//ID in DeviceStatus
+	if (dType != DevScene)
 	{
-		TSqlRowQuery* row = &result[0];
-		return (*row)[0] ;
+		auto result = m_sql.safe_query("SELECT ID FROM DeviceStatus where Name=='%s'", name.c_str());
+		if (result.size() > 0)
+		{
+			TSqlRowQuery* row = &result[0];
+			return (*row)[0];
+		}
+		else
+			return "";
 	}
 	else
-		return "";
-}
+	{
+		auto result = m_sql.safe_query("SELECT ID FROM SceneS where Name=='%s'", name.c_str());
+		if (result.size() > 0)
+		{
+			TSqlRowQuery* row = &result[0];
+			return (*row)[0];
+		}
+		else
+			return "";
 
+	}
+}
 std::string buildDeviceId_IDType(std::string& pidx, DeviceTypeEnum ApType,std::string& pname)
 {
 	//the dev Id is DEVnnn_zzz : nnn is the ID  zzz: the DeviceTypeEnum ApType 
 	return  "dev" + pidx + "_" + std::to_string(ApType);
 }
-
 std::string buildDeviceId_NameType(std::string& pidx, DeviceTypeEnum ApType,std::string& pname)
 {
 	//the dev Id is DEVName_zzz : nnn is the ID  zzz: the DeviceTypeEnum ApType 
 	return  "dev" + pname + "_" + std::to_string(ApType);
 }
-
-//#define getDeviceId   getDeviceIdFromIdType
-//#define buildDeviceId buildDeviceId_IDType
-
-#define getDeviceId   getDeviceIdFromName 
 #define buildDeviceId buildDeviceId_NameType
-
-
 void SqlGetTypeSubType(std::string& idx, int& dType, int& dSubType)
 {
 	dType = 0;
@@ -354,7 +361,6 @@ std::string  GetDeviceValue(const char* FieldName, const std::string& Idx)
 
 	return "" ;
 }
-
 //from to ms since 1/1/1970
 void ImperiHome::ManageHisto(std::string& device, std::string& value, std::string& histo, std::string& from, std::string& to, std::string& rep_content)
 {
@@ -362,7 +368,7 @@ void ImperiHome::ManageHisto(std::string& device, std::string& value, std::strin
 	time_t  DateEndSec;
 
 	//the dev Id is DEVnnn_zzz : nnn is the ID zzz : Iss Device type
-	std::string ID = getDeviceId(device);
+	std::string ID = getDeviceIdFromName(device);
 
 	std::string TypeName = getDeviceTypeName(device);
 	DeviceTypeEnum IssType = (DeviceTypeEnum)std::stoi(TypeName.c_str());
@@ -395,7 +401,6 @@ void ImperiHome::ManageHisto(std::string& device, std::string& value, std::strin
 	}
 
 }
-
 //convert thermostat string state to int state : OFF-->0  ECO-->1
 unsigned int  ThermostatModeStringToInt(std::string& mode, std::string& AvailableMode)
 {
@@ -417,15 +422,15 @@ std::string   ThermostatModeIntToString(unsigned int Mode, std::string& Availabl
 	else
 		return "UNKNOWN";
 }
-
 void ImperiHome::ManageAction(std::string& device, std::string& action, std::string& actionType, std::string actionValue)
 {
 	//the dev Id is DEVnnn_zzz : nnn is the ID 
-	std::string ID = getDeviceId(device);
+	std::string ID = getDeviceIdFromName(device);
 	const std::string User = "IMPE";
+	DeviceTypeEnum deviceType = getDeviceType(device);
 
 	std::string name = GetDeviceValue("Name", ID);
-	if (name.empty())
+	if (ID.empty())
 	{
 		_log.Log(LOG_ERROR, "IMPE: Devices:%s not found ", device.c_str());
 	}
@@ -433,10 +438,24 @@ void ImperiHome::ManageAction(std::string& device, std::string& action, std::str
 		_log.Debug(DEBUG_NORM, "IMPE: Devices:%s:%s Action:%s request:%s Value:%s", device.c_str(), name.c_str(), action.c_str(), actionType.c_str(), actionValue.c_str());
 		if (actionType == "setStatus")
 		{
-			if (actionValue == "1")
-				m_mainworker.SwitchLight(ID, "On", "100", "0", "0", 0, User);
+			//if not a scene type = Group
+			if (deviceType != DevScene)
+			{
+				// /devices/devPrise4_1/action/setStatus/0
+				if (actionValue == "1")
+					m_mainworker.SwitchLight(ID, "On", "100", "0", "0", 0, User);
+				else
+					m_mainworker.SwitchLight(ID, "Off", "0", "0", "0", 0, User);
+
+			}
 			else
-				m_mainworker.SwitchLight(ID, "Off", "0", "0", "0", 0, User);
+			{
+				//switch scene
+				if (actionValue == "1")
+					m_mainworker.SwitchScene(ID, "On", User);
+				else
+					m_mainworker.SwitchScene(ID, "Off", User);
+			}
 		}
 		else if (actionType == "setLevel") {
 			m_mainworker.SwitchLight(ID, "Set Level", actionValue, "0", "0", 0, User);
@@ -448,6 +467,7 @@ void ImperiHome::ManageAction(std::string& device, std::string& action, std::str
 		else if (actionType == "pulseShutter") {
 		}
 		else if (actionType == "launchScene") {
+			//http://127.0.0.1:8080/devices/devGR1_19/action/launchScene
 			m_mainworker.SwitchScene(ID, "On", User);
 		}
 		else if (actionType == "setChoice") {
@@ -481,14 +501,12 @@ void ImperiHome::ManageAction(std::string& device, std::string& action, std::str
 		}
 	}
 }
-
 void ImperiHome::SetKey(const char* KeyName, std::string KeyValue)
 {
 	int KeyNum = params.size();
 	params[KeyNum]["key"] = KeyName;
 	params[KeyNum]["value"] = KeyValue;
 }
-
 void ImperiHome::SetKey(const char* KeyName, std::string KeyValue, const char* Unit, bool graphable)
 {
 	int KeyNum = params.size();
@@ -501,7 +519,6 @@ void ImperiHome::SetKey(const char* KeyName, std::string KeyValue, const char* U
 	if (graphable)
 		params[KeyNum]["graphable"] = graphable;
 }
-
 void ImperiHome::SetKeys(const char* KeyName, ...)
 {
 	va_list value;
@@ -526,7 +543,6 @@ void ImperiHome::SetKeys(const char* KeyName, ...)
 	}
 	va_end(value);
 }
-
 //manage pTypeGeneral
 void ImperiHome::manageTypeGeneral(TSqlRowQuery* row, Json::Value& params)
 {
@@ -651,7 +667,6 @@ void ImperiHome::manageTypeGeneral(TSqlRowQuery* row, Json::Value& params)
 		break;
 	}
 }
-
 DeviceTypeEnum ImperiHome::LightType(TSqlRowQuery* row, Json::Value& params)
 {
 	DeviceTypeEnum ApType = DevSwitch;
@@ -772,12 +787,11 @@ DeviceTypeEnum ImperiHome::LightType(TSqlRowQuery* row, Json::Value& params)
 	}
 	return ApType;
 }
-
-void ImperiHome::updateRoot(std::string pidx, std::string pname, DeviceTypeEnum ApType, std::string proom)
+void ImperiHome::updateRoot(std::string pidx, std::string pname, DeviceTypeEnum ApType, std::string proom, DeviceTypeEnum apTypeForName )
 {
 	int ii = root["devices"].size();
 
-	root["devices"][ii]["id"] = buildDeviceId(pidx, ApType,pname);
+	root["devices"][ii]["id"] = buildDeviceId(pidx, apTypeForName,pname);
 	root["devices"][ii]["name"] = pname;		//Name
 	if (!proom.empty())
 		root["devices"][ii]["room"] = proom;
@@ -785,13 +799,16 @@ void ImperiHome::updateRoot(std::string pidx, std::string pname, DeviceTypeEnum 
 	root["devices"][ii]["params"] = params;
 	params.clear();
 }
+void ImperiHome::updateRoot(std::string pidx, std::string pname, DeviceTypeEnum ApType, std::string proom )
+{
+	updateRoot(pidx, pname, ApType, proom, ApType);
+}
 void ImperiHome::updateRoot(std::string pidx, std::string pname, DeviceTypeEnum ApType)
 {
 	std::string roomId = getRoomId(pidx);
 	updateRoot(pidx, pname, ApType, roomId);
 	//updateRoot(pidx, pname, ApType , "roomID0"); //all 
 }
-
 void ImperiHome::DeviceContent(std::string& rep_content)
 {
 	int dtype, dSubType = 0;
@@ -989,7 +1006,6 @@ void ImperiHome::DeviceContent(std::string& rep_content)
 	stdreplace(rep_content, "},\n{\"k","},{\"k" );
 	stdreplace(rep_content, "},\n{\"g","},{\"g" );
 }
-
 void ImperiHome::getScenes()
 {
 	Json::Value root;
@@ -998,9 +1014,41 @@ void ImperiHome::getScenes()
 		for (unsigned int ii = 0; ii < root["result"].size(); ii++)
 		{
 			std::string lastU = root["result"][ii]["LastUpdate"].asString();
+			auto result = root["result"][ii];
+/*
+			"Description" : "",
+				"Favorite" : 1,
+				"LastUpdate" : "2025-12-07 15:36:05",
+				"Name" : "GR1",
+				"OffAction" : "",
+				"OnAction" : "",
+				"Protected" : false,
+				"Status" : "On",
+				"Timers" : "false",
+				"Type" : "Group",
+				"UsedByCamera" : false,
+				"idx" : "1"
+		}
+			std::string s = result.toStyledString();
+*/
 			params.clear();
 			SetKey("LastRun", lastU);
-			updateRoot(root["result"][ii]["idx"].asString(), root["result"][ii]["Name"].asString(), DevScene);
+			std::string idx  = result["idx"].asString();
+			std::string name = result["Name"].asString();
+
+			if (result["Type"].asString() == "Group")
+			{
+				if (result["Status"].asString() == "On")
+					SetKey("Status", "1");
+				else
+					SetKey("Status", "0");
+
+					updateRoot(idx, name , DevSwitch, getRoomId(idx), DevScene );
+
+			}
+			else
+				//scene
+				updateRoot(idx, name, DevScene);
 		}
 	//					root["result"][ii]["idx"] = sd[0];
 	//					root["result"][ii]["Name"] = sd[1];
@@ -1017,7 +1065,6 @@ void ImperiHome::getScenes()
 	//					root["result"][ii]["Status"] = "On";
 	//					root["result"][ii]["Status"] = "Mixed";
 }
-
 std::string GenerateCamImageURL(std::string address, std::string port, std::string username, std::string password, std::string  imageurl)
 {
 	std::string feedsrc = "http://";
@@ -1040,7 +1087,6 @@ std::string GenerateCamImageURL(std::string address, std::string port, std::stri
 	}
 	return feedsrc;
 }
-
 void ImperiHome::getDeviceCamera()
 {
 	//	var feedsrc=GenerateCamImageURL(csettings.address,csettings.port,csettings.username,csettings.password,csettings.imageurl);
@@ -1072,12 +1118,10 @@ void ImperiHome::getDeviceCamera()
 		updateRoot(dID, dName, DevCamera);
 	}
 }
-
 void ImperiHome::setRoomId(std::string& DeviceRowID, std::string RoomId)
 {
 	m_Map_Room_DeviceId[DeviceRowID] = "roomID" + RoomId;
 }
-
 //get RoomId from DeviceRowID
 std::string  ImperiHome::getRoomId(std::string& DeviceRowID)
 {
@@ -1089,12 +1133,10 @@ std::string  ImperiHome::getRoomId(std::string& DeviceRowID)
 	//	}
 	return RoomId;
 }
-
 void ImperiHome::clearRoomIds()
 {
 	m_Map_Room_DeviceId.clear();
 }
-
 //build the m_Map_Room_DeviceId table in order to retrieve roomIDxx from DeviceRowId
 //without database access
 void ImperiHome::build_Map_Room_DeviceId()
@@ -1109,12 +1151,10 @@ void ImperiHome::build_Map_Room_DeviceId()
 		setRoomId((*row)[1], (*row)[0]);
 	}
 }
-
 bool ImperiHome::is_Map_Room_DeviceId_built()
 {
 	return m_Map_Room_DeviceId.size();
 }
-
 void ImperiHome::getRoomContent(std::string& rep_content)
 {
 	char line[1024];
@@ -1147,7 +1187,6 @@ void ImperiHome::getRoomContent(std::string& rep_content)
 	//without database access
 	build_Map_Room_DeviceId();
 }
-
 /* for test
 void DeviceContent1(std::string& rep_content)
 {
@@ -1785,7 +1824,6 @@ std::string getIpAdress()
 	//return endpoint.address().to_string();
 	return boost::asio::ip::host_name();
 }
-
 //implemtation of ImperiHome Request 
 //return false if not a ImperiHome Request
 bool  ImperiHome::Request(std::string& request_path, std::string& rep_content)
@@ -1825,7 +1863,6 @@ bool  ImperiHome::Request(std::string& request_path, std::string& rep_content)
 		return false;
 	return true;
 }
-
 bool  ImperiHomeRequest(std::string request_path, std::string& rep_content)
 {
 	ImperiHome m_ImperiHome;
@@ -1867,21 +1904,18 @@ void AsciiTime(struct tm& ltime, char* pTime)
 {
 	sprintf(pTime, "%04d-%02d-%02d %02d:%02d:%02d", ltime.tm_year + 1900, ltime.tm_mon + 1, ltime.tm_mday, ltime.tm_hour, ltime.tm_min, ltime.tm_sec);
 }
-
 void AsciiTime(time_t DateStart, char* DateStr)
 {
 	struct tm ltime;
 	localtime_r(&DateStart, &ltime);
 	AsciiTime(ltime, DateStr);
 }
-
 time_t DateAsciiToTime_t(std::string& DateStr)
 {
 	struct tm tmTime;
 	DateAsciiTotmTime(DateStr, tmTime);
 	return mktime(&tmTime);
 }
-
 void ImperiHome::getGraphic(std::string& idx, std::string TableName, std::string FieldName, std::string KeyName, time_t DateStart, time_t  DateEnd, std::string& rep_content, double CoefA, double CoefB)
 {
 	char DateStartStr[40];
@@ -1924,7 +1958,6 @@ void ImperiHome::getGraphic(std::string& idx, std::string TableName, std::string
 	rep_content += "}																";
 	_log.Debug(DEBUG_NORM, "IMPE: Graphic Id:%s from:%lu=%s to:%lu=%s Points:%d", idx.c_str(), (long)DateStart, DateStartStr, (long)DateEnd, DateEndStr, result.size());
 }
-
 void http::server::CWebServer::ImperihomeServices(WebEmSession& session, const request& req, reply& rep)
 {
 	ImperiHomeRequest((std::string)req.uri, rep.content);
