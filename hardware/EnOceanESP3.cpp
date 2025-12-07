@@ -2443,6 +2443,9 @@ void CEnOceanESP3::ParseESP3Packet(uint8_t packettype, uint8_t *data, uint16_t d
 					m_id_src = m_id_base;
 				else
 					m_id_src = m_id_chip;
+
+				m_sql.safe_query("UPDATE Hardware SET Address='%08X' WHERE (ID=%d)", m_id_src, m_HwdID);
+
 				Log(LOG_STATUS, "Use ID %08X for communicating with devices", m_id_src);
 				return;
 			}
