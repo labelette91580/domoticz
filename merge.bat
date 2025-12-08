@@ -14,8 +14,8 @@ pause
 pause
 "C:\Program Files\Git\bin\"git merge  Enocean4
 pause
-rem "C:\Program Files\Git\bin\"git merge  CopyPlanning
-rem pause
+"C:\Program Files\Git\bin\"git merge  CopyPlanning
+pause
 
 
 
