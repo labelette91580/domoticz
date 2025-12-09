@@ -31,6 +31,8 @@ class CRFXBase : public P1MeterBase
 	int m_NoiseLevel;
 	bool SetRFXCOMHardwaremodes(unsigned char Mode1, unsigned char Mode2, unsigned char Mode3, unsigned char Mode4, unsigned char Mode5, unsigned char Mode6);
 	void SendResetCommand();
+	void SendRawCommand(const char* cmdfile, const char* cmd);
+	static CDomoticzHardwareBase* GetRfxHardware();
 	bool WriteToHardware(const char *pdata, unsigned char length) override = 0;
 	void SetAsyncType(_eRFXAsyncType AsyncType);
 
