@@ -4,6 +4,7 @@
 #include <list>
 #include <string>
 #include <fstream>
+#include <regex>
 #include "lsignal.h"
 
 enum _eLogLevel : uint32_t
@@ -95,6 +96,9 @@ public:
 
 	std::list<_tLogLineStruct> GetLog(_eLogLevel level, time_t lastlogtime = 0);
 	void ClearLog();
+	void SetFilter(const std::string &pFilter);
+	bool CheckIfMessageIsFiltered(const char* cbuffer);
+	bool CheckIfMessageIsFiltered(const std::string& cbuffer);
 
 	std::list<_tLogLineStruct> GetNotificationLogs();
 	bool NotificationLogsEnabled();
@@ -117,5 +121,9 @@ private:
 	bool m_bEnableErrorsToNotificationSystem;
 	time_t m_LastLogNotificationsSend;
 	std::stringstream m_sequencestring;
+	std::vector<std::regex> FilterStringList; //list of keyword to filter
+	std::vector<std::regex> KeepStringList;
+	std::vector<std::regex> Filter2StringList; //list of keyword to filter after Keep pass
+	//list of keyword to keep
 };
 extern CLogger _log;
