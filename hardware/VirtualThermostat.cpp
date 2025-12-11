@@ -200,6 +200,23 @@ constexpr int MODULATION_DURATION = 10;
 //  number of step in percent %
 constexpr int MODULATION_STEP = 10;
 
+//guve the output power swicth value in the time from the modulation percent
+const short ThermostatOutput[MODULATION_STEP + 1][MODULATION_DURATION] = {
+	//            0 1 2 3 4 5 6 7 8 9    
+	/* 000 % */ { 0,0,0,0,0,0,0,0,0,0 },
+	/* 010 % */ { 1,0,0,0,0,0,0,0,0,0 },
+	/* 020 % */ { 1,1,0,0,0,0,0,0,0,0 },
+	/* 030 % */ { 1,1,1,0,0,0,0,0,0,0 },
+	/* 040 % */ { 1,1,1,1,0,0,0,0,0,0 },
+	/* 050 % */ { 1,1,1,1,1,0,0,0,0,0 },
+	/* 060 % */ { 1,1,1,1,1,1,0,0,0,0 },
+	/* 070 % */ { 1,1,1,1,1,1,1,0,0,0 },
+	/* 080 % */ { 1,1,1,1,1,1,1,1,0,0 },
+	/* 090 % */ { 1,1,1,1,1,1,1,1,1,0 },
+	/* 100 % */ { 1,1,1,1,1,1,1,1,1,1 },
+
+};
+
 //compute the thermostat output switch value 
 // the output is modulated in a time period of 10 minute
 // each minute , the output is activated dependeing time and percent.
@@ -207,7 +224,7 @@ constexpr int MODULATION_STEP = 10;
 //input : PowerPercent : the power modulation  0..100%
 //output 1 : activated
 
-int VirtualThermostat::ComputeThermostatOutput(int Min, int PowerPercent)
+int ComputeThermostatOutput2(int Min, int PowerPercent)
 {
 	if (PowerPercent > 100) PowerPercent = 100;
 	PowerPercent = (PowerPercent) / MODULATION_STEP;
@@ -217,6 +234,18 @@ int VirtualThermostat::ComputeThermostatOutput(int Min, int PowerPercent)
 	else
 		return 1;
 }
+
+int VirtualThermostat::ComputeThermostatOutput(int Min, int PowerPercent)
+{
+	//round up 0=0 1..9 = 10
+	PowerPercent = PowerPercent + MODULATION_STEP - 1;
+	if (PowerPercent > 100) PowerPercent = 100;
+	//get row value for ThermostatOutput
+	PowerPercent = (PowerPercent) / MODULATION_STEP;
+	short switchValue = ThermostatOutput[PowerPercent][Min % MODULATION_DURATION];
+	return switchValue;
+}
+
 
 //return the power modulation in function of Room , Exterior and Target Temperature,
 int VirtualThermostat::ComputeThermostatPower(int index, double RoomTemp, double TargetTemp, double CoefProportional, double CoefIntegral)
@@ -299,12 +328,14 @@ int VirtualThermostat::manageSwitch(std::string& SwitchIdxStr, int SwitchValue, 
 				SwitchStateAsChanged = true;
 			if ((OutCmd == "On") && (lastSwitchValue == 0))
 				SwitchStateAsChanged = true;
+			if (OutCmd == "Off") level=0;
+			if (OutCmd == "On" ) level=100;
 		}
 		if ((minute % 10) == 0 || (SwitchStateAsChanged))
 		{
 			m_mainworker.SwitchLight(SwitchIdx, OutCmd, level, _tColor(), false, 0, "VTHER" /*, !SwitchStateAsChanged */);
 			sleep_milliseconds(100);
-			LogDebug += std_format(" SwitchName: %s(%s) Cmd %s: %s Level : %d", SwitchName.c_str(), SwitchIdxStr.c_str(), Cmd.c_str(), OutCmd.c_str(), level);
+			LogDebug += std_format(" Switch:%s(%s) Cmd %s(%d)", SwitchName.c_str(), SwitchIdxStr.c_str(), Cmd.c_str(), level);
 			SwitchStateAsChanged = true;
 		}
 		return SwitchStateAsChanged;
@@ -418,7 +449,7 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 
 						//force display refresh
 						SendSetPointSensor((uint8_t)(DeviceID >> 24),(uint8_t)(DeviceID >> 16), (DeviceID >> 8) & 0xFF, (DeviceID) & 0xFF, 1, 255,(float)ThermostatSetPoint, "");
-						LogDebug = std_format ( "VTHER: Mn:%02d  Therm:%-10s(%2d) Room:%4.1f SetPoint:%4.1f Power:%3d%% SwitchValue:%d Kp:%3.f Ki:%3.f Integr:%3.2f ", Minute, ThermostatName, ThermostatId, RoomTemperature, ThermostatSetPoint, PowerModulation,  SwitchValue, CoefProportional, CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() / INTEGRAL_DURATION );
+						LogDebug = std_format ( "VTHER: Mn:%02d Therm:%s(%d) Room:%4.1f SetP:%4.1f Power:%d%% State:%d Kp:%3.f Ki:%3.f Int:%3.2f ", Minute, ThermostatName, ThermostatId, RoomTemperature, ThermostatSetPoint, PowerModulation,  SwitchValue, CoefProportional, CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() / INTEGRAL_DURATION );
 					}
 					else
 					{
