@@ -9099,21 +9099,18 @@ void CSQLHelper::SetUnitsAndScale()
 bool CSQLHelper::HandleOnOffAction(const bool bIsOn, const std::string& OnAction, const std::string& OffAction)
 {
 	if (bIsOn)
-		_log.Debug(DEBUG_NORM, "SQLH HandleOnOffAction: OnAction:%s", OnAction.c_str());
-	else
-		_log.Debug(DEBUG_NORM, "SQLH HandleOnOffAction: OffAction:%s", OffAction.c_str());
-
-	if (bIsOn)
 	{
 		if (OnAction.empty())
 			return true;
 
 		if ((OnAction.find("http://") == 0) || (OnAction.find("https://") == 0))
 		{
+			_log.Debug(DEBUG_NORM, "SQLH HandleOnOffAction: OnAction:%s", OnAction.c_str());
 			AddTaskItem(_tTaskItem::GetHTTPPage(0.2F, OnAction, "SwitchActionOn"));
 		}
 		else if (OnAction.find("script://") == 0)
 		{
+			_log.Debug(DEBUG_NORM, "SQLH HandleOnOffAction: OnAction:%s", OnAction.c_str());
 			//Execute possible script
 			if (OnAction.find("../") != std::string::npos)
 			{
@@ -9150,10 +9147,12 @@ bool CSQLHelper::HandleOnOffAction(const bool bIsOn, const std::string& OnAction
 
 	if ((OffAction.find("http://") == 0) || (OffAction.find("https://") == 0))
 	{
+		_log.Debug(DEBUG_NORM, "SQLH HandleOnOffAction: OffAction:%s", OffAction.c_str());
 		AddTaskItem(_tTaskItem::GetHTTPPage(0.2F, OffAction, "SwitchActionOff"));
 	}
 	else if (OffAction.find("script://") == 0)
 	{
+		_log.Debug(DEBUG_NORM, "SQLH HandleOnOffAction: OffAction:%s", OffAction.c_str());
 		//Execute possible script
 		if (OffAction.find("../") != std::string::npos)
 		{
