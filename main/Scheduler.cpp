@@ -967,8 +967,8 @@ void CScheduler::CheckSchedules()
 						item.DeviceName.c_str(), Timer_Type_Desc(item.timerType), item.RowID, ltimeBuf);
 				else if (item.bIsThermostat == true)
 					_log.Log(LOG_STATUS,
-						"Schedule item started! Name: %s, Type: %s, ThermostatID: %" PRIu64 ", Time: %s",
-						item.DeviceName.c_str(), Timer_Type_Desc(item.timerType), item.RowID, ltimeBuf);
+						"Schedule item started! Name: %s, Type: %s, ThermostatID: %" PRIu64 ", Time: %s SetPoint: %4.1f",
+						item.DeviceName.c_str(), Timer_Type_Desc(item.timerType), item.RowID, ltimeBuf, item.Temperature);
 				else
 					_log.Log(LOG_STATUS, "Schedule item started! Name: %s, Type: %s, DevID: %" PRIu64 ", Time: %s",
 						item.DeviceName.c_str(), Timer_Type_Desc(item.timerType), item.RowID, ltimeBuf);

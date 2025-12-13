@@ -13069,6 +13069,8 @@ bool MainWorker::SetSetPointEvo(const std::string& idx, const float TempValue, c
 
 bool MainWorker::SetSetPoint(const std::string& idx, const float TempValue)
 {
+	_log.Debug(DEBUG_NORM, "MAIN: Idx:%s Setpoint Temp:%4.1f", idx.c_str(), TempValue);
+
 	//Get Device details
 	std::vector<std::vector<std::string> > result;
 	result = m_sql.safe_query(
