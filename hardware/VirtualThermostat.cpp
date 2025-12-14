@@ -447,8 +447,6 @@ void VirtualThermostat::ScheduleThermostat(int Minute)
 						setOption(Option, "Switch", SwitchValue);     //switch command value
 						m_sql.SetDeviceOptions(ThermostatId, Option);
 
-						//force display refresh
-						SendSetPointSensor((uint8_t)(DeviceID >> 24),(uint8_t)(DeviceID >> 16), (DeviceID >> 8) & 0xFF, (DeviceID) & 0xFF, 1, 255,(float)ThermostatSetPoint, "");
 						LogDebug = std_format ( "VTHER: Mn:%02d Therm:%s(%d) Room:%4.1f SetP:%4.1f Power:%d%% State:%d Kp:%3.f Ki:%3.f Int:%3.2f ", Minute, ThermostatName, ThermostatId, RoomTemperature, ThermostatSetPoint, PowerModulation,  SwitchValue, CoefProportional, CoefIntegral, m_DeltaTemps[ThermostatId]->GetSum() / INTEGRAL_DURATION );
 					}
 					else
