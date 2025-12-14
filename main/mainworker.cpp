@@ -1838,6 +1838,18 @@ void MainWorker::Do_Work()
 			m_LastHeartbeat = mytime(nullptr);
 			HeartbeatCheck();
 		}
+		//CDomoticzHardwareBase* pBaseHardware = m_mainworker.GetHardwareByIDType("3", HTYPE_Dummy);
+		//pBaseHardware->SendTempHumSensor(62, 5, 20, 50, "", 12);
+#ifdef TEST_TEMP
+		if (ltime.tm_sec == 0 )
+		{
+			static int i = 0;
+			const float Temps[] = { 19,19.2,20,20,19.3,19,19 };
+			CDomoticzHardwareBase* pBaseHardware = m_mainworker.GetHardwareByIDType("2", HTYPE_RFXtrx433);
+			//SendTempHumSensor(const int NodeID, const int BatteryLevel, const float temperature, const int humidity, const std::string & defaultname, const int RssiLevel /* =12 */)
+			pBaseHardware->SendTempHumSensor(0x4502, 5, Temps[i++], 50, "", 12);
+		}
+#endif
 	}
 	_log.Log(LOG_STATUS, "Mainworker Stopped...");
 }
@@ -3637,6 +3649,67 @@ void MainWorker::decode_Hum(const CDomoticzHardwareBase* pHardware, const tRBUF*
 	procResult.DeviceRowIdx = DevRowIdx;
 }
 
+float getTemperatureFromSValue(const char* sValue)
+{
+	std::vector<std::string> splitresults;
+	StringSplit(sValue, ";", splitresults);
+	if (splitresults.size() < 1)
+		return 0;
+	else
+		return std::stof(splitresults[0]);
+}
+
+float getLastTemperatureValue(const int HardwareID, const char* DeviceID, const unsigned char unit, const unsigned char devType, const unsigned char subType, std::time_t &secondes)
+{
+	//Retrieve last total from current record
+	int nValue;
+	std::string sValue;
+	struct tm LastUpdateTime;
+	float lastTemp = 0.0;
+	if (m_sql.GetLastValue(HardwareID, DeviceID, unit, devType, subType, nValue, sValue, LastUpdateTime))
+	{
+		secondes = std::mktime(&LastUpdateTime);
+		lastTemp = getTemperatureFromSValue(sValue.c_str());
+	}
+	else
+		secondes = 0;
+
+	return lastTemp;
+
+}
+static float filterTemperature(float Temp, float LastTemp)
+{
+	double delta = (Temp - LastTemp)/3;
+	if (abs(delta)<0.1)
+		return (float)(Temp);
+	else
+		return (float)(LastTemp + delta);
+}
+//return true if value shall be ignored:bad value
+//if the new temerature is greter that last value + 0.4 for more yjan 3 min take the new one 
+//else ignore the value
+bool filterTemperature(float &Temp, const int HardwareID, const char* DeviceID, const unsigned char unit, const unsigned char devType, const unsigned char subType)
+{
+	std::time_t lastsecondes;
+	float lastTemp = getLastTemperatureValue(HardwareID, DeviceID, unit, devType, subType, lastsecondes);
+	std::time_t now = std::time(nullptr);
+	if ((Temp - lastTemp) > 0.4)
+	{
+		if ((now - lastsecondes) > (60 * 2 + 30 ) )
+		{
+			return false;
+		}
+		else
+		{
+			_log.Debug(DEBUG_NORM, "MAIN : abnormal temperature :%.1f", Temp);
+				return true;
+
+		}
+	}
+	else
+		return false;
+}
+
 void MainWorker::decode_TempHum(const CDomoticzHardwareBase* pHardware, const tRBUF* pResponse, _tRxMessageProcessingResult& procResult)
 {
 	char szTmp[100];
@@ -3723,6 +3796,10 @@ void MainWorker::decode_TempHum(const CDomoticzHardwareBase* pHardware, const tR
 	if (Humidity<0)
 	Humidity=0;
 	*/
+	//filter temperature
+	if (filterTemperature(temp, pHardware->m_HwdID, ID.c_str(), Unit, devType, subType))
+		return;
+
 	sprintf(szTmp, "%.1f;%d;%d", temp, Humidity, HumidityStatus);
 	uint64_t DevRowIdx = m_sql.UpdateValue(pHardware->m_HwdID, 0, ID.c_str(), Unit, devType, subType, SignalLevel, BatteryLevel, cmnd, szTmp, procResult.DeviceName, true, procResult.Username.c_str());
 	if (DevRowIdx == (uint64_t)-1)
