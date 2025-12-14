@@ -4583,11 +4583,10 @@ namespace http
 			{
 //				m_sql.safe_query("UPDATE DeviceStatus SET Options='%q' WHERE (ID == '%q')", devoptions.c_str(), idx.c_str());
 				uint64_t ullidx = std::stoull(idx);
-				_eHardwareTypes Type = m_sql.GetHardwareTypeFromHardwareID(HwdID);
-				if (VirtualThermostat::isVirtualThermostat(Type))
-				{
+				CDomoticzHardwareBase* Hardware = m_mainworker.GetHardwareByIDType(std::to_string(HwdID), HTYPE_VirtualThermostat);
+				//if not a virtual thermostat
+				if (Hardware != nullptr)
 					VirtualThermostat::UpdateDeviceTimer( idx,  devoptions);
-				}
 				m_sql.SetDeviceOptions(ullidx, m_sql.BuildDeviceOptions(devoptions, false));
 			}
 

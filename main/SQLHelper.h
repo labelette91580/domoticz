@@ -355,8 +355,6 @@ public:
 	bool GetLastValue(int HardwareID, const char *DeviceID, unsigned char unit, unsigned char devType, unsigned char subType, int &nvalue, std::string &sValue, struct tm &LastUpdateTime);
 
 	std::string GetDeviceValue(const std::string FieldName, const std::string& Idx);
-	_eHardwareTypes  GetHardwareTypeFromHardwareID(const int HardwareID);
-
 
 	void Lighting2GroupCmd(const std::string &ID, unsigned char subType, unsigned char GroupCmd);
 	void HomeConfortGroupCmd(const std::string &ID, unsigned char subType, unsigned char GroupCmd);

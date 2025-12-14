@@ -5966,18 +5966,6 @@ std::string  CSQLHelper::GetDeviceValue(const std::string FieldName, const std::
 
 	return std::string("") ;
 }
-_eHardwareTypes  CSQLHelper::GetHardwareTypeFromHardwareID( const int HardwareID)
-{
-	std::vector<std::vector<std::string> > result;
-	result = safe_query("SELECT Type FROM Hardware WHERE (ID == %d)", HardwareID);
-	if (!result.empty())
-	{
-		std::vector<std::string> sd = result[0];
-		_eHardwareTypes Type = (_eHardwareTypes)atoi(sd[0].c_str());
-		return Type;
-	}
-	return (_eHardwareTypes)0;
-}
 
 void CSQLHelper::GetAddjustment(const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, float& AddjValue, float& AddjMulti)
 {
