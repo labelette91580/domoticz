@@ -10203,7 +10203,7 @@ bool CSQLHelper::SetDeviceOptions(const uint64_t idx, const std::map<std::string
 
 	if (optionsMap.empty()) {
 		//_log.Log(LOG_STATUS, "DEBUG : removing options on device %" PRIu64 "", idx);
-		safe_query("UPDATE DeviceStatus SET Options = null WHERE (ID==%" PRIu64 ")", idx);
+		safe_query("UPDATE DeviceStatus SET Options = null, LastUpdate='%s' WHERE (ID==%" PRIu64 ")", TimeToString(nullptr, TF_DateTime).c_str(), idx);
 	}
 	else {
 		std::string options = FormatDeviceOptions(optionsMap);
@@ -10212,7 +10212,7 @@ bool CSQLHelper::SetDeviceOptions(const uint64_t idx, const std::map<std::string
 			return false;
 		}
 		//_log.Log(LOG_STATUS, "DEBUG : setting options '%s' on device %" PRIu64 "", options.c_str(), idx);
-		safe_query("UPDATE DeviceStatus SET Options = '%q' WHERE (ID==%" PRIu64 ")", options.c_str(), idx);
+		safe_query("UPDATE DeviceStatus SET Options = '%q', LastUpdate='%s' WHERE (ID==%" PRIu64 ")", options.c_str(), TimeToString(nullptr, TF_DateTime).c_str(), idx);
 	}
 	return true;
 }
