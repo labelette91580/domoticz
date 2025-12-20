@@ -4587,7 +4587,8 @@ namespace http
 				//if not a virtual thermostat
 				if (Hardware != nullptr)
 					VirtualThermostat::UpdateDeviceTimer( idx,  devoptions);
-				m_sql.SetDeviceOptions(ullidx, m_sql.BuildDeviceOptions(devoptions, false));
+//				m_sql.SetDeviceOptions(ullidx, m_sql.BuildDeviceOptions(devoptions, false));
+				m_sql.UpdateDeviceOptions(ullidx, devoptions,false);
 			}
 
 			if (used == 0)

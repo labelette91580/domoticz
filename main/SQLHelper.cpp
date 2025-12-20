@@ -10192,6 +10192,31 @@ std::string CSQLHelper::FormatDeviceOptions(const std::map<std::string, std::str
 	return options;
 }
 
+
+//write in t database  the options string "option1:value;option2:value;"  from  optionsMap a map structur [option]=value.
+//if encode = true the value is encoded to format base64
+bool CSQLHelper::UpdateDeviceOptions(const uint64_t idx, const std::string& optionsStr,  bool decode )
+{
+	if (idx < 1) {
+		_log.Log(LOG_ERROR, "Cannot set options on device %" PRIu64 "", idx);
+		return false;
+	}
+	std::map<std::string, std::string> currentOptionsMap = GetDeviceOptions(std::to_string( idx) );
+
+	std::map<std::string, std::string> newOptionsMap     = BuildDeviceOptions(optionsStr, decode);
+
+	for (const auto& itt : newOptionsMap)
+	{
+		std::string optionName = itt.first;
+		std::string optionValue = itt.second;
+		//update current
+		currentOptionsMap[optionName] = optionValue;
+	}
+
+	return SetDeviceOptions( idx, currentOptionsMap);
+}
+
+
 //write in t database  the options string "option1:value;option2:value;"  from  optionsMap a map structur [option]=value.
 //if encode = true the value is encoded to format base64
 bool CSQLHelper::SetDeviceOptions(const uint64_t idx, const std::map<std::string, std::string>& optionsMap)

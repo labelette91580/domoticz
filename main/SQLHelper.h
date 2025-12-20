@@ -455,6 +455,7 @@ public:
 	std::map<std::string, std::string> BuildDeviceOptions(const std::string &options, bool decode = true);
 	std::map<std::string, std::string> GetDeviceOptions(const std::string &idx);
 	std::string FormatDeviceOptions(const std::map<std::string, std::string> &optionsMap);
+	bool UpdateDeviceOptions(const uint64_t idx, const std::string& optionsStr,  bool decode = true);
 	bool SetDeviceOptions(uint64_t idx, const std::map<std::string, std::string> &options);
 
 	float GetCounterDivider(int metertype, int dType, float DefaultValue);
