@@ -1908,6 +1908,8 @@ namespace http
 				return; // Only admin user allowed
 			}
 			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
+
 			if (idx.empty())
 			{
 				session.reply_status = reply::bad_request;
@@ -3235,6 +3237,7 @@ namespace http
 			}
 
 			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
 
 			if (!IsIdxForUser(&session, atoi(idx.c_str())))
 			{
@@ -3662,7 +3665,9 @@ namespace http
 				session.reply_status = reply::forbidden;
 				return; // Only admin user allowed
 			}
-			const std::string idx = request::findValue(&req, "idx");
+			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
+
 			const std::string fromDate = request::findValue(&req, "fromdate");
 			const std::string toDate = request::findValue(&req, "todate");
 			if ((idx.empty()) || (fromDate.empty() || toDate.empty()))
@@ -3679,7 +3684,9 @@ namespace http
 				session.reply_status = reply::forbidden;
 				return; // Only admin user allowed
 			}
-			const std::string idx = request::findValue(&req, "idx");
+			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
+
 			const std::string Date = request::findValue(&req, "date");
 
 			if ((idx.empty()) || (Date.empty()))
@@ -4737,6 +4744,7 @@ namespace http
 			std::string order = request::findValue(&req, "order");
 			std::string rused = request::findValue(&req, "used");
 			std::string rid = request::findValue(&req, "rid");
+			rid = m_sql.GetDeviceIDFromName(rid);
 			std::string planid = request::findValue(&req, "plan");
 			std::string floorid = request::findValue(&req, "floor");
 			std::string sDisplayHidden = request::findValue(&req, "displayhidden");
@@ -5167,6 +5175,8 @@ namespace http
 				return;
 
 			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
+
 			std::string setpoint = request::findValue(&req, "setpoint");
 			if ((idx.empty()) || (setpoint.empty()))
 				return;
@@ -6115,6 +6125,7 @@ namespace http
 			}
 
 			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
 			std::string sused = request::findValue(&req, "used");
 			if ((idx.empty()) || (sused.empty()))
 				return;
@@ -6832,7 +6843,9 @@ namespace http
 			uint64_t idx = 0;
 			if (!request::findValue(&req, "idx").empty())
 			{
-				idx = std::stoull(request::findValue(&req, "idx"));
+				std::string sidx = request::findValue(&req, "idx");
+				sidx = m_sql.GetDeviceIDFromName(sidx);
+				idx = std::stoull(sidx);
 			}
 			std::vector<std::vector<std::string>> result;
 			// First get Device Type/SubType
@@ -6949,7 +6962,9 @@ namespace http
 			uint64_t idx = 0;
 			if (!request::findValue(&req, "idx").empty())
 			{
-				idx = std::stoull(request::findValue(&req, "idx"));
+				std::string sidx = request::findValue(&req, "idx");
+				sidx = m_sql.GetDeviceIDFromName(sidx);
+				idx = std::stoull(sidx);
 			}
 			std::vector<std::vector<std::string>> result;
 

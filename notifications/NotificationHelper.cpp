@@ -1733,7 +1733,9 @@ namespace http {
 			uint64_t idx = 0;
 			if (!request::findValue(&req, "idx").empty())
 			{
-				idx = std::stoull(request::findValue(&req, "idx"));
+				std::string sidx = request::findValue(&req, "idx");
+				sidx = m_sql.GetDeviceIDFromName(sidx);
+				idx = std::stoull(sidx);
 			}
 
 			std::vector<_tNotification> notifications = m_notifications.GetNotifications(idx, false);
@@ -1768,6 +1770,7 @@ namespace http {
 			}
 
 			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
 			if (idx.empty())
 				return;
 
@@ -1834,6 +1837,8 @@ namespace http {
 
 			std::string idx = request::findValue(&req, "idx");
 			std::string devidx = request::findValue(&req, "devidx");
+			devidx = m_sql.GetDeviceIDFromName(devidx);
+
 			if ((idx.empty()) || (devidx.empty()))
 				return;
 
@@ -1905,6 +1910,8 @@ namespace http {
 			}
 
 			std::string idx = request::findValue(&req, "idx");
+			idx = m_sql.GetDeviceIDFromName(idx);
+
 			if (idx.empty())
 				return;
 

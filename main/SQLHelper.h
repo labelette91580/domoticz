@@ -358,10 +358,12 @@ public:
 	bool GetLastValue(int HardwareID, const char *DeviceID, unsigned char unit, unsigned char devType, unsigned char subType, int &nvalue, std::string &sValue, struct tm &LastUpdateTime);
 
 	std::string GetDeviceValue(const std::string FieldName, const std::string& Idx);
+	std::string GetDeviceIDFromName(const std::string deviceName);
 
 	void Lighting2GroupCmd(const std::string &ID, unsigned char subType, unsigned char GroupCmd);
 	void HomeConfortGroupCmd(const std::string &ID, unsigned char subType, unsigned char GroupCmd);
 	void GeneralSwitchGroupCmd(const std::string &ID, unsigned char subType, unsigned char GroupCmd);
+
 
 	void GetAddjustment(int HardwareID, const char *ID, unsigned char unit, unsigned char devType, unsigned char subType, float &AddjValue, float &AddjMulti);
 	void GetAddjustment2(int HardwareID, const char *ID, unsigned char unit, unsigned char devType, unsigned char subType, float &AddjValue, float &AddjMulti);
