@@ -1320,7 +1320,9 @@ namespace http {
 			uint64_t idx = 0;
 			if (!request::findValue(&req, "idx").empty())
 			{
-				idx = std::stoull(request::findValue(&req, "idx"));
+				std::string sidx = request::findValue(&req, "idx");
+				sidx = m_sql.GetDeviceIDFromName(sidx);
+				idx = std::stoull(sidx);
 			}
 			if (idx == 0)
 				return;
@@ -1710,7 +1712,9 @@ namespace http {
 			uint64_t idx = 0;
 			if (!request::findValue(&req, "idx").empty())
 			{
-				idx = std::stoull(request::findValue(&req, "idx"));
+				std::string sidx = request::findValue(&req, "idx");
+				sidx = m_sql.GetDeviceIDFromName(sidx);
+				idx = std::stoull(sidx);
 			}
 			if (idx == 0)
 				return;

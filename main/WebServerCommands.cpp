@@ -2496,6 +2496,7 @@ namespace http
 				{
 					root["title"] = "GetNotificationTypes";
 					std::string idx = request::findValue(&req, "idx");
+					idx = m_sql.GetDeviceIDFromName(idx);
 					if (idx.empty())
 						return false;
 					// First get Device Type/SubType
@@ -3313,6 +3314,7 @@ namespace http
 				{
 					root["title"] = "ClearLightLog";
 					std::string idx = request::findValue(&req, "idx");
+					idx = m_sql.GetDeviceIDFromName(idx);
 					if (idx.empty())
 						return false;
 					// First get Device Type/SubType
@@ -3463,6 +3465,7 @@ namespace http
 				{
 					root["title"] = "SwitchLight";
 					std::string idx = request::findValue(&req, "idx");
+					idx = m_sql.GetDeviceIDFromName(idx);
 
 					std::string switchcmd = request::findValue(&req, "switchcmd");
 					std::string level = "-1";

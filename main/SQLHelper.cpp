@@ -5967,6 +5967,30 @@ std::string  CSQLHelper::GetDeviceValue(const std::string FieldName, const std::
 	return std::string("") ;
 }
 
+bool isNumeric(const std::string& s)
+{
+	return !s.empty() &&
+		std::all_of(s.begin(), s.end(), ::isdigit);
+}
+//if deviceName is numeric return deviceName else device ID from name 
+std::string  CSQLHelper::GetDeviceIDFromName(const std::string deviceName)
+{
+	if (isNumeric(deviceName))
+		return deviceName;
+	if (deviceName.empty())
+		return deviceName;
+
+
+	auto result = m_sql.safe_query("SELECT ID FROM DeviceStatus WHERE (Name == '%q')", deviceName.c_str());
+	if (!result.empty())
+	{
+		std::vector<std::string> sd = result[0];
+		//		int idx = atoi(sd[0].c_str());
+		return sd[0];
+	}
+	else
+		return deviceName;
+}
 void CSQLHelper::GetAddjustment(const int HardwareID, const char* ID, const unsigned char unit, const unsigned char devType, const unsigned char subType, float& AddjValue, float& AddjMulti)
 {
 	AddjValue = 0.0F;

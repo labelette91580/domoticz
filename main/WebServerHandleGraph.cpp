@@ -36,7 +36,9 @@ namespace http
 			uint64_t idx = 0;
 			if (!request::findValue(&req, "idx").empty())
 			{
-				idx = std::stoull(request::findValue(&req, "idx"));
+				std::string sidx = request::findValue(&req, "idx");
+				sidx = m_sql.GetDeviceIDFromName(sidx);
+				idx = std::stoull(sidx);
 			}
 
 			std::vector<std::vector<std::string>> result;
