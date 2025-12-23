@@ -1,3 +1,5 @@
+local Log = require("scripts.log_utils")
+
 return {
     on = {
         timer = { 'every minute' },
@@ -16,43 +18,14 @@ return {
 
     execute = function(domoticz,item)
 
-----------------------------------------------------------------
+        ----------------------------------------------------------------
         -- FONCTION : enregistrement générique
         ----------------------------------------------------------------
-        local function logMessage(filename, Message)
-
-            local time = os.time()
-            local date = os.date('%Y-%m-%d %H:%M:%S', time)
-
-            local file = io.open(filename, 'a')
-            if not file then
-                domoticz.log('Erreur ouverture fichier', domoticz.LOG_ERROR)
-                return
-            end
-
-            -- Format CSV : timestamp;date;Message
---            file:write(string.format('%d;%s;%s\n', time, date, Message))
-            file:write(string.format('%s;%s\n', date, Message))
-            file:close()
-        end
-		function logMessage2(filename, fmt, ...)
-			local msg = string.format(fmt, ...)  -- formate comme en C
-			local time = os.time()
-			local date = os.date('%Y-%m-%d %H:%M:%S', time)
-			
-			local file = io.open(filename, 'a')
-			if file then
-				file:write(string.format("%s;%s\n", date, msg))
-				file:close()
-			else
-				print("Impossible d’ouvrir le fichier")
-			end
-		end		
-        local function getPower(domoticz, item)
+        local function getDevice(domoticz, item)
 			if item.isTimer then
 				local idx = 11 -- IDX du ThSalle
 
-	--                'http://127.0.0.1:8080/json.htm?type=devices&rid=' .. idx
+            	--                'http://127.0.0.1:8080/json.htm?type=devices&rid=' .. idx
 				local url = 'http://192.168.1.6:8080/json.htm?type=command&param=getdevices&filter=utility&used=true&rid=' .. idx 
 				domoticz.openURL({url = url,method = 'GET',callback = 'cb_domoticz'  })
 				return 0
@@ -67,14 +40,18 @@ return {
 					domoticz.log('JSON Domoticz invalide', domoticz.LOG_ERROR)
 					return
 				end
-	--			domoticz.log('JSON brut: ' .. item.data, domoticz.LOG_INFO)
+                --				domoticz.log('JSON brut: ' .. item.data, domoticz.LOG_INFO)
 				local dev = json.result[1]
-				return dev.Power
+				return dev
 			end
 		end
 		
-		local thSallePower = getPower(domoticz, item)
+		local devThSalle = getDevice(domoticz, item)
+        if devThSalle == 0 then return end
+		local thSallePower = devThSalle.Power
 		if thSallePower == 0 then return else  domoticz.data.power = thSallePower end
+
+        Log.dumpTableDz(domoticz, domoticz.devices('ThSalle'))
 
         -- PARAMÈTRES
         local Ts = 60
@@ -164,13 +141,12 @@ return {
 		end
 		local T_filtre = string.format("%.1f ", domoticz.data.T_filtre )
 	
-		domoticz.log( 'Kp:' .. Kp .. ' Ki:' .. Ki  .. ' Temp:' .. Temp .. TempFil .. T_filtre .. ' SetPoint:' .. setpoint .. ' Text:' .. Text .. ' Power:' .. Power .. '%' .. ' Int:' .. Integ )
-		
+    	domoticz.log( 'Kp:' .. Kp .. ' Ki:' .. Ki  .. ' Temp:' .. Temp .. TempFil .. T_filtre .. ' SetPoint:' .. setpoint .. ' Text:' .. Text .. ' Power:' .. Power .. '%' .. ' Int:' .. Integ )
 --        local filename = '/home/pascal/temperature_log.csv'
         local filename = 'C:/domoticz/TempSimu/temp.csv'
 --        logMessage(filename, msg)		
-		logMessage2(filename, '%s;%s;%s;%.1f', Temp, TempFil,T_filtre , domoticz.data.power )
-
+--		Log.logMessage2(filename, '%s;%s;%s;%.1f', Temp, TempFil,T_filtre , domoticz.data.power )
+		Log.log( '%s;%s;%s;%.1f', Temp, TempFil,T_filtre , domoticz.data.power )
 
     end
 }
