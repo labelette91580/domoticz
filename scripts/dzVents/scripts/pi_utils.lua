@@ -1,5 +1,11 @@
 local M = {}
 
+function CompteMax(pVal,pTime,Snap)
+    if (pVal > Snap.val) then
+        Snap.val=pVal
+        Snap.time=pTime
+    end
+end
 function M.computeTau(T1, T2, Text, dt)
     local num = T2 - Text
     local den = T1 - Text
@@ -50,8 +56,17 @@ function M.computePI(error, integral, Kp, Ki, dt)
     return power, integral
 end
 
-function M.runHeatingStep(state, Tint, Text, setpoint, now)
+function M.runHeatingStep(state, Tint, Text, setpoint,power ,now)
     local slope = 0
+    state.DTemp     = Tint-state.lastTemp    
+    state.DTime     = now-state.lastTime    
+    state.DSetPoint = setpoint-state.lastSetPoint
+    state.DPower    = power-state.lastPower   
+
+    if power == 0   then state.TimePower0   =state.TimePower0+1
+    elseif power == 100 then state.TimePower100 =state.TimePower100+1
+    end
+
     if state.lastTemp and state.lastTime and now > state.lastTime then
         slope = (Tint - state.lastTemp) / ((now - state.lastTime) / 3600)
     end
@@ -77,6 +92,10 @@ function M.runHeatingStep(state, Tint, Text, setpoint, now)
 
     state.lastTemp = Tint
     state.lastTime = now
+
+    if power ~= 0   then state.TimePower0   = 0 end
+    if power ~= 100 then state.TimePower100 = 0 end
+
 
     return {
         power = power,
