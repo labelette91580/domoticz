@@ -1,5 +1,9 @@
 
 
+"C:\Program Files\Git\bin\"git rebase development FilterTemp
+pause
+"C:\Program Files\Git\bin\"git rebase development IdJsonWithName
+pause
 "C:\Program Files\Git\bin\"git rebase development UpdateToggleName
 pause
 "C:\Program Files\Git\bin\"git rebase development CopyPlanning
