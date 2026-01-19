@@ -561,6 +561,15 @@ define(['app'], function (app) {
 					if (typeof data.FCMEnabled != 'undefined') {
 						$("#gcmtable #FCMEnabled").prop('checked', data.FCMEnabled == 1);
 					}
+					if (typeof data.FCMClientEmail != 'undefined') {
+						$("#gcmtable #FCMClientEmail").val(data.FCMClientEmail);
+					}
+					if (typeof data.FCMPrivateKey != 'undefined') {
+						$("#gcmtable #FCMPrivateKey").val(atob(data.FCMPrivateKey));
+					}
+					if (typeof data.FCMProjectId != 'undefined') {
+						$("#gcmtable #FCMProjectId").val(data.FCMProjectId);
+					}
 					if (typeof data.LightHistoryDays != 'undefined') {
 						$("#lightlogtable #LightHistoryDays").val(data.LightHistoryDays);
 					}
@@ -1027,6 +1036,29 @@ define(['app'], function (app) {
 					$(this).dialog("close");
 				}
 			});
+			
+			// Handle FCM Service Account JSON file upload
+			$('#FCMServiceAccountJSONFile').on('change', function(event) {
+				var file = event.target.files[0];
+				if (file) {
+					if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+						ShowNotify($.t('Please select a valid JSON file'), 2500, true);
+						return;
+					}
+					var reader = new FileReader();
+					reader.onload = function(e) {
+						try {
+						// Parse JSON and extract required fields
+						var jsonContent = e.target.result;
+						var jsonObj = JSON.parse(jsonContent);
+						if (!jsonObj.client_email || !jsonObj.private_key || !jsonObj.project_id) {
+							ShowNotify($.t('Invalid Firebase JSON - missing required fields (client_email, private_key, project_id)'), 2500, true);
+							return;
+						}
+						$('#gcmtable #FCMClientEmail').val(jsonObj.client_email);
+						$('#gcmtable #FCMPrivateKey').val(jsonObj.private_key);
+						$('#gcmtable #FCMProjectId').val(jsonObj.project_id);
+			
 			$("#maindiv").i18n();
 			$scope.ShowSettings();
 		};

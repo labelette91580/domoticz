@@ -693,16 +693,62 @@
                                 </div>
                             </div>
                             <div class="row-fluid">
-								<div class="span6">
-									<h2><span data-i18n="Google Cloud Messaging"></span></h2>
-									<table class="display" id="gcmtable" border="0" cellpadding="0" cellspacing="0">
-									<tr>
-										<td align="right" style="width:80px"><span data-i18n="Enabled"></span>:</td>
-										<td><input type="checkbox" id="FCMEnabled" name="FCMEnabled"><label for="FCMEnabled"></label></td>
-										<td><button data-i18n="Test" class="btn btn-info" ng-click="TestNotification('fcm')">Test</button></td>
-									</tr>
-									</table>
-									<br>
+								<div class="span12">
+									<!-- Accordion card FCM -->
+									<div class="card-header" role="tab" id="headingFCM">
+									<a data-toggle="collapse" data-parent="#accordionEx" data-target="#collapseOne12" aria-expanded="true"
+										aria-controls="collapseOne12">
+										<h2 class="mb-0"><i class="fas fa-angle-down" style="float:right"></i>
+										<span data-i18n="Google Cloud Messaging"></span>
+										</h2>
+									</a>
+									</div>
+									<!-- Card body -->
+									<div id="collapseOne12" class="collapse show" role="tabpanel" aria-labelledby="headingFCM"
+									data-parent="#accordionEx">
+										<div class="card-body">
+											<table class="display" id="gcmtable" border="0" cellpadding="0" cellspacing="0">
+											<tr>
+												<td align="right" style="width:80px"><span data-i18n="Enabled"></span>:</td>
+												<td><input type="checkbox" id="FCMEnabled" name="FCMEnabled"><label for="FCMEnabled"></label></td>
+												<td><button data-i18n="Test" class="btn btn-info" ng-click="TestNotification('fcm')">Test</button></td>
+											</tr>
+											<!-- FCM: Upload JSON helper row -->
+											<tr>
+												<td align="right" style="width:120px; vertical-align:top; padding-top:8px;"><label>Upload JSON File:</label></td>
+												<td colspan="2">
+													<input type="file" id="FCMServiceAccountJSONFile" accept=".json" style="display:inline-block; margin-right:8px;" />
+													<span style="font-size:11px; color:#666;">Select your Firebase Service Account JSON to auto-fill the fields below (client_email, private_key, project_id).</span>
+												</td>
+											</tr>
+											<tr>
+												<td align="right" style="width:120px; vertical-align:top; padding-top:8px;"><label>Client Email:</label></td>
+												<td colspan="2">
+													<input type="text" id="FCMClientEmail" name="FCMClientEmail" style="width:95%; padding:5px;" class="text ui-widget-content ui-corner-all" placeholder="firebase-adminsdk-xxxxx@project-id.iam.gserviceaccount.com">
+													<div style="margin-top:5px; font-size:11px; color:#666;">From your Firebase Service Account JSON</div>
+												</td>
+											</tr>
+											<tr>
+												<td align="right" style="width:120px; vertical-align:top; padding-top:8px;"><label>Private Key:</label></td>
+												<td colspan="2">
+													<textarea id="FCMPrivateKey" name="FCMPrivateKey" rows="6" style="width:95%; font-family:monospace; font-size:11px;" placeholder='-----BEGIN PRIVATE KEY-----&#10;MIIEvQIBA...&#10;-----END PRIVATE KEY-----'></textarea>
+													<div style="margin-top:5px; font-size:11px; color:#666;">The private_key from your Firebase Service Account JSON</div>
+												</td>
+											</tr>
+											<tr>
+												<td align="right" style="width:120px; vertical-align:top; padding-top:8px;"><label>Project ID:</label></td>
+												<td colspan="2">
+													<input type="text" id="FCMProjectId" name="FCMProjectId" style="width:95%; padding:5px;" class="text ui-widget-content ui-corner-all" placeholder="domoticz-notifications">
+													<div style="margin-top:5px; font-size:12px; color:#666;">
+														<strong>Note:</strong> Enter only the required fields from your Firebase Service Account JSON.<br>
+														Get it from <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a> > Project Settings > Service Accounts > Generate New Private Key
+													</div>
+												</td>
+											</tr>
+											</table>
+											<br>
+										</div>
+									</div>
 								</div>
                             </div>
 							<div class="row-fluid">
