@@ -68,12 +68,15 @@ bool CNotificationFCM::IsConfigured()
 	// Check if user has provided FCM configuration fields
 	if (m_FCMClientEmail.empty() || m_FCMPrivateKey.empty() || m_FCMProjectId.empty())
 	{
-		if (m_FCMClientEmail.empty())
-			_log.Log(LOG_STATUS, "FCM: Client Email not configured. Please configure in Settings > Notifications.");
-		if (m_FCMPrivateKey.empty())
-			_log.Log(LOG_STATUS, "FCM: Private Key not configured. Please configure in Settings > Notifications.");
-		if (m_FCMProjectId.empty())
-			_log.Log(LOG_STATUS, "FCM: Project ID not configured. Please configure in Settings > Notifications.");
+		if (!m_FCMClientEmail.empty() || !m_FCMPrivateKey.empty() || !m_FCMProjectId.empty())
+		{
+			if (m_FCMClientEmail.empty())
+				_log.Log(LOG_STATUS, "FCM: Client Email not configured. Please configure in Settings > Notifications.");
+			if (m_FCMPrivateKey.empty())
+				_log.Log(LOG_STATUS, "FCM: Private Key not configured. Please configure in Settings > Notifications.");
+			if (m_FCMProjectId.empty())
+				_log.Log(LOG_STATUS, "FCM: Project ID not configured. Please configure in Settings > Notifications.");
+		}
 		return false;
 	}
 
@@ -90,7 +93,6 @@ bool CNotificationFCM::IsConfigured()
 	stdreplace(m_GAPI_FCM_PostURL, "##PROJECTID##", m_FCMProjectId);
 
 	return true;
-	return false;
 }
 
 bool CNotificationFCM::SendMessageImplementation(
@@ -236,7 +238,7 @@ bool CNotificationFCM::SendMessageImplementation(
 				if (!root["error"].empty())
 				{
 					Json::Value jsonError = root["error"];
-					_log.Log(LOG_ERROR, "FCM: Could not send message! Errorcode %d (%s)", jsonError["code"].asInt(), jsonError["message"].asCString());
+					_log.Log(LOG_ERROR, "FCM: Could not send message for device (%s)! Errorcode %d (%s)", mobileDevice[2].c_str(), jsonError["code"].asInt(), jsonError["message"].asCString());
 				}
 				else
 				{
