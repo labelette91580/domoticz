@@ -67,7 +67,8 @@ const std::string CEventSystem::m_szReason[] =
 	"time",				// 3
 	"security",			// 4
 	"url",				// 5
-	"notification"			// 6
+	"notification",			// 6
+	"shellcommand"			// 7
 };
 
 // Security status
@@ -148,7 +149,9 @@ CEventSystem::~CEventSystem()
 
 void CEventSystem::StartEventSystem()
 {
-	StopEventSystem();
+	// Preserve the Python sub-interpreter across restarts to avoid the
+	// Py_EndInterpreter / Py_NewInterpreter cycle that crashes on Python 3.13.
+	StopEventSystem(false);
 	m_mainworker.m_notificationsystem.Register(this);
 
 	if (!m_bEnabled)
@@ -174,7 +177,7 @@ void CEventSystem::StartEventSystem()
 	m_szStartTime = TimeToString(&m_StartTime, TF_DateTime);
 }
 
-void CEventSystem::StopEventSystem()
+void CEventSystem::StopEventSystem(bool bDestroyPythonInterpreter /*= true*/)
 {
 	RequestStop();
 	m_TaskQueue.RequestStop();
@@ -193,7 +196,7 @@ void CEventSystem::StopEventSystem()
 	}
 
 #ifdef ENABLE_PYTHON
-	Plugins::PythonEventsStop();
+	Plugins::PythonEventsStop(bDestroyPythonInterpreter);
 #endif
 }
 
@@ -1413,10 +1416,10 @@ void CEventSystem::EventQueueThread()
 {
 	_log.Log(LOG_STATUS, "EventSystem: Queue thread started...");
 
-	std::vector<_tEventQueue> items;
-
 	while (!m_TaskQueue.IsStopRequested(0))
 	{
+		std::vector<_tEventQueue> items;
+
 		// Block until at least one event arrives (or 5 sec timeout)
 		_tEventQueue item;
 		if (!m_eventqueue.timed_wait_and_pop<std::chrono::duration<int>>(item, std::chrono::duration<int>(5)))
@@ -1425,28 +1428,33 @@ void CEventSystem::EventQueueThread()
 		if (m_TaskQueue.IsStopRequested(0))
 			break;
 
+		items.push_back(item); // push the first event in the batch
+
 		try
 		{
-			items.push_back(item);
-
 			// Drain all remaining queued events into the batch
 			while (m_eventqueue.try_pop(item))
+			{
+				if (m_TaskQueue.IsStopRequested(0))
+					break;
 				items.push_back(item);
+			}
 
-			EvaluateEvent(items);
-			items.clear();
+			if (!items.empty())
+			{
+				EvaluateEvent(items);
+			}
 		}
 		catch (const std::exception &e)
 		{
 			_log.Log(LOG_ERROR, "EventSystem: Exception during event processing: %s", e.what());
-			items.clear();
 		}
 		catch (...)
 		{
 			_log.Log(LOG_ERROR, "EventSystem: Unknown exception during event processing");
-			items.clear();
 		}
 	}
+
 	m_eventqueue.clear();
 
 	_log.Log(LOG_STATUS, "EventSystem: Queue thread stopped...");
@@ -3036,7 +3044,7 @@ void CEventSystem::EvaluateLua(const std::vector<_tEventQueue> &items, const std
 	CdzVents* dzventsCheck = CdzVents::GetInstance();
 	if (!m_sql.m_bDisableDzVentsSystem && filename == dzventsCheck->m_runtimeDir + "dzVents.lua")
 		displayName = "dzVents runtime";
-	_log.Debug(DEBUG_EVENTSYSTEM, "EventSystem: script %s trigger (%s)", m_szReason[items[0].reason].c_str(), displayName.c_str());
+	_log.Debug(DEBUG_EVENTSYSTEM, "EventSystem: script %s trigger (%s) [%d event(s)]", m_szReason[items[0].reason].c_str(), displayName.c_str(), (int)items.size());
 
 	int sunTimers[10];
 	if (m_mainworker.m_SunRiseSetMins.size() == 10)

@@ -68,6 +68,7 @@ namespace Plugins {
 
 	std::map<int, CDomoticzHardwareBase*>	CPluginSystem::m_pPlugins;
 	std::map<std::string, std::string>		CPluginSystem::m_PluginXml;
+	std::map<std::string, void*>			CPluginSystem::m_PreservedInterpreters;
 	void *CPluginSystem::m_InitialPythonThread;
 
 	CPluginSystem::CPluginSystem()
@@ -221,7 +222,7 @@ namespace Plugins {
 #endif
 		if (!createdir(plugin_BaseDir.c_str(), 0755))
 		{
-			_log.Log(LOG_NORM, "%s: Created directory %s", __func__, plugin_BaseDir.c_str());
+			_log.Debug(DEBUG_PYTHON, "%s: Created directory %s", __func__, plugin_BaseDir.c_str());
 		}
 
 		std::vector<std::string> DirEntries, FileEntries;
@@ -294,6 +295,28 @@ namespace Plugins {
 			std::lock_guard<std::mutex> l(PluginMutex);
 			m_pPlugins.erase(HwdID);
 		}
+	}
+
+	void* CPluginSystem::GetPreservedInterpreter(const std::string& pluginKey)
+	{
+		std::lock_guard<std::mutex> l(PluginMutex);
+		auto it = m_PreservedInterpreters.find(pluginKey);
+		if (it != m_PreservedInterpreters.end())
+		{
+			void* pInterpreter = it->second;
+			m_PreservedInterpreters.erase(it);
+			return pInterpreter;
+		}
+		return nullptr;
+	}
+
+	void CPluginSystem::SetPreservedInterpreter(const std::string& pluginKey, void* pInterpreter)
+	{
+		std::lock_guard<std::mutex> l(PluginMutex);
+		if (pInterpreter)
+			m_PreservedInterpreters[pluginKey] = pInterpreter;
+		else
+			m_PreservedInterpreters.erase(pluginKey);
 	}
 
 	void BoostWorkers()

@@ -920,16 +920,14 @@ namespace http
 			Json::Value result(Json::arrayValue);
 			if (passkeysJson.empty())
 				return result;
-			Json::Reader reader;
-			if (!reader.parse(passkeysJson, result) || !result.isArray())
+			if (!ParseJSon(passkeysJson, result) || !result.isArray())
 				return Json::Value(Json::arrayValue);
 			return result;
 		}
 
 		std::string CWebServer::SerializePasskeys(const Json::Value& passkeys)
 		{
-			Json::FastWriter writer;
-			return writer.write(passkeys);
+			return JSonToRawString(passkeys);
 		}
 
 		bool CWebServer::AddPasskeyToUser(unsigned long userID, const std::string& credentialID, const std::string& publicKey, const std::string& credentialName, const std::string& deviceInfo)
@@ -4616,6 +4614,11 @@ namespace http
 			dbasefile.shrink_to_fit();
 
 			m_mainworker.StopDomoticzHardware();
+			// Pass false to preserve the Python event sub-interpreter.
+			// Destroying and recreating it crashes on Python 3.13 due to
+			// stale per-thread GIL state left by Py_EndInterpreter.
+			m_mainworker.m_eventsystem.StopEventSystem(false);
+			m_mainworker.m_notificationsystem.Stop();
 
 			bool bOK = m_sql.RestoreDatabaseFromFile(tempPath);
 
@@ -4623,7 +4626,21 @@ namespace http
 
 			if (!bOK)
 				_log.Log(LOG_ERROR, "Restore Database: Restore failed, restarting hardware with existing database");
-			m_mainworker.AddAllDomoticzHardware();
+			// Pass false to skip setting m_bStartHardware so Do_Work does
+			// not race with the explicit startup sequence below.
+			m_mainworker.AddAllDomoticzHardware(false);
+
+			// Perform the full startup sequence here rather than relying on
+			// the deferred Do_Work / m_bStartHardware path, which would
+			// race with the stop above.
+			m_mainworker.StartDomoticzHardware();
+#ifdef ENABLE_PYTHON
+			m_mainworker.m_pluginsystem.AllPluginsStarted();
+#endif
+			m_mainworker.m_notificationsystem.Start();
+			m_mainworker.m_eventsystem.SetEnabled(m_sql.m_bEnableEventSystem);
+			m_mainworker.m_eventsystem.StartEventSystem();
+			m_mainworker.m_notificationsystem.Notify(Notification::DZ_START, Notification::STATUS_INFO);
 		}
 
 		/**

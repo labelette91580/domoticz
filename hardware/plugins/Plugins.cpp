@@ -55,7 +55,7 @@ namespace Plugins
 		{
 			if (m_pPlugin->m_bDebug & PDM_LOCKING)
 			{
-				m_pPlugin->Log(LOG_NORM, "Acquiring GIL for '%s'", m_Text.c_str());
+				m_pPlugin->Debug(DEBUG_PYTHON, "Acquiring GIL for '%s'", m_Text.c_str());
 			}
 			m_pPlugin->RestoreThread();
 		}
@@ -106,7 +106,7 @@ namespace Plugins
 					if (PyArg_ParseTuple(args, "O", &pObject))
 					{
 						std::string	sMessage = PyBorrowedRef(pObject);
-						pPlugin->Log(LOG_NORM, sMessage);
+						pPlugin->Debug(DEBUG_PYTHON, "%s", sMessage.c_str());
 					}
 					else
 					{
@@ -116,7 +116,7 @@ namespace Plugins
 				}
 				else
 				{
-					pPlugin->Log(LOG_NORM, (std::string)msg);
+					pPlugin->Debug(DEBUG_PYTHON, "%s", msg);
 				}
 			}
 		}
@@ -155,7 +155,7 @@ namespace Plugins
 				if (PyArg_ParseTuple(args, "O", &pObject))
 				{
 					std::string	sMessage = PyBorrowedRef(pObject);
-					pPlugin->Log(LOG_NORM, sMessage);
+					pPlugin->Debug(DEBUG_PYTHON, "%s", sMessage.c_str());
 				}
 				else
 				{
@@ -294,7 +294,7 @@ namespace Plugins
 					type = PDM_ALL;
 
 				pModState->pPlugin->m_bDebug = (PluginDebugMask)type;
-				pModState->pPlugin->Log(LOG_NORM, "Debug logging mask set to: %s%s%s%s%s%s%s%s%s", (type == PDM_NONE ? "NONE" : ""),
+				pModState->pPlugin->Debug(DEBUG_PYTHON, "Debug logging mask set to: %s%s%s%s%s%s%s%s%s", (type == PDM_NONE ? "NONE" : ""),
 					 (type & PDM_PYTHON ? "PYTHON " : ""), (type & PDM_PLUGIN ? "PLUGIN " : ""), (type & PDM_QUEUE ? "QUEUE " : ""), (type & PDM_IMAGE ? "IMAGE " : ""),
 					 (type & PDM_DEVICE ? "DEVICE " : ""), (type & PDM_CONNECTION ? "CONNECTION " : ""), (type & PDM_MESSAGE ? "MESSAGE " : ""), (type == PDM_ALL ? "ALL" : ""));
 			}
@@ -514,7 +514,7 @@ namespace Plugins
 				PyNewRef pLocals = PyObject_Dir(pModState->lastCallback);
 				if (pLocals.IsList()) // && PyIter_Check(pLocals))  // Check fails but iteration works??!?
 				{
-					pModState->pPlugin->Log(LOG_NORM, "Context dump:");
+					pModState->pPlugin->Debug(DEBUG_PYTHON, "Context dump:");
 					PyNewRef pIter = PyObject_GetIter(pLocals);
 					PyNewRef pItem = PyIter_Next(pIter);
 					while (pItem)
@@ -531,7 +531,7 @@ namespace Plugins
 									if (strValue.length())
 									{
 										std::string sBlank((sAttrName.length() < 20) ? 20 - sAttrName.length() : 0, ' ');
-										pModState->pPlugin->Log(LOG_NORM, " ----> '%s'%s '%s'", sAttrName.c_str(), sBlank.c_str(), strValue.c_str());
+										pModState->pPlugin->Debug(DEBUG_PYTHON, " ----> '%s'%s '%s'", sAttrName.c_str(), sBlank.c_str(), strValue.c_str());
 									}
 								}
 							}
@@ -542,7 +542,7 @@ namespace Plugins
 				PyBorrowedRef pLocalVars = PyEval_GetLocals();
 				if (pLocalVars.IsDict())
 				{
-					pModState->pPlugin->Log(LOG_NORM, "Locals dump:");
+					pModState->pPlugin->Debug(DEBUG_PYTHON, "Locals dump:");
 					PyBorrowedRef key;
 					PyBorrowedRef value;
 					Py_ssize_t pos = 0;
@@ -551,13 +551,13 @@ namespace Plugins
 						std::string sValue = value;
 						std::string sKey = key;
 						std::string sBlank((sKey.length() < 20) ? 20 - sKey.length() : 0, ' ');
-						pModState->pPlugin->Log(LOG_NORM, " ----> '%s'%s '%s'", sKey.c_str(), sBlank.c_str(), sValue.c_str());
+						pModState->pPlugin->Debug(DEBUG_PYTHON, " ----> '%s'%s '%s'", sKey.c_str(), sBlank.c_str(), sValue.c_str());
 					}
 				}
 				PyBorrowedRef pGlobalVars = PyEval_GetGlobals();
 				if (pGlobalVars.IsDict())
 				{
-					pModState->pPlugin->Log(LOG_NORM, "Globals dump:");
+					pModState->pPlugin->Debug(DEBUG_PYTHON, "Globals dump:");
 					PyBorrowedRef key;
 					PyBorrowedRef value;
 					Py_ssize_t pos = 0;
@@ -568,7 +568,7 @@ namespace Plugins
 						{
 							std::string sBlank((sKey.length() < 20) ? 20 - sKey.length() : 0, ' ');
 							std::string sValue = value;
-							pModState->pPlugin->Log(LOG_NORM, " ----> '%s'%s '%s'", sKey.c_str(), sBlank.c_str(), sValue.c_str());
+							pModState->pPlugin->Debug(DEBUG_PYTHON, " ----> '%s'%s '%s'", sKey.c_str(), sBlank.c_str(), sValue.c_str());
 						}
 					}
 				}
@@ -820,6 +820,21 @@ namespace Plugins
 		else
 		{
 			std::string	sTypeText("Unknown Error");
+			std::string	sValueText;
+
+			// Always extract basic exception info first (doesn't require traceback module)
+			if (pExcept)
+			{
+				sTypeText = pExcept.Attribute("__name__");
+			}
+			if (pValue)
+			{
+				PyNewRef pStr = PyObject_Str(pValue);
+				if (pStr)
+				{
+					sValueText = std::string(pStr);
+				}
+			}
 
 			/* See if we can get a full traceback */
 			PyNewRef	pModule = PyImport_ImportModule("traceback");
@@ -845,20 +860,17 @@ namespace Plugins
 					}
 					else
 					{
-						if (pExcept) sTypeText = pExcept.Attribute("__name__");
-						Log(LOG_ERROR, "Exception: '%s'.  No traceback available.", sTypeText.c_str());
+						Log(LOG_ERROR, "Exception: '%s: %s'.  No traceback available.", sTypeText.c_str(), sValueText.c_str());
 					}
 				}
 				else
 				{
-					if (pExcept) sTypeText = pExcept.Attribute("__name__");
-					Log(LOG_ERROR, "'format_exception' lookup failed, exception: '%s'.  No traceback available.", sTypeText.c_str());
+					Log(LOG_ERROR, "'format_exception' lookup failed, exception: '%s: %s'.  No traceback available.", sTypeText.c_str(), sValueText.c_str());
 				}
 			}
 			else
 			{
-				if (pExcept) sTypeText = pExcept.Attribute("__name__");
-				Log(LOG_ERROR, "'Traceback' module import failed, exception: '%s'.  No traceback available.", sTypeText.c_str());
+				Log(LOG_ERROR, "'Traceback' module import failed, exception: '%s: %s'.  No traceback available.", sTypeText.c_str(), sValueText.c_str());
 			}
 		}
 		PyErr_Clear();
@@ -876,7 +888,7 @@ namespace Plugins
 		{
 			m_iPollInterval = Interval;
 			if (m_bDebug & PDM_PLUGIN)
-				Log(LOG_NORM, "Heartbeat interval set to: %d.", m_iPollInterval);
+				Debug(DEBUG_PYTHON, "Heartbeat interval set to: %d.", m_iPollInterval);
 		}
 		return m_iPollInterval;
 	}
@@ -886,7 +898,7 @@ namespace Plugins
 		delete m_Notifier;
 		m_Notifier = nullptr;
 		if (m_bDebug & PDM_PLUGIN)
-			Log(LOG_NORM, "Notifier Name set to: %s.", Notifier.c_str());
+			Debug(DEBUG_PYTHON, "Notifier Name set to: %s.", Notifier.c_str());
 		m_Notifier = new CPluginNotifier(this, Notifier);
 	}
 
@@ -938,7 +950,7 @@ namespace Plugins
 			else
 			{
 				SetThreadName(m_thread->native_handle(), m_Name.c_str());
-				Log(LOG_NORM, "Worker thread started.");
+				Debug(DEBUG_PYTHON, "Worker thread started.");
 			}
 		}
 		catch (...)
@@ -1066,7 +1078,7 @@ namespace Plugins
 					{
 						if (m_bDebug & PDM_QUEUE)
 						{
-							Log(LOG_NORM, "Processing '" + std::string(Message->Name()) + "' message");
+							Debug(DEBUG_PYTHON, "Processing '%s' message", Message->Name());
 						}
 						Message->Process(this);
 					}
@@ -1111,7 +1123,7 @@ namespace Plugins
 			}
 			catch (...)
 			{
-				Log(LOG_NORM, "Transport vector changed during %s loop, continuing.", __func__);
+				Debug(DEBUG_PYTHON, "Transport vector changed during %s loop, continuing.", __func__);
 			}
 		}
 
@@ -1124,148 +1136,233 @@ namespace Plugins
 
 		try
 		{
-			// Only initialise one plugin at a time to prevent issues with module creation
-			PyEval_RestoreThread((PyThreadState *)m_mainworker.m_pluginsystem.PythonThread());
-			m_PyInterpreter = Py_NewInterpreter();
-			if (!m_PyInterpreter)
-			{
-				Log(LOG_ERROR, "(%s) failed to create interpreter.", m_PluginKey.c_str());
-				goto Error;
-			}
-
-			// Prepend plugin directory to path so that python will search it early when importing
-#ifdef WIN32
-			std::wstring sSeparator = L";";
-#else
-			std::wstring sSeparator = L":";
-#endif
-			std::wstringstream ssPath;
+			// Look up plugin XML manifest (needed for version/author parsing later)
 			std::string sFind = "key=\"" + m_PluginKey + "\"";
-			CPluginSystem Plugins;
-			std::map<std::string, std::string> *mPluginXml = Plugins.GetManifest();
+			CPluginSystem PluginMgr;
+			std::map<std::string, std::string> *mPluginXml = PluginMgr.GetManifest();
 			std::string sPluginXML;
 			for (const auto &type : *mPluginXml)
 			{
 				if (type.second.find(sFind) != std::string::npos)
 				{
 					m_HomeFolder = type.first;
-					ssPath << m_HomeFolder.c_str();
 					sPluginXML = type.second;
 					break;
 				}
 			}
 
-			std::wstring sPath = ssPath.str() + sSeparator;
-			sPath += Py_GetPath();
-
-			try
+			void* pPreserved = CPluginSystem::GetPreservedInterpreter(m_PluginKey);
+			if (pPreserved)
 			{
-				//
-				//	Python loads the 'site' module automatically and adds extra search directories for module loading
-				//	This code makes the plugin framework function the same way
-				//
-				PyNewRef	pSiteModule = PyImport_ImportModule("site");
-				if (!pSiteModule)
+				// Reuse preserved interpreter from previous run
+				m_PyInterpreter = (PyThreadState *)pPreserved;
+				Debug(DEBUG_PYTHON, "(%s) reusing preserved interpreter (%p).",
+				      m_PluginKey.c_str(), m_PyInterpreter);
+				PyEval_RestoreThread(m_PyInterpreter);
+				// stdio, path, Py_None, faulthandler are all still set from previous run
+			}
+			else
+			{
+				// Fresh interpreter (first start)
+				// Only initialise one plugin at a time to prevent issues with module creation
+				PyEval_RestoreThread((PyThreadState *)m_mainworker.m_pluginsystem.PythonThread());
+				m_PyInterpreter = Py_NewInterpreter();
+				if (!m_PyInterpreter)
 				{
-					Log(LOG_ERROR, "(%s) failed to load 'site' module, continuing.", m_PluginKey.c_str());
+					Log(LOG_ERROR, "(%s) failed to create interpreter.", m_PluginKey.c_str());
+					goto Error;
 				}
-				else
+
+				// Ensure sys.stdin/stdout/stderr are set immediately after interpreter creation
+				// Python 3.13+ sub-interpreters may not inherit stdio from the main interpreter,
+				// causing "RuntimeError: sys.stderr is None" during any subsequent import.
+				// Plugins use Domoticz.Log() not print(), so a NullStream is sufficient.
+				try
 				{
-					PyNewRef	pFunc = PyObject_GetAttrString((PyObject *)pSiteModule, "getsitepackages");
-					if (pFunc && PyCallable_Check(pFunc))
+					PyNewRef	pCode = Py_CompileString(
+						"class _NullStream:\n"
+						"    encoding = 'utf-8'\n"
+						"    errors = 'strict'\n"
+						"    def write(self, data): return len(data) if isinstance(data, str) else 0\n"
+						"    def writelines(self, lines): pass\n"
+						"    def read(self, n=-1): return ''\n"
+						"    def readline(self, n=-1): return ''\n"
+						"    def readlines(self): return []\n"
+						"    def flush(self): pass\n"
+						"    def close(self): pass\n"
+						"    def fileno(self): return 2\n"
+						"    def isatty(self): return False\n"
+						"    def readable(self): return False\n"
+						"    def writable(self): return True\n"
+						"    def seekable(self): return False\n"
+						"_null = _NullStream()\n",
+						"<domoticz>", Py_file_input);
+					if (pCode)
 					{
-						PyNewRef	pSites = PyObject_CallObject(pFunc, nullptr);
-						if (!pSites)
+						PyNewRef	global_dict = PyDict_New();
+						PyNewRef	local_dict = PyDict_New();
+						PyNewRef	pEval = PyEval_EvalCode(pCode, global_dict, local_dict);
+						if (pEval)
 						{
-							LogPythonException("getsitepackages");
+							PyBorrowedRef pNull = PyDict_GetItemString(local_dict, "_null");
+							if (pNull)
+							{
+								PySys_SetObject("stderr", pNull);
+								PySys_SetObject("stdout", pNull);
+								PySys_SetObject("stdin", pNull);
+								Debug(DEBUG_PYTHON, "(%s) sys.stderr/stdout/stdin initialized.", m_PluginKey.c_str());
+							}
 						}
 						else
-							for (Py_ssize_t i = 0; i < PyList_Size(pSites); i++)
+						{
+							Log(LOG_ERROR, "(%s) failed to create NullStream for stdio.", m_PluginKey.c_str());
+						}
+					}
+					else
+					{
+						Log(LOG_ERROR, "(%s) failed to compile NullStream code.", m_PluginKey.c_str());
+					}
+					if (PyErr_Occurred()) PyErr_Clear();
+				}
+				catch (...)
+				{
+					Log(LOG_ERROR, "(%s) exception initializing stdio streams, continuing.", m_PluginKey.c_str());
+					if (PyErr_Occurred()) PyErr_Clear();
+				}
+
+				// Prepend plugin directory to path so that python will search it early when importing
+#ifdef WIN32
+				std::wstring sSeparator = L";";
+#else
+				std::wstring sSeparator = L":";
+#endif
+				std::wstringstream ssPath;
+				ssPath << m_HomeFolder.c_str();
+
+				std::wstring sPath = ssPath.str() + sSeparator;
+				sPath += Py_GetPath();
+
+				try
+				{
+					//
+					//	Python loads the 'site' module automatically and adds extra search directories for module loading
+					//	This code makes the plugin framework function the same way
+					//
+					PyNewRef	pSiteModule = PyImport_ImportModule("site");
+					if (!pSiteModule)
+					{
+						Log(LOG_ERROR, "(%s) failed to load 'site' module, continuing.", m_PluginKey.c_str());
+					}
+					else
+					{
+						PyNewRef	pFunc = PyObject_GetAttrString((PyObject *)pSiteModule, "getsitepackages");
+						if (pFunc && PyCallable_Check(pFunc))
+						{
+							PyNewRef	pSites = PyObject_CallObject(pFunc, nullptr);
+							if (!pSites)
 							{
-								PyBorrowedRef	pSite = PyList_GetItem(pSites, i);
-								if (pSite.IsString())
-								{
-									std::wstringstream ssPath;
-									ssPath << ((std::string)PyBorrowedRef(pSite)).c_str();
-									sPath += sSeparator + ssPath.str();
-								}
+								LogPythonException("getsitepackages");
 							}
+							else
+								for (Py_ssize_t i = 0; i < PyList_Size(pSites); i++)
+								{
+									PyBorrowedRef	pSite = PyList_GetItem(pSites, i);
+									if (pSite.IsString())
+									{
+										std::wstringstream ssPath;
+										ssPath << ((std::string)PyBorrowedRef(pSite)).c_str();
+										sPath += sSeparator + ssPath.str();
+									}
+								}
+						}
 					}
 				}
-			}
-			catch (...)
-			{
-				Log(LOG_ERROR, "(%s) exception loading 'site' module, continuing.", m_PluginKey.c_str());
-				PyErr_Clear();
-			}
-
-			// Update the path itself
-			PySys_SetPath((wchar_t *)sPath.c_str());
-
-			// Get reference to global 'Py_None' instance for comparisons
-			if (!Py_None)
-			{
-				PyNewRef		global_dict = PyDict_New();
-				PyNewRef		local_dict = PyDict_New();
-				PyNewRef		pCode = Py_CompileString("# Eval will return 'None'\n", "<domoticz>", Py_file_input);
-				if (pCode)
+				catch (...)
 				{
-					PyNewRef	pEval = PyEval_EvalCode(pCode, global_dict, local_dict);
-					Py_None = pEval;
-					Py_INCREF(Py_None);
+					Log(LOG_ERROR, "(%s) exception loading 'site' module, continuing.", m_PluginKey.c_str());
+					PyErr_Clear();
 				}
-				else
-				{
-					Log(LOG_ERROR, "Failed to compile script to set global Py_None");
-				}
-			}
 
-			try
-			{
-				//
-				//	Load the 'faulthandler' module to get a python stackdump during a segfault
-				//
-				PyNewRef	pFaultModule = PyImport_ImportModule("faulthandler");
-				if (!pFaultModule)
+				// Update the path itself
+				PySys_SetPath((wchar_t *)sPath.c_str());
+
+				// Get reference to global 'Py_None' instance for comparisons
+				if (!Py_None)
 				{
-					Log(LOG_ERROR, "(%s) failed to load 'faulthandler' module, continuing.", m_PluginKey.c_str());
-				}
-				else
-				{
-					PyNewRef	pFunc = PyObject_GetAttrString((PyObject*)pFaultModule, "is_enabled");
-					if (pFunc && PyCallable_Check(pFunc))
+					PyNewRef		global_dict = PyDict_New();
+					PyNewRef		local_dict = PyDict_New();
+					PyNewRef		pCode = Py_CompileString("# Eval will return 'None'\n", "<domoticz>", Py_file_input);
+					if (pCode)
 					{
-						PyNewRef	pRetObj = PyObject_CallObject(pFunc, nullptr);
-						if (!pRetObj.IsTrue())
+						PyNewRef	pEval = PyEval_EvalCode(pCode, global_dict, local_dict);
+						Py_None = pEval;
+						Py_INCREF(Py_None);
+					}
+					else
+					{
+						Log(LOG_ERROR, "Failed to compile script to set global Py_None");
+					}
+				}
+
+				try
+				{
+					//
+					//	Load the 'faulthandler' module to get a python stackdump during a segfault
+					//
+					PyNewRef	pFaultModule = PyImport_ImportModule("faulthandler");
+					if (!pFaultModule)
+					{
+						Log(LOG_ERROR, "(%s) failed to load 'faulthandler' module, continuing.", m_PluginKey.c_str());
+					}
+					else
+					{
+						PyNewRef	pFunc = PyObject_GetAttrString((PyObject*)pFaultModule, "is_enabled");
+						if (pFunc && PyCallable_Check(pFunc))
 						{
-							PyNewRef	pFunc = PyObject_GetAttrString((PyObject*)pFaultModule, "enable");
-							if (pFunc && PyCallable_Check(pFunc))
+							PyNewRef	pRetObj = PyObject_CallObject(pFunc, nullptr);
+							if (!pRetObj.IsTrue())
 							{
-								PyNewRef pRetObj = PyObject_CallObject(pFunc, nullptr);
+								PyNewRef	pFunc = PyObject_GetAttrString((PyObject*)pFaultModule, "enable");
+								if (pFunc && PyCallable_Check(pFunc))
+								{
+									PyNewRef pRetObj = PyObject_CallObject(pFunc, nullptr);
+								}
 							}
 						}
 					}
 				}
-			}
-			catch (...)
-			{
-				Log(LOG_ERROR, "(%s) exception loading 'faulthandler' module, continuing.", m_PluginKey.c_str());
-				PyErr_Clear();
+				catch (...)
+				{
+					Log(LOG_ERROR, "(%s) exception loading 'faulthandler' module, continuing.", m_PluginKey.c_str());
+					PyErr_Clear();
+				}
 			}
 
+			// Common path: import plugin module (both fresh and recycled interpreters)
 			try
 			{
 				m_PyModule = PyImport_ImportModule("plugin");
 				if (!m_PyModule)
 				{
-					Log(LOG_ERROR, "(%s) failed to load 'plugin.py', Python Path used was '%S'.", m_PluginKey.c_str(), sPath.c_str());
-					LogPythonException();
+					Log(LOG_ERROR, "(%s) failed to load 'plugin.py'.", m_PluginKey.c_str());
+					if (PyErr_Occurred())
+					{
+						LogPythonException();
+					}
+					else
+					{
+						Log(LOG_ERROR, "(%s) no Python exception set after import failure.", m_PluginKey.c_str());
+					}
 					goto Error;
 				}
 			}
 			catch (...)
 			{
-				Log(LOG_ERROR, "(%s) exception loading 'plugin.py', Python Path used was '%S'.", m_PluginKey.c_str(), sPath.c_str());
+				Log(LOG_ERROR, "(%s) exception loading 'plugin.py'.", m_PluginKey.c_str());
+				if (PyErr_Occurred())
+				{
+					LogPythonException();
+				}
 				PyErr_Clear();
 			}
 
@@ -1496,6 +1593,8 @@ namespace Plugins
 
 			LoadSettings();
 
+			LogInterpreterState("post-init");
+
 			m_bIsStarted = true;
 			m_bIsStarting = false;
 			m_bIsStopped = false;
@@ -1523,7 +1622,7 @@ namespace Plugins
 		std::string sProtocol = PyBorrowedRef(pConnection->Protocol);
 		pConnection->pProtocol = CPluginProtocol::Create(sProtocol);
 		if (m_bDebug & PDM_CONNECTION)
-			Log(LOG_NORM, "Protocol set to: '%s'.", sProtocol.c_str());
+			Debug(DEBUG_PYTHON, "Protocol set to: '%s'.", sProtocol.c_str());
 	}
 
 	void CPlugin::ConnectionConnect(CDirectiveBase *pMess)
@@ -1544,7 +1643,7 @@ namespace Plugins
 			if (m_bDebug & PDM_CONNECTION)
 			{
 				std::string sConnection = PyBorrowedRef(pConnection->Name);
-				Log(LOG_NORM, "Protocol for '%s' not specified, 'None' assumed.", sConnection.c_str());
+				Debug(DEBUG_PYTHON, "Protocol for '%s' not specified, 'None' assumed.", sConnection.c_str());
 			}
 			pConnection->pProtocol = new CPluginProtocol();
 		}
@@ -1555,7 +1654,7 @@ namespace Plugins
 		{
 			std::string sPort = PyBorrowedRef(pConnection->Port);
 			if (m_bDebug & PDM_CONNECTION)
-				Log(LOG_NORM, "Transport set to: '%s', %s:%s.", sTransport.c_str(), sAddress.c_str(), sPort.c_str());
+				Debug(DEBUG_PYTHON, "Transport set to: '%s', %s:%s.", sTransport.c_str(), sAddress.c_str(), sPort.c_str());
 			if (sPort.empty())
 			{
 				Log(LOG_ERROR, "No port number specified for %s connection to: '%s'.", sTransport.c_str(), sAddress.c_str());
@@ -1571,7 +1670,7 @@ namespace Plugins
 			if (pConnection->pProtocol->Secure())
 				Log(LOG_ERROR, "Transport '%s' does not support secure connections.", sTransport.c_str());
 			if (m_bDebug & PDM_CONNECTION)
-				Log(LOG_NORM, "Transport set to: '%s', '%s', %d.", sTransport.c_str(), sAddress.c_str(), pConnection->Baud);
+				Debug(DEBUG_PYTHON, "Transport set to: '%s', '%s', %d.", sTransport.c_str(), sAddress.c_str(), pConnection->Baud);
 			pConnection->pTransport = (CPluginTransport *)new CPluginTransportSerial(m_HwdID, pConnection, sAddress, pConnection->Baud);
 		}
 		else
@@ -1586,11 +1685,11 @@ namespace Plugins
 		if (pConnection->pTransport->handleConnect())
 		{
 			if (m_bDebug & PDM_CONNECTION)
-				Log(LOG_NORM, "Connect directive received, action initiated successfully.");
+				Debug(DEBUG_PYTHON, "Connect directive received, action initiated successfully.");
 		}
 		else
 		{
-			Log(LOG_NORM, "Connect directive received, action initiation failed.");
+			Log(LOG_ERROR, "Connect directive received, action initiation failed.");
 			RemoveConnection(pConnection->pTransport);
 		}
 	}
@@ -1613,7 +1712,7 @@ namespace Plugins
 			if (m_bDebug & PDM_CONNECTION)
 			{
 				std::string sConnection = PyBorrowedRef(pConnection->Name);
-				Log(LOG_NORM, "Protocol for '%s' not specified, 'None' assumed.", sConnection.c_str());
+				Debug(DEBUG_PYTHON, "Protocol for '%s' not specified, 'None' assumed.", sConnection.c_str());
 			}
 			pConnection->pProtocol = new CPluginProtocol();
 		}
@@ -1624,7 +1723,7 @@ namespace Plugins
 		{
 			std::string sPort = PyBorrowedRef(pConnection->Port);
 			if (m_bDebug & PDM_CONNECTION)
-				Log(LOG_NORM, "Transport set to: '%s', %s:%s.", sTransport.c_str(), sAddress.c_str(), sPort.c_str());
+				Debug(DEBUG_PYTHON, "Transport set to: '%s', %s:%s.", sTransport.c_str(), sAddress.c_str(), sPort.c_str());
 			if (!pConnection->pProtocol->Secure())
 				pConnection->pTransport = (CPluginTransport *)new CPluginTransportTCP(m_HwdID, pConnection, "", sPort);
 			else
@@ -1636,7 +1735,7 @@ namespace Plugins
 			if (pConnection->pProtocol->Secure())
 				Log(LOG_ERROR, "Transport '%s' does not support secure connections.", sTransport.c_str());
 			if (m_bDebug & PDM_CONNECTION)
-				Log(LOG_NORM, "Transport set to: '%s', %s:%s.", sTransport.c_str(), sAddress.c_str(), sPort.c_str());
+				Debug(DEBUG_PYTHON, "Transport set to: '%s', %s:%s.", sTransport.c_str(), sAddress.c_str(), sPort.c_str());
 			pConnection->pTransport = (CPluginTransport *)new CPluginTransportUDP(m_HwdID, pConnection, sAddress, sPort);
 		}
 		else if (sTransport == "ICMP/IP")
@@ -1645,7 +1744,7 @@ namespace Plugins
 			if (pConnection->pProtocol->Secure())
 				Log(LOG_ERROR, "Transport '%s' does not support secure connections.", sTransport.c_str());
 			if (m_bDebug & PDM_CONNECTION)
-				Log(LOG_NORM, "Transport set to: '%s', %s.", sTransport.c_str(), sAddress.c_str());
+				Debug(DEBUG_PYTHON, "Transport set to: '%s', %s.", sTransport.c_str(), sAddress.c_str());
 			pConnection->pTransport = (CPluginTransport *)new CPluginTransportICMP(m_HwdID, pConnection, sAddress, sPort);
 		}
 		else
@@ -1660,11 +1759,11 @@ namespace Plugins
 		if (pConnection->pTransport->handleListen())
 		{
 			if (m_bDebug & PDM_CONNECTION)
-				Log(LOG_NORM, "Listen directive received, action initiated successfully.");
+				Debug(DEBUG_PYTHON, "Listen directive received, action initiated successfully.");
 		}
 		else
 		{
-			Log(LOG_NORM, "Listen directive received, action initiation failed.");
+			Log(LOG_ERROR, "Listen directive received, action initiation failed.");
 			RemoveConnection(pConnection->pTransport);
 		}
 	}
@@ -1713,10 +1812,10 @@ namespace Plugins
 				if (m_bDebug & PDM_CONNECTION)
 				{
 					if (!sPort.empty())
-						Log(LOG_NORM, "Transport set to: '%s', %s:%s for '%s'.", sTransport.c_str(), sAddress.c_str(), sPort.c_str(),
+						Debug(DEBUG_PYTHON, "Transport set to: '%s', %s:%s for '%s'.", sTransport.c_str(), sAddress.c_str(), sPort.c_str(),
 							 sConnection.c_str());
 					else
-						Log(LOG_NORM, "Transport set to: '%s', %s for '%s'.", sTransport.c_str(), sAddress.c_str(), sConnection.c_str());
+						Debug(DEBUG_PYTHON, "Transport set to: '%s', %s for '%s'.", sTransport.c_str(), sAddress.c_str(), sConnection.c_str());
 				}
 				pConnection->pTransport = (CPluginTransport *)new CPluginTransportUDP(m_HwdID, pConnection, sAddress, sPort);
 			}
@@ -1765,9 +1864,9 @@ namespace Plugins
 				std::string sAddress = PyBorrowedRef(pConnection->Address);
 				std::string sPort = PyBorrowedRef(pConnection->Port);
 				if ((sTransport == "Serial") || (sPort.empty()))
-					Log(LOG_NORM, "Disconnect directive received for '%s'.", sAddress.c_str());
+					Debug(DEBUG_PYTHON, "Disconnect directive received for '%s'.", sAddress.c_str());
 				else
-					Log(LOG_NORM, "Disconnect directive received for '%s:%s'.", sAddress.c_str(), sPort.c_str());
+					Debug(DEBUG_PYTHON, "Disconnect directive received for '%s:%s'.", sAddress.c_str(), sPort.c_str());
 			}
 
 			// Sanity check the directive
@@ -1958,7 +2057,7 @@ namespace Plugins
 	{
 		if (m_bDebug & PDM_QUEUE)
 		{
-			Log(LOG_NORM, "Pushing '" + std::string(pMessage->Name()) + "' on to queue");
+			Debug(DEBUG_PYTHON, "Pushing '%s' on to queue", pMessage->Name());
 		}
 
 		// Add message to queue
@@ -2003,9 +2102,9 @@ namespace Plugins
 				std::string sAddress = PyBorrowedRef(pConnection->Address);
 				std::string sPort = PyBorrowedRef(pConnection->Port);
 				if ((sTransport == "Serial") || (sPort.empty()))
-					Log(LOG_NORM, "Disconnect event received for '%s'.", sAddress.c_str());
+					Debug(DEBUG_PYTHON, "Disconnect event received for '%s'.", sAddress.c_str());
 				else
-					Log(LOG_NORM, "Disconnect event received for '%s:%s'.", sAddress.c_str(), sPort.c_str());
+					Debug(DEBUG_PYTHON, "Disconnect event received for '%s:%s'.", sAddress.c_str(), sPort.c_str());
 			}
 
 			RemoveConnection(pConnection->pTransport);
@@ -2044,7 +2143,7 @@ namespace Plugins
 		{
 			if (PyErr_Occurred())
 			{
-				Log(LOG_NORM, "Python error was set during unlock for '%s'",  m_PluginKey.c_str());
+				Log(LOG_ERROR, "Python error was set during unlock for '%s'",  m_PluginKey.c_str());
 				LogPythonException();
 				PyErr_Clear();
 			}	
@@ -2065,7 +2164,7 @@ namespace Plugins
 				if (PyErr_Occurred())
 				{
 					PyErr_Clear();
-					Log(LOG_NORM, "Python exception set prior to callback '%s'", sHandler.c_str());
+					Log(LOG_ERROR, "Python exception set prior to callback '%s'", sHandler.c_str());
 				}
 
 				PyNewRef pFunc = PyObject_GetAttrString(pTarget, sHandler.c_str());
@@ -2080,7 +2179,7 @@ namespace Plugins
 
 					if (m_bDebug & PDM_QUEUE)
 					{
-						Log(LOG_NORM, "Calling message handler '%s' on '%s' type object.", sHandler.c_str(), pTarget.Type().c_str());
+						Debug(DEBUG_PYTHON, "Calling message handler '%s' on '%s' type object.", sHandler.c_str(), pTarget.Type().c_str());
 					}
 
 					PyErr_Clear();
@@ -2104,7 +2203,7 @@ namespace Plugins
 							PyNewRef pLocals = PyObject_Dir(pTarget);
 							if (pLocals.IsList())  // && PyIter_Check(pLocals))  // Check fails but iteration works??!?
 							{
-								Log(LOG_NORM, "Local context:");
+								Debug(DEBUG_PYTHON, "Local context:");
 								PyNewRef pIter = PyObject_GetIter(pLocals);
 								PyNewRef pItem = PyIter_Next(pIter);
 								while (pItem)
@@ -2119,7 +2218,7 @@ namespace Plugins
 											if (!PyCallable_Check(pValue)) // Filter out methods
 											{
 												std::string sBlank((sAttrName.length() < 20) ? 20 - sAttrName.length() : 0, ' ');
-												Log(LOG_NORM, " ----> '%s'%s '%s'", sAttrName.c_str(), sBlank.c_str(), strValue.c_str());
+												Debug(DEBUG_PYTHON, " ----> '%s'%s '%s'", sAttrName.c_str(), sBlank.c_str(), strValue.c_str());
 											}
 										}
 									}
@@ -2133,7 +2232,7 @@ namespace Plugins
 				{
 					if (m_bDebug & PDM_QUEUE)
 					{
-						Log(LOG_NORM, "Message handler '%s' not callable, ignored.", sHandler.c_str());
+						Debug(DEBUG_PYTHON, "Message handler '%s' not callable, ignored.", sHandler.c_str());
 					}
 					if (PyErr_Occurred())
 					{
@@ -2173,7 +2272,7 @@ namespace Plugins
 							lRetVal = PyLong_AsLong(pReturnValue) - 1;
 							if (lRetVal)
 							{
-								Log(LOG_NORM, "Warning: Plugin has %d Python threads running.", (int)lRetVal);
+								Log(LOG_ERROR, "Plugin has %d Python threads still running.", (int)lRetVal);
 							}
 						}
 					}
@@ -2188,6 +2287,8 @@ namespace Plugins
 		try
 		{
 			PyErr_Clear();
+
+			LogInterpreterState("pre-cleanup");
 
 			// Validate Device dictionary prior to shutdown
 			if (m_DeviceDict)
@@ -2225,7 +2326,7 @@ namespace Plugins
 					else if (isDevice == 0)
 					{
 						PyNewRef	pName = PyObject_GetAttrString((PyObject*)pDevice->ob_type, "__name__");
-						Log(LOG_NORM, "%s: Device dictionary contained non-Device entry '%s'.", __func__, ((std::string)pName).c_str());
+						Log(LOG_ERROR, "%s: Device dictionary contained non-Device entry '%s'.", __func__, ((std::string)pName).c_str());
 					}
 					else
 					{
@@ -2247,7 +2348,7 @@ namespace Plugins
 								else if (isValue == 0)
 								{
 									PyNewRef	pName = PyObject_GetAttrString((PyObject*)pUnit->ob_type, "__name__");
-									_log.Log(LOG_NORM, "%s: Unit dictionary contained non-Unit entry '%s'.", __func__, ((std::string)pName).c_str());
+									_log.Log(LOG_ERROR, "%s: Unit dictionary contained non-Unit entry '%s'.", __func__, ((std::string)pName).c_str());
 								}
 								else
 								{
@@ -2295,16 +2396,18 @@ namespace Plugins
 				sleep_milliseconds(1000);
 			}
 			if (PythonThreadCount())
-				Log(LOG_NORM, "Abandoning wait for Plugin thread shutdown, hang or crash may result.");
+				Log(LOG_ERROR, "Abandoning wait for Plugin thread shutdown, hang or crash may result.");
 			if (m_PyInterpreter)
 			{
 				if (PyErr_Occurred()) // get the errors occured during onStopCallback message handling
 				{
-					Log(LOG_NORM, "Python error was set during onStopCallback for '%s'",  m_PluginKey.c_str());
+					Log(LOG_ERROR, "Python error was set during onStopCallback for '%s'",  m_PluginKey.c_str());
 					LogPythonException();
 					PyErr_Clear();
  				}
 			}
+
+			LogInterpreterState("post-cleanup");
 
 			// Stop Python
 			Py_XDECREF(m_PyModule);
@@ -2314,18 +2417,28 @@ namespace Plugins
 				Py_XDECREF(m_ImageDict);
 			if (m_SettingsDict)
 				Py_XDECREF(m_SettingsDict);
+
+			// Preserve interpreter for potential reuse to avoid C extension crash
+			// (stale pointers after Py_EndInterpreter - GitHub issue #6586).
+			// During full shutdown the process exits and OS reclaims all resources,
+			// consistent with StopPluginSystem() already skipping Py_Finalize().
 			if (m_PyInterpreter)
-				Py_EndInterpreter(m_PyInterpreter);
-			// To release the GIL there must be a valid thread state so use
-			// the one created during start up of the plugin system because it will always exist
-			CPluginSystem pManager;
-			PyThreadState_Swap((PyThreadState *)pManager.PythonThread());
-			// PyEval_ReleaseLock was removed in Python 3.13 (deprecated since 3.2)
-			// Fall back to PyEval_SaveThread which also releases the GIL
-			if (PyEval_ReleaseLock)
-				PyEval_ReleaseLock();
-			else
+			{
+				PyObject* pSysModules = PyImport_GetModuleDict();
+				if (pSysModules)
+				{
+					PyDict_DelItemString(pSysModules, "plugin");
+					PyErr_Clear();
+				}
+				Debug(DEBUG_PYTHON, "(%s) interpreter preserved (%p).",
+				      m_PluginKey.c_str(), m_PyInterpreter);
+				// Release GIL before storing - Initialise() will reacquire it
 				(void)PyEval_SaveThread();
+				// Store in static map so it survives CPlugin object destruction
+				CPluginSystem::SetPreservedInterpreter(m_PluginKey, m_PyInterpreter);
+				// m_PyInterpreter will be set to nullptr in state reset below,
+				// which also prevents the AccessPython guard from double-releasing
+			}
 		}
 		catch (std::exception *e)
 		{
@@ -2399,15 +2512,76 @@ namespace Plugins
 		return true;
 	}
 
+	static bool IsCExtensionPath(const std::string &path)
+	{
+		if (path.size() >= 3 && path.compare(path.size() - 3, 3, ".so") == 0)
+			return true;
+		if (path.size() >= 4 && path.compare(path.size() - 4, 4, ".pyd") == 0)
+			return true;
+		if (path.size() >= 6 && path.compare(path.size() - 6, 6, ".dylib") == 0)
+			return true;
+		return false;
+	}
+
+	void CPlugin::LogInterpreterState(const char* context)
+	{
+		_log.Debug(DEBUG_PYTHON, "%s: --- Interpreter State [%s] ---", m_Name.c_str(), context);
+
+		PyObject* sysModules = PyImport_GetModuleDict();
+		if (!sysModules)
+		{
+			_log.Debug(DEBUG_PYTHON, "%s:   Unable to obtain sys.modules", m_Name.c_str());
+			_log.Debug(DEBUG_PYTHON, "%s: --- End Interpreter State ---", m_Name.c_str());
+			return;
+		}
+
+		Py_ssize_t moduleCount = PyDict_Size(sysModules);
+		_log.Debug(DEBUG_PYTHON, "%s:   sys.modules contains %zd modules", m_Name.c_str(), moduleCount);
+
+		PyBorrowedRef key, value;
+		Py_ssize_t pos = 0;
+		int cExtCount = 0;
+		while (PyDict_Next(sysModules, &pos, &key, &value))
+		{
+			if (value == Py_None) continue;
+			PyObject* fileAttr = PyObject_GetAttrString(value, "__file__");
+			if (!fileAttr || !PyBorrowedRef(fileAttr).IsString())
+			{
+				Py_XDECREF(fileAttr);
+				PyErr_Clear();
+				continue;
+			}
+			const char* filepath = PyUnicode_AsUTF8(fileAttr);
+			if (filepath && IsCExtensionPath(filepath))
+			{
+				const char* modName = "?";
+				if (key.IsString())
+				{
+					const char* temp = PyUnicode_AsUTF8(key);
+					if (temp) modName = temp;
+				}
+				_log.Debug(DEBUG_PYTHON, "%s:   C Extension: %s -> %s",
+					m_Name.c_str(), modName, filepath);
+				cExtCount++;
+			}
+			Py_DECREF(fileAttr);
+		}
+		_log.Debug(DEBUG_PYTHON, "%s:   Total C extensions: %d", m_Name.c_str(), cExtCount);
+
+		_log.Debug(DEBUG_PYTHON, "%s:   Interpreter: %p", m_Name.c_str(), m_PyInterpreter);
+
+		_log.Debug(DEBUG_PYTHON, "%s: --- End Interpreter State ---", m_Name.c_str());
+	}
+
 #define DZ_BYTES_PER_LINE 20
 	void CPlugin::WriteDebugBuffer(const std::vector<byte> &Buffer, bool Incoming)
 	{
 		if (m_bDebug & (PDM_CONNECTION | PDM_MESSAGE))
 		{
 			if (Incoming)
-				Log(LOG_NORM, "Received %d bytes of data", (int)Buffer.size());
+				Debug(DEBUG_PYTHON, "Received %d bytes of data", (int)Buffer.size());
 			else
-				Log(LOG_NORM, "Sending %d bytes of data", (int)Buffer.size());
+				Debug(DEBUG_PYTHON, "Sending %d bytes of data", (int)Buffer.size());
 		}
 
 		if (m_bDebug & PDM_MESSAGE)
@@ -2432,7 +2606,7 @@ namespace Plugins
 					else
 						ssHex << ".. ";
 				}
-				Log(LOG_NORM, "     %s    %s", ssHex.str().c_str(), sChars.c_str());
+				Debug(DEBUG_PYTHON, "     %s    %s", ssHex.str().c_str(), sChars.c_str());
 			}
 		}
 	}
