@@ -85,7 +85,7 @@ define(['app', 'log/Chart'], function (app) {
 								afterSetExtremes: function (event) {
 									var xMin = event.min;
 									var xMax = event.max;
-/*									
+/*
 									var chart = Highcharts.charts[0]; //need_some_help: this is not always the day chart!?
 									var ex = chart.xAxis[0].getExtremes();
 									if (ex.min != xMin || ex.max != xMax) {
@@ -118,6 +118,10 @@ define(['app', 'log/Chart'], function (app) {
                     dataSupplier:
                         _.merge(
                             {
+                                extendDataRequest: function (dataRequest) {
+                                    dataRequest['resolution'] = ctrl.resolution || 60;
+                                    return dataRequest;
+                                },
                                 seriesSuppliers: seriesSuppliers
                             },
                             dataSupplierTemplate

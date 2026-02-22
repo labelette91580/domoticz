@@ -676,6 +676,7 @@ CSQLHelper::CSQLHelper()
 	m_bDisableDzVentsSystem = false;
 	m_ShortLogInterval = 5;
 	m_bShortLogAddOnlyNewValues = false;
+	m_PriceResolution = 60;
 	m_bPreviousAcceptNewHardware = false;
 	m_bLogEventScriptTrigger = false;
 
@@ -3736,6 +3737,18 @@ bool CSQLHelper::OpenDatabase()
 	}
 	m_bShortLogAddOnlyNewValues = (nValue != 0);
 
+	nValue = 60;
+	if (!GetPreferencesVar("PriceResolution", nValue))
+	{
+		UpdatePreferencesVar("PriceResolution", 60);
+	}
+	if (nValue != 15 && nValue != 30 && nValue != 60)
+	{
+		nValue = 60;
+		UpdatePreferencesVar("PriceResolution", 60);
+	}
+	m_PriceResolution = nValue;
+
 	if (!GetPreferencesVar("SendErrorsAsNotification", nValue))
 	{
 		UpdatePreferencesVar("SendErrorsAsNotification", 0);
@@ -4414,9 +4427,9 @@ void CSQLHelper::Do_Work()
 				{
 					_eHardwareTypes HwdType = (_eHardwareTypes)atoi(result[0][0].c_str());
 					if (HwdType == HTYPE_EVOHOME_SCRIPT || HwdType == HTYPE_EVOHOME_SERIAL || HwdType == HTYPE_EVOHOME_WEB || HwdType == HTYPE_EVOHOME_TCP)
-						m_mainworker.SetSetPointEvo(idx, fValue, itt._command, itt._sUntil);
+						m_mainworker.SetSetPointEvo(idx, fValue, itt._command, itt._sUntil, itt._sUser);
 					else
-						m_mainworker.SetSetPoint(idx, fValue);
+						m_mainworker.SetSetPoint(idx, fValue, itt._sUser);
 				}
 			}
 			else if (itt._ItemType == TITEM_SEND_NOTIFICATION)
@@ -5517,31 +5530,32 @@ uint64_t CSQLHelper::UpdateValueInt(
 
             std::vector<std::string> powerAndEnergyBeforeUpdate;
 			StringSplit(sValueBeforeUpdate, ";", powerAndEnergyBeforeUpdate);
-			if (powerAndEnergyBeforeUpdate.size() == 2)
+			if (powerAndEnergyBeforeUpdate.size() != 2)
 			{
-				//we need to use atof here because some users seem to have a illegal sValue in the database that causes std::stof to crash
-				double powerDuringInterval = atof(powerAndEnergyBeforeUpdate[0].c_str());
-				double energyUpToInterval = atof(powerAndEnergyBeforeUpdate[1].c_str());
-				double energyDuringInterval = powerDuringInterval * intervalSeconds / 3600;
-				double energyAfterInterval = energyUpToInterval + energyDuringInterval;
-				std::vector<std::string> powerAndEnergyUpdate;
-				StringSplit(sValue, ";", powerAndEnergyUpdate);
-				if (!powerAndEnergyUpdate.empty())
-				{
-					const char* powerUpdate = powerAndEnergyUpdate[0].c_str();
-                    char sValueUpdate[100];
-                    sprintf(sValueUpdate, "%s;%.4f", powerUpdate, energyAfterInterval);
-					sValue = sValueUpdate;
-				}
-				else
-				{
-                    sValue = sValueBeforeUpdate.c_str();
-				}
+				// Invalid or empty sValue - initialize to safe defaults so the device can recover
+				_log.Log(LOG_STATUS, "Device %" PRIu64 " has invalid sValue '%s' for EnergyMeterMode=1, initializing to '0;0.0'", ulID, sValueBeforeUpdate.c_str());
+				sValueBeforeUpdate = "0;0.0";
+				StringSplit(sValueBeforeUpdate, ";", powerAndEnergyBeforeUpdate);
+			}
+
+			//we need to use atof here because some users seem to have a illegal sValue in the database that causes std::stof to crash
+			double powerDuringInterval = atof(powerAndEnergyBeforeUpdate[0].c_str());
+			double energyUpToInterval = atof(powerAndEnergyBeforeUpdate[1].c_str());
+			double energyDuringInterval = powerDuringInterval * intervalSeconds / 3600;
+			double energyAfterInterval = energyUpToInterval + energyDuringInterval;
+			std::vector<std::string> powerAndEnergyUpdate;
+			StringSplit(sValue, ";", powerAndEnergyUpdate);
+			if (!powerAndEnergyUpdate.empty())
+			{
+				const char* powerUpdate = powerAndEnergyUpdate[0].c_str();
+				char sValueUpdate[100];
+				sprintf(sValueUpdate, "%s;%.4f", powerUpdate, energyAfterInterval);
+				sValue = sValueUpdate;
 			}
 			else
-            {
-                sValue = sValueBeforeUpdate.c_str();
-            }
+			{
+				sValue = sValueBeforeUpdate.c_str();
+			}
 		}
 		//~ use different update queries based on the device type
 		if (devType == pTypeGeneral && subType == sTypeCounterIncremental)
@@ -10298,39 +10312,33 @@ bool CSQLHelper::CalcMeterPrice(const uint64_t idx, const float divider, const c
 {
 	if (divider == 0)
 		return false;
-	//Calculate the total price for today
-	auto result = safe_query("SELECT strftime('%%Y-%%m-%%d %%H:00:00', Date) as ymd, MIN(Value) as Cntr, Price FROM Meter WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<='%q 00:00:00') GROUP BY ymd",
+
+	auto result = safe_query("SELECT Value, Price FROM Meter WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<='%q 00:00:00') ORDER BY Date ASC",
 		idx, szDateStart, szDateEnd);
 	if (result.empty())
 		return false;
 
-	//Add last value
-	auto result2 = m_sql.safe_query("SELECT Date, Value, Price FROM Meter WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q' AND Date<='%q 00:00:00') ORDER BY ROWID DESC LIMIT 1",
-		idx, szDateStart, szDateEnd);
-	if (!result2.empty())
-	{
-		result.push_back(result2.at(0));
-	}
-
 	bool bResult = false;
-
 	int64_t last_cntr = INT64_MAX;
-	float last_price = 0;
 	float total_price = 0;
+
 	for (const auto& itt : result)
 	{
-		const int64_t cntr = std::stoull(itt.at(1));
-		const float price = std::stof(itt.at(2));
+		const int64_t cntr = std::stoull(itt.at(0));
+		const float rec_price = std::stof(itt.at(1));
 
 		if (last_cntr != INT64_MAX)
 		{
 			const int64_t total = cntr - last_cntr;
-			total_price += ((static_cast<float>(total) / divider) * last_price);
-			bResult = true;
+			if (total >= 0)
+			{
+				total_price += ((static_cast<float>(total) / divider) * rec_price);
+				bResult = true;
+			}
 		}
 		last_cntr = cntr;
-		last_price = price;
 	}
+
 	if ((total_price > 100000) || (total_price < -100000))
 		return false;
 	price = total_price;
@@ -10342,42 +10350,31 @@ bool CSQLHelper::CalcMultiMeterPrice(const uint64_t idx, const float divider, co
 	if (divider == 0)
 		return false;
 
-	//Calculate the total price for today
-	auto result = safe_query("SELECT strftime('%%Y-%%m-%%d %%H:00:00', Date) as ymd, MIN(Value1), MIN(Value2), MIN(Value3), MIN(Value4), MIN(Value5), MIN(Value6), Price FROM MultiMeter WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<='%q 00:00:00') GROUP BY ymd",
+	auto result = safe_query("SELECT Value1, Value2, Value3, Value4, Value5, Value6, Price FROM MultiMeter WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<='%q 00:00:00') ORDER BY Date ASC",
 		idx, szDateStart, szDateEnd);
 	if (result.empty())
 		return false;
 
-	//Add last value
-	auto result2 = m_sql.safe_query("SELECT Date, Value1, Value2, Value3, Value4, Value5, Value6, Price FROM MultiMeter WHERE (DeviceRowID=%" PRIu64 " AND Date>='%q' AND Date<='%q 00:00:00') ORDER BY ROWID DESC LIMIT 1",
-		idx, szDateStart, szDateEnd);
-	if (!result2.empty())
-	{
-		result.push_back(result2.at(0));
-	}
-
 	bool bResult = false;
-
 	uint64_t last_cntrs[6] = { (uint64_t)-1,(uint64_t)-1,(uint64_t)-1,(uint64_t)-1,(uint64_t)-1,(uint64_t)-1 };
-	float last_price = 0;
 	float total_price[6] = { 0,0,0,0,0,0 };
+
 	for (const auto& itt : result)
 	{
-		float price = std::stof(itt[7]);
+		float rec_price = std::stof(itt[6]);
 
 		uint64_t cntrs[6];
 		for (int ii = 0; ii < 6; ii++)
 		{
-			cntrs[ii] = std::stoull(itt[1 + ii]);
+			cntrs[ii] = std::stoull(itt[ii]);
 			if (last_cntrs[ii] != (uint64_t)-1)
 			{
 				uint64_t total = cntrs[ii] - last_cntrs[ii];
-				total_price[ii] += ((static_cast<float>(total) / divider) * last_price);
+				total_price[ii] += ((static_cast<float>(total) / divider) * rec_price);
 				bResult = true;
 			}
 			last_cntrs[ii] = cntrs[ii];
 		}
-		last_price = price;
 	}
 
 	float price_usage = total_price[0] + total_price[4];

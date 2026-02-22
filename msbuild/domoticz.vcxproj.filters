@@ -1436,7 +1436,6 @@
     <None Include="..\www\app\devices\Devices.js">
       <Filter>www\app\devices</Filter>
     </None>
-    <None Include="packages.config" />
     <None Include="..\www\manifest.json">
       <Filter>www</Filter>
     </None>

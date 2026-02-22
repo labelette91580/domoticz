@@ -531,7 +531,6 @@
     <None Include="..\www\views\weather.html" />
     <None Include="..\www\views\weather_widget.html" />
     <None Include="domoticz.ico" />
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\hardware\1Wire.h">
