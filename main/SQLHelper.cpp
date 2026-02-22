@@ -7359,24 +7359,24 @@ void CSQLHelper::UpdateMultiMeter()
 			std::vector<std::string> splitresults;
 			StringSplit(sValue, ";", splitresults);
 
-			uint64_t value1 = 0;
-			uint64_t value2 = 0;
-			uint64_t value3 = 0;
-			uint64_t value4 = 0;
-			uint64_t value5 = 0;
-			uint64_t value6 = 0;
+			int64_t value1 = 0;
+			int64_t value2 = 0;
+			int64_t value3 = 0;
+			int64_t value4 = 0;
+			int64_t value5 = 0;
+			int64_t value6 = 0;
 
 			if (dType == pTypeP1Power)
 			{
 				if (splitresults.size() != 6)
 					continue; //impossible
 
-				uint64_t powerusage1 = 0;
-				uint64_t powerusage2 = 0;
-				uint64_t powerdeliv1 = 0;
-				uint64_t powerdeliv2 = 0;
-				uint64_t usagecurrent = 0;
-				uint64_t delivcurrent = 0;
+				int64_t powerusage1 = 0;
+				int64_t powerusage2 = 0;
+				int64_t powerdeliv1 = 0;
+				int64_t powerdeliv2 = 0;
+				int64_t usagecurrent = 0;
+				int64_t delivcurrent = 0;
 
 				try
 				{
@@ -7406,9 +7406,13 @@ void CSQLHelper::UpdateMultiMeter()
 				if (splitresults.size() != 3)
 					continue; //impossible
 
-				value1 = (unsigned long)(atof(splitresults[0].c_str()) * 10.0F);
-				value2 = (unsigned long)(atof(splitresults[1].c_str()) * 10.0F);
-				value3 = (unsigned long)(atof(splitresults[2].c_str()) * 10.0F);
+				double val1 = std::stod(splitresults[0]);
+				double val2 = std::stod(splitresults[1]);
+				double val3 = std::stod(splitresults[2]);
+
+				value1 = std::llround(val1 * 10.0);
+				value2 = std::llround(val2 * 10.0);
+				value3 = std::llround(val3 * 10.0);
 				price = PriceE;
 			}
 			else if ((dType == pTypeCURRENTENERGY) && (dSubType == sTypeELEC4))
@@ -7416,10 +7420,15 @@ void CSQLHelper::UpdateMultiMeter()
 				if (splitresults.size() != 4)
 					continue; //impossible
 
-				value1 = (unsigned long)(atof(splitresults[0].c_str()) * 10.0F);
-				value2 = (unsigned long)(atof(splitresults[1].c_str()) * 10.0F);
-				value3 = (unsigned long)(atof(splitresults[2].c_str()) * 10.0F);
-				value4 = (uint64_t)(atof(splitresults[3].c_str()) * 1000.0F);
+				double val1 = std::stod(splitresults[0]);
+				double val2 = std::stod(splitresults[1]);
+				double val3 = std::stod(splitresults[2]);
+				double val4 = std::stod(splitresults[3]);
+
+				value1 = std::llround(val1 * 10.0);
+				value2 = std::llround(val2 * 10.0);
+				value3 = std::llround(val3 * 10.0);
+				value4 = std::llround(val4 * 1000.0);
 				price = PriceE;
 			}
 			else
@@ -7428,7 +7437,7 @@ void CSQLHelper::UpdateMultiMeter()
 			//insert record
 			safe_query(
 				"INSERT INTO MultiMeter (DeviceRowID, Value1, Value2, Value3, Value4, Value5, Value6, Price) "
-				"VALUES ('%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%" PRIu64 "', '%.4f')",
+				"VALUES ('%" PRIu64 "', '%" PRId64 "', '%" PRId64 "', '%" PRId64 "', '%" PRId64 "', '%" PRId64 "', '%" PRId64 "', '%.4f')",
 				ID,
 				value1,
 				value2,
@@ -7672,9 +7681,11 @@ void CSQLHelper::AddCalendarUpdateRain()
 
 		unsigned char subType = atoi(sd[0].c_str());
 
+		// Use Date < '%q' (not Date <= '%q 00:00:00') to exclude the midnight record
+		// which belongs to today's cumulative counter, not yesterday's rainfall total
 		if (subType == sTypeRAINWU || subType == sTypeRAINByRate)
 		{
-			result = safe_query("SELECT Total, Total, Rate FROM Rain WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<='%q 00:00:00') ORDER BY ROWID DESC LIMIT 1",
+			result = safe_query("SELECT Total, Total, Rate FROM Rain WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<'%q') ORDER BY ROWID DESC LIMIT 1",
 				ID,
 				szDateStart,
 				szDateEnd
@@ -7682,7 +7693,7 @@ void CSQLHelper::AddCalendarUpdateRain()
 		}
 		else
 		{
-			result = safe_query("SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<='%q 00:00:00')",
+			result = safe_query("SELECT MIN(Total), MAX(Total), MAX(Rate) FROM Rain WHERE (DeviceRowID='%" PRIu64 "' AND Date>='%q' AND Date<'%q')",
 				ID,
 				szDateStart,
 				szDateEnd
@@ -7704,7 +7715,7 @@ void CSQLHelper::AddCalendarUpdateRain()
 			}
 			else
 			{
-				total_real = total_max - total_min;
+				total_real = std::max(0.0F, total_max - total_min);
 			}
 
 			if (total_real < 1000)
@@ -8899,60 +8910,215 @@ bool CSQLHelper::RestoreDatabase(const std::string& dbase)
 	return true;
 }
 
+bool CSQLHelper::CopyFileBinary(const std::string& src, const std::string& dst)
+{
+	std::ifstream in(src, std::ios::binary);
+	std::ofstream out(dst, std::ios::binary | std::ios::trunc);
+	if (!in.is_open() || !out.is_open())
+		return false;
+	constexpr std::size_t kBufSize = 65536;
+	char buf[kBufSize];
+	while (in)
+	{
+		in.read(buf, kBufSize);
+		std::streamsize bytesRead = in.gcount();
+		if (bytesRead > 0)
+			out.write(buf, bytesRead);
+	}
+	out.flush();
+	return out.good();
+}
+
+bool CSQLHelper::RestoreDatabaseFromFile(const std::string& sourceFilePath)
+{
+	_log.Log(LOG_STATUS, "Restore Database: Starting...");
+
+	// 1. Validate that the source file is a valid Domoticz SQLite database
+	sqlite3* dbase_restore = nullptr;
+	int rc = sqlite3_open(sourceFilePath.c_str(), &dbase_restore);
+	if (rc)
+	{
+		_log.Log(LOG_ERROR, "Restore Database: Could not open source file: %s", sqlite3_errmsg(dbase_restore));
+		sqlite3_close(dbase_restore);
+		return false;
+	}
+	if (dbase_restore == nullptr)
+	{
+		_log.Log(LOG_ERROR, "Restore Database: Source file handle is null!");
+		return false;
+	}
+
+	sqlite3_stmt* statement = nullptr;
+	rc = sqlite3_prepare_v2(dbase_restore,
+		"SELECT sValue FROM Preferences WHERE (Key='DB_Version')", -1, &statement, nullptr);
+	// Always finalize the statement before closing to avoid resource leaks
+	sqlite3_finalize(statement);
+	sqlite3_close(dbase_restore);
+
+	if (rc != SQLITE_OK)
+	{
+		_log.Log(LOG_ERROR, "Restore Database: Not a valid Domoticz database!");
+		return false;
+	}
+	_log.Log(LOG_STATUS, "Restore Database: Source file validated OK.");
+
+	// 2. Create a safety backup of the current database for rollback.
+	//    This is a plain file copy performed before closing the database handle,
+	//    so it does not interfere with SQLite's own locking / backup API.
+	const std::string backupPath = m_dbase_name + ".pre-restore";
+	if (!CopyFileBinary(m_dbase_name, backupPath))
+	{
+		_log.Log(LOG_ERROR, "Restore Database: Could not create pre-restore backup! Aborting to prevent data loss.");
+		return false;
+	}
+
+	// 3. Capture original file ownership before closing the database
+#ifndef WIN32
+	uid_t original_uid = 0;
+	gid_t original_gid = 0;
+	bool has_ownership = false;
+	{
+		struct stat info;
+		if (stat(m_dbase_name.c_str(), &info) == 0)
+		{
+			original_uid = info.st_uid;
+			original_gid = info.st_gid;
+			has_ownership = true;
+		}
+	}
+#endif
+
+	// 4. Stop the background thread
+	StopThread();
+
+	// 5. Close the current database handle
+	sqlite3_close(m_dbase);
+	m_dbase = nullptr;
+
+	// 6. Copy the source file to the database location using buffered I/O
+	//    (64 KB buffer — never loads the entire file into memory)
+	_log.Log(LOG_STATUS, "Restore Database: Copying to database location...");
+	if (!CopyFileBinary(sourceFilePath, m_dbase_name))
+	{
+		_log.Log(LOG_ERROR, "Restore Database: Write error while copying database file! Attempting rollback...");
+		// Try to restore the original database from the pre-restore backup
+		if (!CopyFileBinary(backupPath, m_dbase_name))
+			_log.Log(LOG_ERROR, "Restore Database: Rollback copy failed - database may be in an inconsistent state!");
+		OpenDatabase(); // Also restarts background thread
+		std::remove(backupPath.c_str());
+		return false;
+	}
+
+	// 7. Restore original file ownership on Linux/macOS
+#ifndef WIN32
+	if (has_ownership)
+	{
+		if (chown(m_dbase_name.c_str(), original_uid, original_gid) != 0)
+		{
+			_log.Log(LOG_ERROR, "Restore Database: Could not set database ownership (chown returned an error!)");
+		}
+	}
+#endif
+
+	// 8. Reopen the database
+	if (!OpenDatabase())
+	{
+		_log.Log(LOG_ERROR, "Restore Database: Error opening new database! Attempting rollback...");
+		// Try to restore the original database from the pre-restore backup
+		if (!CopyFileBinary(backupPath, m_dbase_name))
+			_log.Log(LOG_ERROR, "Restore Database: Rollback copy failed - database may be in an inconsistent state!");
+		if (!OpenDatabase()) // Also restarts background thread
+		{
+			_log.Log(LOG_ERROR, "Restore Database: CRITICAL - Cannot recover database!");
+			std::remove(backupPath.c_str());
+			return false;
+		}
+		std::remove(backupPath.c_str());
+		return false;
+	}
+
+	// 9. Clean up — skip VACUUM here as it rewrites the entire database file
+	//    and can take a very long time for large databases. The next scheduled
+	//    backup will produce a compacted copy anyway.
+	//VacuumDatabase();
+
+	std::remove(backupPath.c_str());
+	_log.Log(LOG_STATUS, "Restore Database: Succeeded!");
+	return true;
+}
+
 bool CSQLHelper::BackupDatabase(const std::string& OutputFile)
 {
 	if (!m_dbase)
 		return false; //database not open!
 
-	//First cleanup the database
-	OptimizeDatabase(m_dbase);
-	VacuumDatabase();
+	int rc;
+	sqlite3* pFile;
+	sqlite3_backup* pBackup;
 
-	std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+	// Lightweight optimization — no VACUUM (too expensive for large databases
+	// and redundant since the backup API creates a compacted copy)
+	{
+		std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+		sqlite3_exec(m_dbase, "PRAGMA optimize;", nullptr, nullptr, nullptr);
+	}
 
-	int rc;					 // Function return code
-	sqlite3* pFile;			 // Database connection opened on zFilename
-	sqlite3_backup* pBackup;	// Backup handle used to copy data
-
-	// Open the database file identified by zFilename.
+	// Open the backup destination file
 	rc = sqlite3_open(OutputFile.c_str(), &pFile);
 	if (rc != SQLITE_OK)
+	{
+		_log.Log(LOG_ERROR, "SQLHelper: Cannot open backup destination: %s", OutputFile.c_str());
 		return false;
+	}
 
-	// Open the sqlite3_backup object used to accomplish the transfer
-	pBackup = sqlite3_backup_init(pFile, "main", m_dbase, "main");
+	// Initialize backup — must hold mutex while accessing m_dbase
+	{
+		std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+		pBackup = sqlite3_backup_init(pFile, "main", m_dbase, "main");
+	}
+
+	if (!pBackup)
+	{
+		_log.Log(LOG_ERROR, "SQLHelper: sqlite3_backup_init failed: %s", sqlite3_errmsg(pFile));
+		sqlite3_close(pFile);
+		return false;
+	}
 
 	time_t startTime = time(nullptr);
+	constexpr int BACKUP_TIMEOUT_SECONDS = 10 * 60; // 10 minutes for large databases
 
-	if (pBackup)
-	{
-		// Each iteration of this loop copies 5 database pages from database
-		// pDb to the backup database.
-		do {
+	// Each iteration copies 256 database pages.
+	// Mutex is held only during each step, allowing other queries between steps.
+	do {
+		{
+			std::lock_guard<std::mutex> l(m_sqlQueryMutex);
 			rc = sqlite3_backup_step(pBackup, 256);
-			//xProgress(  sqlite3_backup_remaining(pBackup), sqlite3_backup_pagecount(pBackup) );
-			if( rc==SQLITE_BUSY || rc==SQLITE_LOCKED ){
-			  sqlite3_sleep(250);
-			}
-			if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
-				time_t actTime = time(nullptr);
-				if (actTime - startTime > 2 * 60)
-				{
-					//Backup should be done in 2 minutes
-					_log.Log(LOG_ERROR, "SQLHelper: Problem making backup! Check destination folder/rights. Process timeout!");
-					break;
-				}
-			}
-		} while (rc == SQLITE_OK || rc == SQLITE_BUSY || rc == SQLITE_LOCKED);
+		}
 
-		/* Release resources allocated by backup_init(). */
-		sqlite3_backup_finish(pBackup);
-	}
+		if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED)
+		{
+			sqlite3_sleep(100);
+			time_t actTime = time(nullptr);
+			if (actTime - startTime > BACKUP_TIMEOUT_SECONDS)
+			{
+				_log.Log(LOG_ERROR, "SQLHelper: Backup timeout after %d seconds!", BACKUP_TIMEOUT_SECONDS);
+				break;
+			}
+		}
+	} while (rc == SQLITE_OK || rc == SQLITE_BUSY || rc == SQLITE_LOCKED);
+
+	// Release resources allocated by backup_init()
+	sqlite3_backup_finish(pBackup);
+
 	rc = sqlite3_errcode(pFile);
-	// Close the database connection opened on database file zFilename
-	// and return the result of this function.
 	sqlite3_close(pFile);
 
+	if (rc != SQLITE_OK)
+	{
+		// Remove the partial backup file so callers are not left with a
+		// corrupt or incomplete file on disk.
+		std::remove(OutputFile.c_str());
+	}
 	return (rc == SQLITE_OK);
 }
 
@@ -9425,26 +9591,26 @@ void CSQLHelper::FixDaylightSaving()
 		std::stringstream sstr;
 		unsigned long ID1;
 		unsigned long ID2;
-		uint64_t tValue1;
-		uint64_t tValue2;
-		uint64_t tValue3;
-		uint64_t tValue4;
-		uint64_t tValue5;
-		uint64_t tValue6;
+		int64_t tValue1;
+		int64_t tValue2;
+		int64_t tValue3;
+		int64_t tValue4;
+		int64_t tValue5;
+		int64_t tValue6;
 
-		uint64_t uValue1;
-		uint64_t uValue2;
-		uint64_t uValue3;
-		uint64_t uValue4;
-		uint64_t uValue5;
-		uint64_t uValue6;
+		int64_t uValue1;
+		int64_t uValue2;
+		int64_t uValue3;
+		int64_t uValue4;
+		int64_t uValue5;
+		int64_t uValue6;
 
-		uint64_t ValueDest1;
-		uint64_t ValueDest2;
-		uint64_t ValueDest3;
-		uint64_t ValueDest4;
-		uint64_t ValueDest5;
-		uint64_t ValueDest6;
+		int64_t ValueDest1;
+		int64_t ValueDest2;
+		int64_t ValueDest3;
+		int64_t ValueDest4;
+		int64_t ValueDest5;
+		int64_t ValueDest6;
 		for (const auto &sd1 : result)
 		{
 			sstr.clear();
@@ -9549,7 +9715,7 @@ void CSQLHelper::FixDaylightSaving()
 				else
 				{
 					//Update row with new Date
-					safe_query("UPDATE MultiMeter_Calendar SET Date='%q', Value1=%" PRIu64 ", Value2=%" PRIu64 ", Value3=%" PRIu64 ", Value4=%" PRIu64 ", Value5=%" PRIu64 ", Value6=%" PRIu64 " WHERE (RowID=='%q')",
+					safe_query("UPDATE MultiMeter_Calendar SET Date='%q', Value1=%" PRId64 ", Value2=%" PRId64 ", Value3=%" PRId64 ", Value4=%" PRId64 ", Value5=%" PRId64 ", Value6=%" PRId64 " WHERE (RowID=='%q')",
 						szDateNew.c_str(), ValueDest1, ValueDest2, ValueDest3, ValueDest4, ValueDest5, ValueDest6, sd1[1].c_str());
 				}
 			}
@@ -10356,20 +10522,20 @@ bool CSQLHelper::CalcMultiMeterPrice(const uint64_t idx, const float divider, co
 		return false;
 
 	bool bResult = false;
-	uint64_t last_cntrs[6] = { (uint64_t)-1,(uint64_t)-1,(uint64_t)-1,(uint64_t)-1,(uint64_t)-1,(uint64_t)-1 };
+	int64_t last_cntrs[6] = { (int64_t)-1,(int64_t)-1,(int64_t)-1,(int64_t)-1,(int64_t)-1,(int64_t)-1 };
 	float total_price[6] = { 0,0,0,0,0,0 };
 
 	for (const auto& itt : result)
 	{
 		float rec_price = std::stof(itt[6]);
 
-		uint64_t cntrs[6];
+		int64_t cntrs[6];
 		for (int ii = 0; ii < 6; ii++)
 		{
-			cntrs[ii] = std::stoull(itt[ii]);
-			if (last_cntrs[ii] != (uint64_t)-1)
+			cntrs[ii] = std::stoll(itt[ii]);
+			if (last_cntrs[ii] != (int64_t)-1)
 			{
-				uint64_t total = cntrs[ii] - last_cntrs[ii];
+				int64_t total = cntrs[ii] - last_cntrs[ii];
 				total_price[ii] += ((static_cast<float>(total) / divider) * rec_price);
 				bResult = true;
 			}
