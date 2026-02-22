@@ -42,7 +42,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#define DB_VERSION 172
+#define DB_VERSION 173
 
 #define DEFAULT_ADMINUSER "admin"
 #define DEFAULT_ADMINPWD "domoticz"
@@ -3315,6 +3315,11 @@ bool CSQLHelper::OpenDatabase()
 					}
 				}
 			}
+		}
+		if (dbversion < 173)
+		{
+			// Add Passkeys column to Users table for WebAuthn/passkey support
+			query("ALTER TABLE Users ADD COLUMN [Passkeys] TEXT DEFAULT NULL");
 		}
 	}
 	else if (bNewInstall)
