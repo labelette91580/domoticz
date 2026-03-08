@@ -152,6 +152,7 @@
 #include "../hardware/Buienradar.h"
 #include "../hardware/OctoPrintMQTT.h"
 #include "../hardware/Meteorologisk.h"
+#include "../hardware/OpenMeteo.h"
 #include "../hardware/AirconWithMe.h"
 #include "../hardware/AlfenEve.h"
 #include "../hardware/Enever.h"
@@ -1083,6 +1084,9 @@ bool MainWorker::AddHardwareFromParams(
 		break;
 	case HTYPE_Meteorologisk:
 		pHardware = new CMeteorologisk(ID, Password); //Password is location here.
+		break;
+	case HTYPE_OpenMeteo:
+		pHardware = new COpenMeteo(ID);
 		break;
 	case HTYPE_AirconWithMe:
 		pHardware = new CAirconWithMe(ID, Address, Port, Username, Password);
@@ -8548,6 +8552,7 @@ void MainWorker::decode_Thermostat6(const CDomoticzHardwareBase* pHardware, cons
 	uint8_t humidity = pMeter->humidity;
 	uint8_t humidity_status = pMeter->humidity_status;
 	uint16_t barometer = pMeter->barometer;
+	uint8_t forecast = pMeter->forecast;
 
 	// Determine expected flags based on subtype
 	uint8_t expected_flags = 0x03; // temp + setpoint for sTypeThermostat6Temp
@@ -8581,9 +8586,17 @@ void MainWorker::decode_Thermostat6(const CDomoticzHardwareBase* pHardware, cons
 			if (!(pMeter->update_flags & 0x08))
 			{
 				if (subType == sTypeThermostat6TempBaro && values.size() >= 3)
+				{
 					barometer = atoi(values[2].c_str());
+					if (values.size() >= 4)
+						forecast = atoi(values[3].c_str());
+				}
 				else if (subType == sTypeThermostat6TempHumBaro && values.size() >= 5)
+				{
 					barometer = atoi(values[4].c_str());
+					if (values.size() >= 6)
+						forecast = atoi(values[5].c_str());
+				}
 			}
 		}
 	}
@@ -8598,10 +8611,10 @@ void MainWorker::decode_Thermostat6(const CDomoticzHardwareBase* pHardware, cons
 		sprintf(szTmp, "%.1f;%.1f;%d;%d", temperature, setpoint, humidity, humidity_status);
 		break;
 	case sTypeThermostat6TempBaro:
-		sprintf(szTmp, "%.1f;%.1f;%d", temperature, setpoint, barometer);
+		sprintf(szTmp, "%.1f;%.1f;%d;%d", temperature, setpoint, barometer, forecast);
 		break;
 	case sTypeThermostat6TempHumBaro:
-		sprintf(szTmp, "%.1f;%.1f;%d;%d;%d", temperature, setpoint, humidity, humidity_status, barometer);
+		sprintf(szTmp, "%.1f;%.1f;%d;%d;%d;%d", temperature, setpoint, humidity, humidity_status, barometer, forecast);
 		break;
 	default:
 		sprintf(szTmp, "ERROR: Unknown Sub type for Packet type= %02X:%02X", pMeter->type, pMeter->subtype);
