@@ -17,7 +17,7 @@
 #include "../notifications/NotificationHelper.h"
 #include "WebServer.h"
 #include "../main/WebServerHelper.h"
-#include "../webserver/cWebem.h"
+#include <libwebem/cWebem.h>
 #include "../main/json_helper.h"
 #include "../main/NotificationSystem.h"
 #include "../main/LuaTable.h"
@@ -144,7 +144,11 @@ CEventSystem::CEventSystem()
 
 CEventSystem::~CEventSystem()
 {
-	StopEventSystem();
+	// Pass false: never call Py_EndInterpreter from the destructor.
+	// Py_EndInterpreter blocks if any Python thread still holds the GIL
+	// (e.g. a plugin callback in flight during shutdown), causing a hang.
+	// The OS releases all Python resources when the process exits.
+	StopEventSystem(false);
 }
 
 void CEventSystem::StartEventSystem()
@@ -339,6 +343,7 @@ void CEventSystem::Do_Work()
 
 	localtime_r(&atime, &ltime);
 	int _LastMinute = ltime.tm_min;
+	m_LastRefreshDay = ltime.tm_mday;
 
 	_log.Log(LOG_STATUS, "EventSystem: Started");
 	while (true)
@@ -357,6 +362,11 @@ void CEventSystem::Do_Work()
 
 		if (ltime.tm_sec % 12 == 0) {
 			m_mainworker.HeartbeatUpdate("EventSystem");
+		}
+		if (ltime.tm_mday != m_LastRefreshDay)
+		{
+			m_LastRefreshDay = ltime.tm_mday;
+			RefreshCounterJsonMaps();
 		}
 		if (ltime.tm_min != _LastMinute)
 		{
@@ -443,6 +453,37 @@ void CEventSystem::UpdateJsonMap(_tDeviceStatus &item, const uint64_t ulDevID)
 				}
 			}
 			index++;
+		}
+	}
+}
+
+void CEventSystem::RefreshCounterJsonMaps()
+{
+	if (m_sql.m_bDisableDzVentsSystem)
+		return;
+
+	// Find the indices of daily counter fields in the JsonMap array
+	std::vector<int> counterTodayIndices;
+	for (int i = 0; JsonMap[i].szOriginal != nullptr; i++)
+	{
+		if (strcmp(JsonMap[i].szOriginal, "CounterToday") == 0 || strcmp(JsonMap[i].szOriginal, "CounterDelivToday") == 0)
+			counterTodayIndices.push_back(i);
+	}
+	if (counterTodayIndices.empty())
+		return;
+
+	_log.Debug(DEBUG_EVENTSYSTEM, "EventSystem: Refreshing counter device JsonMaps for new day");
+
+	boost::unique_lock<boost::shared_mutex> devicestatesMutexLock(m_devicestatesMutex);
+	for (auto& state : m_devicestates)
+	{
+		for (int idx : counterTodayIndices)
+		{
+			if (state.second.JsonMapString.find(idx) != state.second.JsonMapString.end())
+			{
+				UpdateJsonMap(state.second, state.first);
+				break;
+			}
 		}
 	}
 }

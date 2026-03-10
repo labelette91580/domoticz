@@ -8,7 +8,7 @@
 #include "../../main/SQLHelper.h"
 #include "../../main/mainworker.h"
 #include "../../main/WebServer.h"
-#include "../../webserver/cWebem.h"
+#include <libwebem/cWebem.h>
 #include "../../httpclient/HTTPClient.h"
 #include "../../main/json_helper.h"
 #include "../hardwaretypes.h"
@@ -86,7 +86,7 @@ CPhilipsHue::CPhilipsHue(const int ID, const std::string& IPAddress, const unsig
 	if (m_poll_interval < 5)
 	{
 		m_poll_interval = HUE_DEFAULT_POLL_INTERVAL;
-		Log(LOG_STATUS, "Poll interval to short. Using default interval of %d seconds.", m_poll_interval);
+		Log(LOG_STATUS, "Poll interval too short. Using default interval of %d seconds.", m_poll_interval);
 	}
 	else
 	{

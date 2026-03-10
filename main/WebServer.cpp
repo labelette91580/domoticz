@@ -17,10 +17,13 @@
 #include "SQLHelper.h"
 #include "../httpclient/HTTPClient.h"
 #include "../hardware/hardwaretypes.h"
-#include "../webserver/Base64.h"
+#include <libwebem/Base64.h>
 #include "../smtpclient/SMTPClient.h"
 #include "../push/BasePush.h"
 #include "../notifications/NotificationHelper.h"
+
+#include "WebServerLoggerAdapter.h"
+#include "DomoticzWebsocketHandler.h"
 
 #ifdef ENABLE_PYTHON
 #include "../hardware/plugins/Plugins.h"
@@ -62,6 +65,7 @@ extern std::string szAppDate;
 extern std::string szPyVersion;
 
 extern bool g_bLlmMCPSupport;
+extern bool bDoCachePages;
 
 namespace http
 {
@@ -171,7 +175,14 @@ namespace http
 				try
 				{
 					exception = false;
-					m_pWebEm = new http::server::cWebem(settings, serverpath);
+					auto logger = std::make_shared<WebServerLoggerAdapter>();
+				settings.on_heartbeat = [](const std::string& name) {
+					m_mainworker.HeartbeatUpdate(name);
+				};
+				settings.on_heartbeat_remove = [](const std::string& name) {
+					m_mainworker.HeartbeatRemove(name);
+				};
+				m_pWebEm = new http::server::cWebem(settings, serverpath, logger);
 				}
 				catch (std::exception& e)
 				{
@@ -204,7 +215,21 @@ namespace http
 
 			_log.Log(LOG_STATUS, "WebServer(%s) started on address: %s with port %s", m_server_alias.c_str(), settings.listening_address.c_str(), settings.listening_port.c_str());
 
+			m_pWebEm->RegisterWebsocketEndpoint(
+				"/",
+				[](http::server::cWebem* webem,
+				   std::function<void(const std::string&)> writer,
+				   std::function<void(const std::string&)> /*binary_writer*/,
+				   const http::server::WebEmSession& session) {
+					return std::make_shared<CDomoticzWebsocketHandler>(webem, std::move(writer), session);
+				},
+				"domoticz"
+			);
+
 			m_pWebEm->SetDigistRealm(sRealm);
+			// Maintain backward compatibility: libwebem defaults to "SID" but Domoticz
+			// uses "DMZSID" to preserve existing session cookies from before the libwebem extraction
+			m_pWebEm->SetSessionCookieName("DMZSID");
 			m_pWebEm->SetSessionStore(this);
 
 			LoadUsers();
@@ -673,16 +698,18 @@ namespace http
 			m_bDoStop = true;
 			try
 			{
-				if (m_pWebEm == nullptr)
-					return;
-				m_pWebEm->Stop();
+				if (m_pWebEm != nullptr)
+					m_pWebEm->Stop();
 				if (m_thread)
 				{
 					m_thread->join();
 					m_thread.reset();
 				}
-				delete m_pWebEm;
-				m_pWebEm = nullptr;
+				if (m_pWebEm != nullptr)
+				{
+					delete m_pWebEm;
+					m_pWebEm = nullptr;
+				}
 			}
 			catch (...)
 			{
@@ -4135,8 +4162,7 @@ namespace http
 			std::vector<std::vector<std::string>> result;
 			bool bUseValues = false;
 
-			/* if bUseValuesOrCounter is true, then find out if there are any Counter values in the table, if not: use Value instead of Counter */
-			if (bUseValuesOrCounter)
+			/* find out if there are any Counter values in the table, if not: use Value instead of Counter */
 			{
 				queryString = "select count(*) from " + dbasetable + " where DeviceRowID = " + std::to_string(idx) + " and " + counter("") + " != 0 ";
 				result = m_sql.safe_query(queryString.c_str(), idx, idx, idx, idx, idx);
@@ -4491,7 +4517,23 @@ namespace http
 
 		void CWebServer::GetServiceWorker(WebEmSession& session, const request& req, reply& rep)
 		{
-			// Return the appcache file (dynamically generated)
+			if (!bDoCachePages)
+			{
+				// No-cache mode: return a service worker that unregisters itself and clears all caches
+				std::string response =
+					"self.addEventListener('install', function() { self.skipWaiting(); });\n"
+					"self.addEventListener('activate', function(event) {\n"
+					"  event.waitUntil(\n"
+					"    caches.keys().then(function(keys) {\n"
+					"      return Promise.all(keys.map(function(k) { return caches.delete(k); }));\n"
+					"    }).then(function() { return self.registration.unregister(); })\n"
+					"  );\n"
+					"});\n";
+				reply::set_content(&rep, response);
+				return;
+			}
+
+			// Return the service worker file (dynamically generated)
 			std::string sLine;
 			std::string filename = szWWWFolder + "/service-worker.js";
 
@@ -4723,6 +4765,19 @@ namespace http
 				m_sql.safe_query("UPDATE UserSessions set AuthToken = '%q', ExpirationDate = '%q', RemoteHost = '%q', LastUpdate = datetime('now', 'localtime') WHERE SessionID = '%q'",
 					session.auth_token.c_str(), szExpires, remote_host.c_str(), session.id.c_str());
 			}
+		}
+
+		void CWebServer::RenewSessionExpiration(const std::string& sessionId, time_t expires)
+		{
+			if (sessionId.empty())
+				return;
+			char szExpires[30];
+			struct tm ltime;
+			localtime_r(&expires, &ltime);
+			strftime(szExpires, sizeof(szExpires), "%Y-%m-%d %H:%M:%S", &ltime);
+			m_sql.safe_query(
+				"UPDATE UserSessions SET ExpirationDate = '%q', LastUpdate = datetime('now', 'localtime') WHERE SessionID = '%q'",
+				szExpires, sessionId.c_str());
 		}
 
 		/**

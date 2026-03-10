@@ -36,7 +36,7 @@
 #include "../hardware/VirtualThermostat.h"
 #include "../httpclient/HTTPClient.h"
 #include "../hardware/hardwaretypes.h"
-#include "../webserver/Base64.h"
+#include <libwebem/Base64.h>
 #include "../smtpclient/SMTPClient.h"
 #include "../push/BasePush.h"
 #include "../notifications/NotificationHelper.h"
@@ -3854,6 +3854,7 @@ namespace http
 				int ESolar = atoi(request::findValue(&req, "ESolar").c_str());
 				int EBatteryWatt = atoi(request::findValue(&req, "EBatteryWatt").c_str());
 				int EBatterySoc = atoi(request::findValue(&req, "EBatterySoc").c_str());
+				int EBatteryVolt = atoi(request::findValue(&req, "EBatteryVolt").c_str());
 				int ETextSensor = atoi(request::findValue(&req, "ETextSensor").c_str());
 				int EOutsideTempSensor = atoi(request::findValue(&req, "EOutsideTempSensor").c_str());
 				int EExtra1 = atoi(request::findValue(&req, "EExtra1").c_str());
@@ -3879,6 +3880,7 @@ namespace http
 				ESettings["idSolar"] = ESolar;
 				ESettings["idBatteryWatt"] = EBatteryWatt;
 				ESettings["idBatterySoc"] = EBatterySoc;
+				ESettings["idBatteryVolt"] = EBatteryVolt;
 				ESettings["idTextSensor"] = ETextSensor;
 				ESettings["idOutsideTempSensor"] = EOutsideTempSensor;
 				ESettings["idExtra1"] = EExtra1;
@@ -3910,6 +3912,25 @@ namespace http
 				// Signal plugins to update Settings dictionary
 				PluginLoadConfig();
 #endif
+
+				std::string sDebugLevel = request::findValue(&req, "DebugLevel");
+				if (!sDebugLevel.empty())
+				{
+					uint32_t iDebugLevel = static_cast<uint32_t>(atoi(sDebugLevel.c_str()));
+					_log.SetDebugFlags(iDebugLevel);
+					if (iDebugLevel != 0)
+					{
+						// Enable debug log level when any debug flags are set
+						_log.SetLogFlags(_log.GetLogFlags() | LOG_DEBUG_INT);
+					}
+					else
+					{
+						// Disable debug log level when no debug flags are set
+						_log.SetLogFlags(_log.GetLogFlags() & ~LOG_DEBUG_INT);
+					}
+					cntSettings++;
+				}
+
 				root["status"] = "OK";
 			}
 			catch (const std::exception& e)
@@ -6141,6 +6162,7 @@ namespace http
 					root["PriceResolution"] = nValue;
 				}
 			}
+			root["DebugLevel"] = static_cast<int>(_log.GetDebugFlags());
 		}
 
 		void CWebServer::Cmd_GetLightLog(WebEmSession& session, const request& req, Json::Value& root)

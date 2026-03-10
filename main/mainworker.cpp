@@ -12,7 +12,7 @@
 #include "../push/MQTTPush.h"
 
 #include "../httpclient/HTTPClient.h"
-#include "../webserver/Base64.h"
+#include <libwebem/Base64.h>
 #include <boost/algorithm/string/join.hpp>
 #include "../main/json_helper.h"
 
@@ -1127,6 +1127,8 @@ bool MainWorker::AddHardwareFromParams(
 
 bool MainWorker::Start()
 {
+	m_bStarted = true;
+
 	utsname my_uname;
 	if (uname(&my_uname) == 0)
 	{
@@ -1259,6 +1261,15 @@ bool MainWorker::Start()
 
 bool MainWorker::Stop()
 {
+	if (m_bStopped)
+		return true;
+	m_bStopped = true;
+
+	// If Start() was never called (e.g. --help, --version, or parameter error),
+	// there is nothing to stop.
+	if (!m_bStarted)
+		return true;
+
 	if (m_thread)
 	{
 		m_notificationsystem.NotifyWait(Notification::DZ_STOP, Notification::STATUS_INFO); // blocking call
@@ -1271,30 +1282,44 @@ bool MainWorker::Stop()
 		m_rxMessageThread->join();
 		m_rxMessageThread.reset();
 	}
+
+	// Stop all subsystems that may have been started before the main thread.
+	// These must be cleaned up even if Start() failed partway through
+	// (e.g. webserver bind failure), otherwise their threads are destroyed
+	// without being joined, causing 'terminate called without an active exception'.
+	_log.Log(LOG_STATUS, "Stopping all hardware...");
+	StopDomoticzHardware();
+	m_webservers.StopServers();
+	m_sharedserver.StopServer();
+	m_scheduler.StopScheduler();
+#ifdef ENABLE_PYTHON
+	// Stop the plugin system before the event system so that Plugin_ASIO
+	// and other plugin threads release the GIL before PythonEventsStop()
+	// calls PyEval_RestoreThread() + Py_EndInterpreter().  If the plugin
+	// system is still running at that point it may hold the GIL, causing
+	// Py_EndInterpreter to block forever.
+	m_pluginsystem.StopPluginSystem();
+#endif
+	// Pass false: skip Py_EndInterpreter on final shutdown.
+	// PyEval_RestoreThread() blocks indefinitely if any Python thread is
+	// still holding the GIL (e.g. a plugin callback in flight).  The OS
+	// will release all Python resources when the process exits.
+	m_eventsystem.StopEventSystem(false);
+	m_notificationsystem.Stop();
+	m_fibaropush.Stop();
+	m_httppush.Stop();
+	m_influxpush.Stop();
+	m_mqttpush.Stop();
+	m_googlepubsubpush.Stop();
+	if (m_mdns.isServiceRunning())	// Stop mDNS service
+		m_mdns.stopService();
+
+	//    m_cameras.StopCameraGrabber();
+
+	HTTPClient::Cleanup();
+
 	if (m_thread)
 	{
-		_log.Log(LOG_STATUS, "Stopping all hardware...");
-		StopDomoticzHardware();
-		m_webservers.StopServers();
-		m_sharedserver.StopServer();
-		m_scheduler.StopScheduler();
-		m_eventsystem.StopEventSystem();
-		m_notificationsystem.Stop();
-		m_fibaropush.Stop();
-		m_httppush.Stop();
-		m_influxpush.Stop();
-		m_mqttpush.Stop();
-		m_googlepubsubpush.Stop();
-#ifdef ENABLE_PYTHON
-		m_pluginsystem.StopPluginSystem();
-#endif
-		if (m_mdns.isServiceRunning())	// Stop mDNS service
-			m_mdns.stopService();
-
-		//    m_cameras.StopCameraGrabber();
-
-		HTTPClient::Cleanup();
-
 		RequestStop();
 		m_thread->join();
 		m_thread.reset();
@@ -5768,6 +5793,8 @@ void MainWorker::decode_Fan(const CDomoticzHardwareBase* pHardware, const tRBUF*
 		// Standard FAN structure for non-Orcon devices
 		sprintf(IDTmp, "%02X%02X%02X", pResponse->FAN.id1, pResponse->FAN.id2, pResponse->FAN.id3);
 		ID = IDTmp;
+		nValue = cmnd;
+		sValue = std::to_string(cmnd);
 	}
 	uint64_t DevRowIdx = m_sql.UpdateValue(pHardware->m_HwdID, 0, ID.c_str(), Unit, devType, subType, SignalLevel, -1, nValue, sValue.c_str(), Name, true, procResult.Username.c_str());
 	if (DevRowIdx == (uint64_t)-1)
@@ -5782,8 +5809,10 @@ void MainWorker::decode_Fan(const CDomoticzHardwareBase* pHardware, const tRBUF*
 			m_sql.UpdateDeviceValue("Description", SourceID, std::to_string(DevRowIdx));
 			if (switchType == STYPE_Selector)
 				m_sql.UpdateDeviceValue("LastLevel", sValue, std::to_string(DevRowIdx));
-			_log.Debug(DEBUG_HARDWARE, "Orcon: Stored SourceID (RemoteID)=%s for device IDX=%" PRIu64, SourceID.c_str(), DevRowIdx);
+			_log.Log(LOG_STATUS, "Orcon: Stored SourceID (RemoteID)=%s for device IDX=%" PRIu64, SourceID.c_str(), DevRowIdx);
 		}
+		else
+			_log.Log(LOG_STATUS, "Decode Fan for device IDX=%" PRIu64, DevRowIdx);
 		m_sql.UpdateDeviceValue("CustomImage", 7, std::to_string(DevRowIdx));
 	}
 
