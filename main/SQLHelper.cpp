@@ -43,7 +43,7 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#define DB_VERSION 175
+#define DB_VERSION 176
 
 #define DEFAULT_ADMINUSER "admin"
 #define DEFAULT_ADMINPWD "domoticz"
@@ -3366,6 +3366,14 @@ bool CSQLHelper::OpenDatabase()
 				query("ALTER TABLE Users ADD COLUMN [Passkeys] TEXT DEFAULT NULL");
 			}
 		}
+		if (dbversion < 176)
+		{
+			// Normalize Barometer values in Temperature_Calendar.
+			// Before Sept 2023, barometer was stored as actual hPa (e.g., 1013).
+			// Now stored as *10 (e.g., 10130). Patch old data to match.
+			query("UPDATE Temperature_Calendar SET Barometer = Barometer * 10 "
+				"WHERE Barometer > 0 AND Barometer < 8500");
+		}
 	}
 	else if (bNewInstall)
 	{
@@ -5154,7 +5162,7 @@ uint64_t CSQLHelper::UpdateValue(const int HardwareID, int OrgHardwareID, const 
 			unsigned char ParentType = (unsigned char)atoi(sd[3].c_str());
 			unsigned char ParentSubType = (unsigned char)atoi(sd[4].c_str());
 			unsigned char ParentUnit = (unsigned char)atoi(sd[5].c_str());
-			m_mainworker.m_eventsystem.ProcessDevice(ParentHardwareID, ParentID, ParentUnit, ParentType, ParentSubType, signallevel, batterylevel, nValue, sValue);
+			m_mainworker.m_eventsystem.ProcessDevice(ParentHardwareID, ParentID, ParentUnit, ParentType, ParentSubType, signallevel, batterylevel, nValue, sValue, sLastUpdate);
 
 			m_mainworker.sOnDeviceUpdate(std::stoi(sd[2]), std::stoll(sd[0]));
 
@@ -5501,10 +5509,10 @@ uint64_t CSQLHelper::UpdateManagedValueInt(
 	}
 
 	safe_query("UPDATE DeviceStatus SET LastUpdate='%q', sValue='%q' WHERE (ID = %" PRIu64 ")", sLastUpdate.c_str(), sValue, ulID);
-	
+
 	if (bDeviceUsed)
 	{
-		m_mainworker.m_eventsystem.ProcessDevice(HardwareID, ulID, unit, devType, subType, signallevel, batterylevel, nValue, sValue);
+		m_mainworker.m_eventsystem.ProcessDevice(HardwareID, ulID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, sLastUpdate);
 
 		if (OrgHardwareID == 0)
 		{
@@ -5994,7 +6002,7 @@ uint64_t CSQLHelper::UpdateValueInt(
 
 	if (bDeviceUsed)
 	{
-		m_mainworker.m_eventsystem.ProcessDevice(HardwareID, ulID, unit, devType, subType, signallevel, batterylevel, nValue, sValue);
+		m_mainworker.m_eventsystem.ProcessDevice(HardwareID, ulID, unit, devType, subType, signallevel, batterylevel, nValue, sValue, TimeToString(nullptr, TF_DateTime));
 
 		if (OrgHardwareID == 0)
 		{
