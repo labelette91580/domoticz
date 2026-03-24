@@ -723,9 +723,10 @@ void SolarEdgeAPI::GetOverview()
 	}
 	const Json::Value& overview = root["overview"];
 
+	float power = 0;
 	if (!overview["currentPower"].empty())
 	{
-		float power = overview["currentPower"]["power"].asFloat();
+		power = overview["currentPower"]["power"].asFloat();
 		SendWattMeter(200, SE_OVERVIEW_CURRENT, 255, power, "Site Current Power");
 	}
 	if (!overview["lastDayData"].empty())
@@ -746,7 +747,7 @@ void SolarEdgeAPI::GetOverview()
 	if (!overview["lifeTimeData"].empty())
 	{
 		double energy = overview["lifeTimeData"]["energy"].asDouble();
-		SendKwhMeter(200, SE_OVERVIEW_LIFETIME, 255, 0, energy / 1000.0, "Lifetime Energy");
+		SendKwhMeter(200, SE_OVERVIEW_LIFETIME, 255, power, energy / 1000.0, "Lifetime Energy");
 	}
 }
 

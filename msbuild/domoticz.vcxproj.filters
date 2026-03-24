@@ -1516,9 +1516,6 @@
     <ClInclude Include="..\main\stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\main\WebServer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="WindowsHelper.h">
       <Filter>Windows</Filter>
     </ClInclude>
@@ -2242,8 +2239,11 @@
     <ClInclude Include="..\main\DomoticzWebsocketHandler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\main\WebServer.h">
+      <Filter>Webserver</Filter>
+    </ClInclude>
     <ClInclude Include="..\main\WebServerLoggerAdapter.h">
-      <Filter>Header Files</Filter>
+      <Filter>Webserver</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -2290,18 +2290,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\main\stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\main\WebServer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\main\WebServerCmds.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\main\WebServerCommands.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\main\WebServerHandleGraph.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WindowsHelper.cpp">
@@ -3026,6 +3014,18 @@
     </ClCompile>
     <ClCompile Include="..\main\DomoticzWebsocketHandler.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\main\WebServer.cpp">
+      <Filter>Webserver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\main\WebServerCmds.cpp">
+      <Filter>Webserver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\main\WebServerCommands.cpp">
+      <Filter>Webserver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\main\WebServerHandleGraph.cpp">
+      <Filter>Webserver</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
