@@ -60,51 +60,78 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                     }
                     var chartUnit = isP1 ? 'kWh' : getChartUnit();
 
-                    // Current Usage (e.g. "11325 Watt")
-                    if (device.Usage !== undefined && device.Usage !== null) {
-                        var usage = String(device.Usage);
-                        if (usage !== '' && usage !== '0' && usage !== '0 Watt') {
-                            self.cards.push({
-                                label: $.t('Usage'),
-                                value: usage
-                            });
-                        }
-                    }
-
                     // Detect if P1 has return/delivery capability
                     var hasReturn = isP1 && device.CounterDeliv !== undefined && device.CounterDeliv !== null
                         && parseFloat(device.CounterDeliv) > 0;
 
-                    // Current Delivery (P1 Energy, only if device has return)
-                    if (hasReturn && device.UsageDeliv !== undefined && device.UsageDeliv !== null) {
-                        var usageDeliv = String(device.UsageDeliv);
-                        if (usageDeliv !== '' && usageDeliv !== '0' && usageDeliv !== '0 Watt') {
-                            self.cards.push({
-                                label: $.t('Delivery'),
-                                value: usageDeliv
-                            });
+                    function buildDeviceCards() {
+                        // Current Usage (e.g. "11325 Watt")
+                        if (device.Usage !== undefined && device.Usage !== null) {
+                            var usage = String(device.Usage);
+                            if (usage !== '' && usage !== '0' && usage !== '0 Watt') {
+                                self.cards.push({
+                                    label: $.t('Usage'),
+                                    value: usage
+                                });
+                            }
+                        }
+
+                        // Current Delivery (P1 Energy, only if device has return)
+                        if (hasReturn && device.UsageDeliv !== undefined && device.UsageDeliv !== null) {
+                            var usageDeliv = String(device.UsageDeliv);
+                            if (usageDeliv !== '' && usageDeliv !== '0' && usageDeliv !== '0 Watt') {
+                                self.cards.push({
+                                    label: $.t('Delivery'),
+                                    value: usageDeliv
+                                });
+                            }
+                        }
+
+                        // Today card
+                        if (device.CounterToday !== undefined && device.CounterToday !== null && String(device.CounterToday) !== '') {
+                            var todayValue = String(device.CounterToday);
+                            // Water: backend sends m3, convert to chart unit (Liter) to match charts
+                            if (device.SwitchTypeVal === chart.deviceTypes.Water && todayValue.indexOf('Liter') === -1) {
+                                var numVal = parseFloat(todayValue) * 1000;
+                                todayValue = Math.round(numVal) + ' ' + chartUnit;
+                            }
+                            self.cards.push({ label: $.t('Today'), value: todayValue });
                         }
                     }
 
-                    // Today card
-                    if (device.CounterToday !== undefined && device.CounterToday !== null && String(device.CounterToday) !== '') {
-                        self.cards.push({ label: $.t('Today'), value: String(device.CounterToday) });
-                    }
+                    buildDeviceCards();
+
+                    // Update device-property cards on device_update
+                    $scope.$on('device_update', function (event, updatedDevice) {
+                        if (updatedDevice.idx === device.idx) {
+                            self.device = updatedDevice;
+                            device = updatedDevice;
+                            hasReturn = isP1 && device.CounterDeliv !== undefined && device.CounterDeliv !== null
+                                && parseFloat(device.CounterDeliv) > 0;
+                            var yearCards = self.cards.splice(self._deviceCardCount);
+                            self.cards.length = 0;
+                            buildDeviceCards();
+                            self._deviceCardCount = self.cards.length;
+                            self.cards.push.apply(self.cards, yearCards);
+                        }
+                    });
+
+                    self._deviceCardCount = self.cards.length;
 
                     // Watch for year graph data shared by counterYearChart
-                    var unwatch = $scope.$watch(function () {
+                    $scope.$watch(function () {
                         return self.logCtrl.yearGraphData;
                     }, function (result) {
                         if (!result || result.length === 0) {
                             return;
                         }
-                        unwatch(); // Only process once
+
+                        // Clear year cards, keep device cards
+                        self.cards.splice(self._deviceCardCount);
 
                         var now = new Date();
                         var currentYear = String(now.getFullYear());
                         var currentMonth = currentYear + '-' + ('0' + (now.getMonth() + 1)).slice(-2);
-                        var unit = device.getUnit();
-
                         if (isP1) {
                             var monthUsage = 0, monthReturn = 0;
                             var yearUsage = 0, yearReturn = 0;
