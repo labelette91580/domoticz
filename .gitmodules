@@ -16,5 +16,5 @@
 	ignore = dirty
 [submodule "extern/libwebem"]
 	path = extern/libwebem
-	url = https://github.com/labelette91580/libwebem.git
+	url = https://github.com/domoticz/libwebem.git
 	branch = master
