@@ -2266,9 +2266,8 @@ namespace http
 
 			std::vector<std::vector<std::string>> result;
 			std::vector<std::vector<std::string>> result2;
-			// Include all used devices, plus devices from disabled hardware (which may have Used=0)
 			result = m_sql.safe_query("SELECT T1.[ID], T1.[Name], T1.[Type], T1.[SubType], T2.[Name] AS HardwareName FROM DeviceStatus as T1, Hardware as T2 "
-				"WHERE (T2.[ID]==T1.[HardwareID]) AND (T1.[Used]==1 OR (T2.[Enabled]==0)) ORDER BY T2.[Name], T1.[Name]");
+				"WHERE (T2.[ID]==T1.[HardwareID]) ORDER BY T2.[Name], T1.[Name]");
 			if (!result.empty())
 			{
 				for (const auto& sd : result)
@@ -3410,7 +3409,11 @@ namespace http
 			scriptname += (bIsBetaChannel) ? "updatebeta" : "updaterelease";
 			// run script in new session with setsid + nohup for complete detachment from parent
 			// Use fixed log filename for frontend display (both scripts write to same file)
-			std::string lscript = "setsid nohup " + scriptname + " > " + std::string(szStartupFolder) + "update.log 2>&1 &";
+			// Remove any existing log first: a root-owned log from a prior run would be
+			// unwritable if domoticz is now running as a non-root user, silently preventing
+			// the script from starting.
+			std::string logfile = std::string(szStartupFolder) + "update.log";
+			std::string lscript = "rm -f " + logfile + " 2>/dev/null; setsid nohup " + scriptname + " > " + logfile + " 2>&1 &";
 			int ret = system(lscript.c_str());
 			_log.Log(LOG_STATUS, "Update script started: %s (log: update.log)", scriptname.c_str());
 			root["title"] = "UpdateApplication";
