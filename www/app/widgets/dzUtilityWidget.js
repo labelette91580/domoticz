@@ -113,7 +113,10 @@ define(['app'], function (app) {
                             bigtext = device.Counter;
                         }
                     } else if (ctrl.isSetpoint()) {
-                        bigtext = device.Data + ' ' + device.vunit;
+                        if (typeof device.RoomTemp !== 'undefined')
+                            bigtext = device.RoomTemp + ' / ';
+                        bigtext += device.Data + ' ' + device.vunit;
+
                     } else if (device.Type === 'Radiator 1') {
                         bigtext = device.Data + '\u00B0 ' + $scope.$parent.config.TempSign;
                     } else if (ctrl.isThermostatMode() || ctrl.isThermostatFanMode() || ctrl.isThermostatOperatingState()) {
@@ -150,6 +153,10 @@ define(['app'], function (app) {
                         status = device.Data.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br />$2');
                     } else if (ctrl.isAlert()) {
                         status = device.Data.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br />$2');
+                    } else if (ctrl.isSetpoint()) {
+                        if (typeof device.Power != 'undefined') {
+                            status = "Power:" + device.Power + '%';
+                        }
                     }
 
                     if (typeof device.CounterDeliv !== 'undefined' && device.CounterDeliv != 0) {
@@ -218,6 +225,13 @@ define(['app'], function (app) {
                         image = (device.CustomImage == 0) ? 'current48.png' : device.Image + '48_On.png';
                     } else if (ctrl.isSetpoint() || device.Type === 'Radiator 1') {
                         image = (device.CustomImage == 0) ? 'override.png' : device.Image + '48_On.png';
+                        if (device.isVirtualThermostat) {
+                            if (device.Switch == 1)
+                                image = 'override.png';
+                            else
+                                image = 'override_off.png';
+                        }
+
                     } else if (ctrl.isThermostatClock()) {
                         image = 'clock48.png';
                     } else if (ctrl.isThermostatMode()) {
@@ -241,7 +255,7 @@ define(['app'], function (app) {
                     var step = device.step || 0.5;
                     var min = device.min || -200;
                     var max = device.max || 200;
-                    ShowSetpointPopup(event, device.idx, device.Protected, device.Data, false, step, min, max);
+                    ShowSetpointPopup(event, device.idx, device.Protected, device.Data, false, step, min, max, device.ConforTemp, device.EcoTemp );
                 };
 
                 ctrl.makeFavorite = function (isFavorite) {
@@ -305,7 +319,11 @@ define(['app'], function (app) {
                         var status = ctrl.getStatusText().replaceAll('<br />', '');
                         EditTextDevice(device.idx, escape(device.Name), escape(status), escape(device.Description), device.CustomImage, device.ID, device.Unit);
                     } else if ((device.Type === 'Setpoint' && device.SubType === 'SetPoint') || device.Type === 'Radiator 1') {
-                        EditSetPoint(device.idx, escape(device.Name), escape(device.Description), escape(device.vunit), device.step, device.min, device.max, device.Protected, device.CustomImage, device.ID, device.Unit);
+                        if (device.isVirtualThermostat) {
+                            Editvirtualthermostatdevice(device.idx, device.Protected, ShowUtilities, (device.vunit),0);
+                        } else {
+                            EditSetPoint(device.idx, escape(device.Name), escape(device.Description), escape(device.vunit), device.step, device.min, device.max, device.Protected, device.CustomImage, device.ID, device.Unit);
+                        }
                     } else if (device.SubType === 'Thermostat Clock') {
                         EditThermostatClock(device.idx, escape(device.Name), escape(device.Description), device.DayTime, device.Protected, device.CustomImage, device.ID, device.Unit);
                     } else if (device.SubType === 'Thermostat Mode') {

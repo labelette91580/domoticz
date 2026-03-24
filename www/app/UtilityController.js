@@ -1,4 +1,4 @@
-﻿define(['app', 'livesocket', 'widgets/dzUtilityWidget'], function (app) {
+﻿define(['app', 'livesocket', 'widgets/dzUtilityWidget', 'app/virtualThermostat.js'], function (app) {
 	app.controller('UtilityController', function ($scope, $rootScope, $location, $http, $interval, $timeout, $route, $routeParams, deviceApi, domoticzApi, permissions, livesocket) {
 		var $element = $('#main-view #utilitycontent').last();
 

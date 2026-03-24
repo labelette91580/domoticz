@@ -2169,12 +2169,12 @@ function SetpointDown() {
 	$('#setpoint_popup #popup_setpoint').val(curValueStr);
 }
 function SetEcoTemp() {
-	var curValueStr = $.eco.toFixed(1);
+	var curValueStr = $.eco;
 	$('#setpoint_popup #popup_setpoint').val(curValueStr);
 	SetSetpoint();
 }
 function SetConforTemp() {
-	var curValueStr = $.confor.toFixed(1);
+	var curValueStr = $.confor;
 	$('#setpoint_popup #popup_setpoint').val(curValueStr);
 	SetSetpoint();
 }
