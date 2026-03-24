@@ -39,13 +39,14 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
             controller: function ($element, $scope, domoticzGlobals) {
                 const self = this;
                 self.cards = [];
+                self._deviceCardCount = 0;
 
                 self.$onInit = function () {
                     var device = self.device;
                     var unit = device.getUnit();
                     var valueKey = domoticzGlobals.valueKeyForDevice(device);
 
-                    function rebuildCards() {
+                    function buildDeviceCards() {
                         self.cards.length = 0;
 
                         // Rain Rate card
@@ -61,26 +62,19 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                             }
                         }
 
-                        // Total Rain card
-                        if (device.Rain !== undefined) {
-                            var rain = parseFloat(device.Rain);
-                            if (!isNaN(rain)) {
-                                self.cards.push({
-                                    label: $.t('Total'),
-                                    value: rain.toFixed(1) + ' ' + unit,
-                                    delta: '',
-                                    deltaColor: ''
-                                });
-                            }
-                        }
-
-                        // Calculate today's total from graph data
+                        // Calculate today's total from graph data (filter to today only)
                         var result = self.logCtrl.dayGraphData;
                         if (result && result.length > 0) {
+                            var now = new Date();
+                            var todayStr = now.getFullYear() + '-' +
+                                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                                String(now.getDate()).padStart(2, '0');
                             var todayTotal = 0;
                             for (var i = 0; i < result.length; i++) {
-                                var val = parseFloat(result[i][valueKey]);
-                                if (!isNaN(val)) todayTotal += val;
+                                if (result[i].d.substring(0, 10) === todayStr) {
+                                    var val = parseFloat(result[i][valueKey]);
+                                    if (!isNaN(val)) todayTotal += val;
+                                }
                             }
                             self.cards.push({
                                 label: $.t('Today'),
@@ -89,6 +83,8 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                                 deltaColor: ''
                             });
                         }
+
+                        self._deviceCardCount = self.cards.length;
 
                         if (self.cards.length === 0) {
                             $element.hide();
@@ -100,7 +96,9 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                         return self.logCtrl.dayGraphData;
                     }, function (result) {
                         if (result && result.length > 0) {
-                            rebuildCards();
+                            var yearCards = self.cards.splice(self._deviceCardCount);
+                            buildDeviceCards();
+                            self.cards.push.apply(self.cards, yearCards);
                         }
                     });
 
@@ -109,8 +107,35 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                         if (updatedDevice.idx === device.idx) {
                             device = updatedDevice;
                             self.device = updatedDevice;
-                            rebuildCards();
+                            var yearCards = self.cards.splice(self._deviceCardCount);
+                            buildDeviceCards();
+                            self.cards.push.apply(self.cards, yearCards);
                         }
+                    });
+
+                    // Show This Year card when year chart data is available
+                    $scope.$watch(function () {
+                        return self.logCtrl.yearGraphData;
+                    }, function (result) {
+                        if (!result || result.length === 0) return;
+
+                        self.cards.splice(self._deviceCardCount);
+
+                        var currentYear = String(new Date().getFullYear());
+                        var yearTotal = 0;
+                        result.forEach(function (item) {
+                            if (item.d.substring(0, 4) === currentYear) {
+                                var v = parseFloat(item.mm || 0);
+                                if (!isNaN(v)) yearTotal += v;
+                            }
+                        });
+
+                        self.cards.push({
+                            label: $.t('This Year'),
+                            value: yearTotal.toFixed(1) + ' ' + unit,
+                            delta: '',
+                            deltaColor: ''
+                        });
                     });
                 };
             }
@@ -216,28 +241,34 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                 const self = this;
 
                 self.$onInit = function () {
+                    var params = chartParams(
+                        domoticzGlobals,
+                        self,
+                        false,
+                        function (dataItem, yearOffset = 0) {
+                            return GetLocalDateFromString(dataItem.d, yearOffset);
+                        },
+                        [
+                            {
+                                id: 'mm',
+                                valueKeySuffix: '',
+                                template: {
+									color: 'rgba(3,190,252,0.8)',
+                                    name: $.t('mm')
+                                }
+                            }
+                        ]
+                    );
+                    if (self.range === 'year') {
+                        params.dataSupplier.preprocessData = function (data) {
+                            self.logCtrl.yearGraphData = data.result;
+                        };
+                    }
                     new RefreshingChart(
                         chart.baseParams($),
                         chart.angularParams($location, $route, $scope, $timeout, $element),
                         chart.domoticzParams(domoticzGlobals, domoticzApi, domoticzDataPointApi),
-                        chartParams(
-                            domoticzGlobals,
-                            self,
-                            false,
-                            function (dataItem, yearOffset = 0) {
-                                return GetLocalDateFromString(dataItem.d, yearOffset);
-                            },
-                            [
-                                {
-                                    id: 'mm',
-                                    valueKeySuffix: '',
-                                    template: {
-										color: 'rgba(3,190,252,0.8)',
-                                        name: $.t('mm')
-                                    }
-                                }
-                            ]
-                        )
+                        params
                     );
                 }
             }
@@ -293,6 +324,7 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
 					}
 
 					var chartElement = $element.find('.chartcontainer');
+					chartElement.attr('id', 'chart-' + self.device.idx + '-rain-cumulative');
 					Highcharts.chart(chartElement[0], {
 						chart: { type: 'area', zoomType: 'x' },
 						title: { text: '' },
@@ -369,6 +401,7 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
 					}
 
 					var chartElement = $element.find('.chartcontainer');
+					chartElement.attr('id', 'chart-' + self.device.idx + '-rain-rate');
 					Highcharts.chart(chartElement[0], {
 						chart: { type: 'spline', zoomType: 'x' },
 						title: { text: '' },
@@ -478,6 +511,7 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
 					];
 
 					var chartElement = $element.find('.chartcontainer');
+					chartElement.attr('id', 'chart-' + self.device.idx + '-rain-intensity');
 					self.chartTitle += ' (' + rates.length + ' ' + $.t('rain intervals') + ')';
 
 					Highcharts.chart(chartElement[0], {

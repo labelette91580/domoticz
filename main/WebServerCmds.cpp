@@ -2227,8 +2227,9 @@ namespace http
 
 			std::vector<std::vector<std::string>> result;
 			std::vector<std::vector<std::string>> result2;
+			// Include all used devices, plus devices from disabled hardware (which may have Used=0)
 			result = m_sql.safe_query("SELECT T1.[ID], T1.[Name], T1.[Type], T1.[SubType], T2.[Name] AS HardwareName FROM DeviceStatus as T1, Hardware as T2 "
-				"WHERE (T1.[Used]==1) AND (T2.[ID]==T1.[HardwareID]) ORDER BY T2.[Name], T1.[Name]");
+				"WHERE (T2.[ID]==T1.[HardwareID]) AND (T1.[Used]==1 OR (T2.[Enabled]==0)) ORDER BY T2.[Name], T1.[Name]");
 			if (!result.empty())
 			{
 				for (const auto& sd : result)
@@ -2447,45 +2448,57 @@ namespace http
 
 		void CWebServer::Cmd_ChangePlanDeviceOrder(WebEmSession& session, const request& req, Json::Value& root)
 		{
+			if (session.rights != URIGHTS_ADMIN)
+			{
+				session.reply_status = reply::forbidden;
+				return;
+			}
 			std::string planid = request::findValue(&req, "planid");
-			std::string idx = request::findValue(&req, "idx");
-			std::string sway = request::findValue(&req, "way");
-			if ((planid.empty()) || (idx.empty()) || (sway.empty()))
+			std::string sorder = request::findValue(&req, "order");
+			if (planid.empty() || sorder.empty())
 				return;
-			bool bGoUp = (sway == "0");
 
-			std::string aOrder, oID, oOrder;
-
-			std::vector<std::vector<std::string>> result;
-			result = m_sql.safe_query("SELECT [Order] FROM DeviceToPlansMap WHERE ((ID=='%q') AND (PlanID=='%q'))", idx.c_str(), planid.c_str());
-			if (result.empty())
-				return;
-			aOrder = result[0][0];
-
-			if (!bGoUp)
+			std::stringstream ss(sorder);
+			std::string token;
+			int pos = 1;
+			while (std::getline(ss, token, ','))
 			{
-				// Get next device order
-				result = m_sql.safe_query("SELECT ID, [Order] FROM DeviceToPlansMap WHERE (([Order]>'%q') AND (PlanID=='%q')) ORDER BY [Order] ASC", aOrder.c_str(), planid.c_str());
-				if (result.empty())
-					return;
-				oID = result[0][0];
-				oOrder = result[0][1];
+				if (!token.empty())
+				{
+					m_sql.safe_query("UPDATE DeviceToPlansMap SET [Order] = %d WHERE (ID='%q') AND (PlanID='%q')", pos, token.c_str(), planid.c_str());
+					++pos;
+				}
 			}
-			else
-			{
-				// Get previous device order
-				result = m_sql.safe_query("SELECT ID, [Order] FROM DeviceToPlansMap WHERE (([Order]<'%q') AND (PlanID=='%q')) ORDER BY [Order] DESC", aOrder.c_str(), planid.c_str());
-				if (result.empty())
-					return;
-				oID = result[0][0];
-				oOrder = result[0][1];
-			}
-			// Swap them
+
 			root["status"] = "OK";
-			root["title"] = "ChangePlanOrder";
+			root["title"] = "ChangePlanDeviceOrder";
+		}
 
-			m_sql.safe_query("UPDATE DeviceToPlansMap SET [Order] = '%q' WHERE (ID='%q')", oOrder.c_str(), idx.c_str());
-			m_sql.safe_query("UPDATE DeviceToPlansMap SET [Order] = '%q' WHERE (ID='%q')", aOrder.c_str(), oID.c_str());
+		void CWebServer::Cmd_ChangePlanFullOrder(WebEmSession& session, const request& req, Json::Value& root)
+		{
+			if (session.rights != URIGHTS_ADMIN)
+			{
+				session.reply_status = reply::forbidden;
+				return;
+			}
+			std::string sorder = request::findValue(&req, "order");
+			if (sorder.empty())
+				return;
+
+			std::stringstream ss(sorder);
+			std::string token;
+			int pos = 1;
+			while (std::getline(ss, token, ','))
+			{
+				if (!token.empty())
+				{
+					m_sql.safe_query("UPDATE Plans SET [Order] = %d WHERE (ID='%q')", pos, token.c_str());
+					++pos;
+				}
+			}
+
+			root["status"] = "OK";
+			root["title"] = "ChangePlanFullOrder";
 		}
 
 		void CWebServer::Cmd_GetVersion(WebEmSession& session, const request& req, Json::Value& root)
@@ -3859,6 +3872,8 @@ namespace http
 				int EBatteryWatt = atoi(request::findValue(&req, "EBatteryWatt").c_str());
 				int EBatterySoc = atoi(request::findValue(&req, "EBatterySoc").c_str());
 				int EBatteryVolt = atoi(request::findValue(&req, "EBatteryVolt").c_str());
+				int EBatteryEnergyIn = atoi(request::findValue(&req, "EBatteryEnergyIn").c_str());
+				int EBatteryEnergyOut = atoi(request::findValue(&req, "EBatteryEnergyOut").c_str());
 				int ETextSensor = atoi(request::findValue(&req, "ETextSensor").c_str());
 				int EOutsideTempSensor = atoi(request::findValue(&req, "EOutsideTempSensor").c_str());
 				int EExtra1 = atoi(request::findValue(&req, "EExtra1").c_str());
@@ -3885,6 +3900,8 @@ namespace http
 				ESettings["idBatteryWatt"] = EBatteryWatt;
 				ESettings["idBatterySoc"] = EBatterySoc;
 				ESettings["idBatteryVolt"] = EBatteryVolt;
+				ESettings["idBatteryEnergyIn"] = EBatteryEnergyIn;
+				ESettings["idBatteryEnergyOut"] = EBatteryEnergyOut;
 				ESettings["idTextSensor"] = ETextSensor;
 				ESettings["idOutsideTempSensor"] = EOutsideTempSensor;
 				ESettings["idExtra1"] = EExtra1;

@@ -53,7 +53,7 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                         switch (device.SwitchTypeVal) {
                             case chart.deviceTypes.EnergyUsed:
                             case chart.deviceTypes.EnergyGenerated:
-                                return chart.valueUnits.energy(chart.valueMultipliers.m1);
+                                return chart.valueUnits.energy(chart.valueMultipliers.m1000);
                             case chart.deviceTypes.Gas:
                                 return chart.valueUnits.gas(chart.valueMultipliers.m1);
                             case chart.deviceTypes.Water:
@@ -99,7 +99,15 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
                                 var numVal = parseFloat(todayValue) * 1000;
                                 todayValue = Math.round(numVal) + ' ' + chartUnit;
                             }
-                            self.cards.push({ label: $.t('Today'), value: todayValue });
+                            if (hasReturn && device.CounterDelivToday !== undefined && device.CounterDelivToday !== null
+                                    && parseFloat(device.CounterDelivToday) > 0) {
+                                self.cards.push({ label: $.t('Today'), lines: [
+                                    { icon: 'fa-arrow-down', iconColor: '#ff6b6b', value: todayValue, tooltip: $.t('Usage') },
+                                    { icon: 'fa-arrow-up', iconColor: '#4ecdc4', value: String(device.CounterDelivToday), tooltip: $.t('Return') }
+                                ]});
+                            } else {
+                                self.cards.push({ label: $.t('Today'), value: todayValue });
+                            }
                         }
                     }
 
@@ -373,6 +381,7 @@ define(['app', 'lodash', 'RefreshingChart', 'DataLoader', 'ChartLoader', 'log/Ch
             controller: function ($location, $route, $scope, $timeout, $element, domoticzGlobals, domoticzApi, domoticzDataPointApi, chart, counterLogParams, counterLogSubtypeRegistry) {
                 const self = this;
                 self.groupingBy = 'month';
+                self.range = 'compare';
 
                 self.$onInit = function () {
                     const subtype = counterLogSubtypeRegistry.get(self.logCtrl.subtype);

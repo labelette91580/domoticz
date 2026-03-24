@@ -209,6 +209,33 @@ detect_service_name() {
     fi
 }
 
+# Parse the USERNAME= field from the SysV init script.
+# Requires sudo because /etc/init.d/domoticz.sh is root-readable only.
+# Returns empty string if the file does not exist or has no USERNAME= line.
+_get_sysv_username() {
+    sudo grep -E '^USERNAME=' /etc/init.d/domoticz.sh 2>/dev/null | cut -d= -f2 | tr -d '"' || echo ""
+}
+
+# Apply KillMode=process drop-in for the SysV-bridged service so that systemd does
+# not kill this update script when domoticz.service is stopped (cgroup v2 issue).
+# Safe to keep permanently — protects all future update runs automatically.
+# Idempotent: skipped silently if the drop-in already exists.
+_apply_killmode_dropin() {
+    if ! command -v systemctl > /dev/null 2>&1; then
+        return  # Not a systemd system (Docker, BSD, etc.) — nothing to do
+    fi
+    local dropin_dir="/etc/systemd/system/${DETECTED_SERVICE}.service.d"
+    local dropin_file="$dropin_dir/killmode.conf"
+    if [[ -f "$dropin_file" ]]; then
+        return  # Already applied from a previous update run — skip silently
+    fi
+    log_info "Applying KillMode=process override for $DETECTED_SERVICE..."
+    sudo mkdir -p "$dropin_dir"
+    printf '[Service]\nKillMode=process\n' | sudo tee "$dropin_file" > /dev/null
+    sudo systemctl daemon-reload
+    log_info "KillMode=process applied."
+}
+
 # Check if Domoticz service is running
 is_service_running() {
     # Check if domoticz process is running
@@ -233,7 +260,12 @@ is_service_running() {
 stop_service() {
     # Detect service name and the user running domoticz (for fallback direct start)
     detect_service_name
-    DOMOTICZ_USER=$(ps -o user= -p "$(pgrep -x domoticz 2>/dev/null | head -1)" 2>/dev/null || echo "")
+    _apply_killmode_dropin       # prevent cgroup kill of update script (issue #6640)
+    DOMOTICZ_USER=$(ps -o user= -p "$(pgrep -x domoticz 2>/dev/null | head -1)" 2>/dev/null | tr -d ' ' || echo "")
+    if [[ -z "$DOMOTICZ_USER" ]]; then
+        # Secondary: parse from SysV init script (requires sudo — file is root-readable only)
+        DOMOTICZ_USER=$(_get_sysv_username)
+    fi
 
     log_info "Stopping Domoticz service..."
     if ! sudo service "$DETECTED_SERVICE" stop; then
@@ -279,6 +311,10 @@ start_service() {
         fi
     fi
 
+    sleep 3  # wait for the daemon to fully initialize before polling; prevents a false
+             # positive from pgrep catching the transient fork of start-stop-daemon -b
+             # before PAM session cleanup kills it (F3, issue #6640)
+
     # Wait up to start_timeout seconds for the process to appear, regardless of
     # whether the service command succeeded (systemd may timeout but the process
     # can still be starting up).
@@ -304,6 +340,17 @@ start_service() {
         die "Domoticz binary not found or not executable at: $SCRIPT_DIR/domoticz"
     fi
     sudo -u "$run_user" "$SCRIPT_DIR/domoticz" -daemon
+
+    # Correct PID file ownership if it was created as the wrong user (F4, issue #6640)
+    local pidfile="/var/run/domoticz.pid"
+    if [[ -f "$pidfile" ]]; then
+        local service_user
+        service_user=$(_get_sysv_username)
+        if [[ -n "$service_user" ]] && [[ "$service_user" != "$(stat -c '%U' "$pidfile")" ]]; then
+            sudo chown "$service_user" "$pidfile"
+            log_info "Corrected PID file ownership to '$service_user'."
+        fi
+    fi
 
     wait_count=0
     while [[ $wait_count -lt $fallback_timeout ]]; do

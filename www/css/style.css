@@ -781,6 +781,10 @@ table.mobileitem {
 	white-space: normal;
 }
 
+.itemtablerowsmall .bigtext {
+	white-space: normal;
+}
+
 .mobileitem .selectorlevels-mobile-wrap {
 	display: inline-block;
 	vertical-align: middle;
@@ -800,6 +804,7 @@ table.mobileitem {
 }
 
 .dimslider {
+	touch-action: none;
 	z-index: 1;
 	border-width: 1px;
 	border-style: solid;

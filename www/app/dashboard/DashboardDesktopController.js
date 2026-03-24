@@ -107,6 +107,10 @@ define([
 					.then(function (result) {
 						$scope.LastUpdateTime = result.lastUpdateTime;
 
+						if (result.sunrise !== undefined && result.sunset !== undefined && result.serverTime !== undefined) {
+							$rootScope.SetTimeAndSun(result.sunrise, result.sunset, result.serverTime);
+						}
+
 						// Categorize devices
 						var categorized = dashboardService.categorizeDevices(result.devices);
 
@@ -230,6 +234,11 @@ define([
 					}
 				}
 			}
+
+		$scope.nl2br = function (text) {
+			if (!text) return text;
+			return text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br />$2');
+		};
 
 			/**
 			 * Filter devices based on search query.

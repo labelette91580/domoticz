@@ -451,6 +451,7 @@ namespace http
 			RegisterCommandCode("setplandevicecoords", [this](auto&& session, auto&& req, auto&& root) { Cmd_SetPlanDeviceCoords(session, req, root); });
 			RegisterCommandCode("deleteallplandevices", [this](auto&& session, auto&& req, auto&& root) { Cmd_DeleteAllPlanDevices(session, req, root); });
 			RegisterCommandCode("changeplanorder", [this](auto&& session, auto&& req, auto&& root) { Cmd_ChangePlanOrder(session, req, root); });
+			RegisterCommandCode("changeplanfullorder", [this](auto&& session, auto&& req, auto&& root) { Cmd_ChangePlanFullOrder(session, req, root); });
 			RegisterCommandCode("changeplandeviceorder", [this](auto&& session, auto&& req, auto&& root) { Cmd_ChangePlanDeviceOrder(session, req, root); });
 
 			RegisterCommandCode("gettimerplans", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetTimerPlans(session, req, root); });
@@ -1568,6 +1569,9 @@ namespace http
 
 			for (const auto& sd : result)
 			{
+				std::string sDeviceName("");
+				uint64_t devIDX = -1;
+
 				try
 				{
 					unsigned char favorite = atoi(sd[12].c_str());
@@ -1580,9 +1584,9 @@ namespace http
 							continue;
 					}
 
-					std::string sDeviceName = sd[3];
+					sDeviceName = sd[3];
 
-					uint64_t devIDX = std::stoull(sd[0]);
+					devIDX = std::stoull(sd[0]);
 
 					if (!bDisplayHidden)
 					{
@@ -2849,6 +2853,25 @@ namespace http
 								break;
 							}
 						}
+						else
+						{
+							switch (metertype)
+							{
+							case MTYPE_ENERGY:
+							case MTYPE_ENERGY_GENERATED:
+								sprintf(szTmp, "%.3f kWh", 0.0F);
+								break;
+							case MTYPE_GAS:
+								sprintf(szTmp, "%.3f m3", 0.0F);
+								break;
+							case MTYPE_WATER:
+								sprintf(szTmp, "0 Liter");
+								break;
+							default:
+								strcpy(szTmp, "0");
+								break;
+							}
+						}
 						root["result"][ii]["CounterToday"] = szTmp;
 
 						root["result"][ii]["SwitchTypeVal"] = metertype;
@@ -2950,6 +2973,25 @@ namespace http
 									strcat(szTmp, " ");
 									strcat(szTmp, ValueUnits.c_str());
 								}
+								break;
+							default:
+								strcpy(szTmp, "0");
+								break;
+							}
+						}
+						else
+						{
+							switch (metertype)
+							{
+							case MTYPE_ENERGY:
+							case MTYPE_ENERGY_GENERATED:
+								sprintf(szTmp, "%.3f kWh", 0.0F);
+								break;
+							case MTYPE_GAS:
+								sprintf(szTmp, "%.3f m3", 0.0F);
+								break;
+							case MTYPE_WATER:
+								sprintf(szTmp, "%.3f m3", 0.0F);
 								break;
 							default:
 								strcpy(szTmp, "0");
@@ -3819,6 +3861,25 @@ namespace http
 									break;
 								}
 							}
+							else
+							{
+								switch (metertype)
+								{
+								case MTYPE_ENERGY:
+								case MTYPE_ENERGY_GENERATED:
+									sprintf(szTmp, "%.3f kWh", 0.0F);
+									break;
+								case MTYPE_GAS:
+									sprintf(szTmp, "%.3f m3", 0.0F);
+									break;
+								case MTYPE_WATER:
+									sprintf(szTmp, "%.3f m3", 0.0F);
+									break;
+								default:
+									strcpy(szTmp, "0.000");
+									break;
+								}
+							}
 							root["result"][ii]["Counter"] = sValue;
 							root["result"][ii]["CounterToday"] = szTmp;
 							root["result"][ii]["SwitchTypeVal"] = metertype;
@@ -4074,7 +4135,7 @@ namespace http
 				}
 				catch (const std::exception& e)
 				{
-					_log.Log(LOG_ERROR, "GetJSonDevices: exception occurred : '%s'", e.what());
+					_log.Log(LOG_ERROR, "GetJSonDevices: exception occurred: '%s' (%llu/%s)", e.what(), devIDX, sDeviceName.c_str());
 					continue;
 				}
 			}
@@ -4210,19 +4271,22 @@ namespace http
 				queryString.append("         date(mc0.Date) as Date,");
 				queryString.append("         case");
 				queryString.append("            when (" + counter("mc1") + ") <= (" + counter("mc0") + ")");
+				queryString.append("                 AND (" + counter("mc0") + ") - (" + counter("mc1") + ") <= (" + value("mc0") + ") * 2 + 2000000");
 				queryString.append("            then (" + counter("mc0") + ") - (" + counter("mc1") + ")");
 				queryString.append("            else (" + value("mc0") + ")");
 				queryString.append("         end as Difference");
 				queryString.append(" 	from " + dbasetable + " mc0");
-				queryString.append(" 	inner join " + dbasetable + " mc1 on mc1.DeviceRowID = mc0.DeviceRowID");
-				queryString.append("         and mc1.Date = (");
-				queryString.append("             select max(mcm.Date)");
-				queryString.append("             from " + dbasetable + " mcm");
+				queryString.append(" 	inner join " + dbasetable + " mc1 on mc1.rowid = (");
+				queryString.append("             select mcm.rowid from " + dbasetable + " mcm");
 				queryString.append("             where mcm.DeviceRowID = mc0.DeviceRowID and mcm.Date < mc0.Date and (" + counter("mcm") + ") > 0");
+				queryString.append("             order by mcm.Date desc, (" + counter("mcm") + ") desc, mcm.rowid desc limit 1");
 				queryString.append("         )");
 				queryString.append(" 	where");
 				queryString.append("         mc0.DeviceRowID = %" PRIu64 "");
 				queryString.append("         and (" + counter("mc0") + ") > 0");
+				queryString.append("         and mc0.rowid = (select mcm2.rowid from " + dbasetable + " mcm2");
+				queryString.append("             where mcm2.DeviceRowID = mc0.DeviceRowID and mcm2.Date = mc0.Date");
+				queryString.append("             order by (" + counter("mcm2") + ") desc, mcm2.rowid desc limit 1)");
 				queryString.append("         and (select min(Date) from " + dbasetable + " where DeviceRowID = %" PRIu64 " and (" + counter("") + ") > 0) <= mc1.Date");
 				queryString.append("         and mc0.Date <= (select max(Date) from " + dbasetable + " where DeviceRowID = %" PRIu64 " and (" + counter("") + ") > 0)");
 				queryString.append("    union all");

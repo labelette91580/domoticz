@@ -1,6 +1,19 @@
 define(['app'], function (app) {
 	app.controller('EnergyDashboardController', ['$scope', '$rootScope', '$location', '$http', '$interval', 'livesocket', function ($scope, $rootScope, $location, $http, $interval, livesocket) {
 
+/*
+  fTotalHomeUsage (kWh today):
+  Grid used + Solar generated − Grid returned
+    + Battery discharged (if configured)
+    − Battery charged (if configured)
+
+  fHousePrice:
+  (Grid used − Grid returned) × p1Price
+  + Solar generated × solarPrice
+  + Battery discharged × battEnergyOutPrice  (if configured)
+  − Battery charged × battEnergyInPrice      (if configured)
+*/
+
 		$scope.debug = false;
 		$scope.idP1 = -1;
 		$scope.idGas = -1;
@@ -10,6 +23,10 @@ define(['app'], function (app) {
 		$scope.idBattSoc = -1;
 		$scope.idBattVolt = -1;
 		$scope.fBattVolt = 0;
+		$scope.idBattEnergyIn = -1;
+		$scope.idBattEnergyOut = -1;
+		$scope.fBattEnergyIn = 0;
+		$scope.fBattEnergyOut = 0;
 		$scope.idTextObj = -1;
 		$scope.idOutsideTemp = -1;
 		$scope.idItemH1 = -1;
@@ -58,6 +75,9 @@ define(['app'], function (app) {
 		$scope.h1Price = 1000;
 		$scope.h2Price = 1000;
 		$scope.h3Price = 1000;
+		$scope.battEnergyInPrice = 1000;
+		$scope.battEnergyOutPrice = 1000;
+		$scope.fHousePrice = 0;
 		$scope.txtItemH1 = "";
 		$scope.txtItemH2 = "";
 		$scope.txtItemH3 = "";
@@ -118,6 +138,8 @@ define(['app'], function (app) {
 			if ($scope.idBattWatt != -1) devArray.push($scope.idBattWatt);
 			if ($scope.idBattSoc != -1) devArray.push($scope.idBattSoc);
 			if ($scope.idBattVolt != -1) devArray.push($scope.idBattVolt);
+			if ($scope.idBattEnergyIn != -1) devArray.push($scope.idBattEnergyIn);
+			if ($scope.idBattEnergyOut != -1) devArray.push($scope.idBattEnergyOut);
 			if ($scope.idTextObj != -1) devArray.push($scope.idTextObj);
 			if ($scope.idOutsideTemp != -1) devArray.push($scope.idOutsideTemp);
 			if ($scope.idItemH1 != -1) devArray.push($scope.idItemH1);
@@ -167,6 +189,12 @@ define(['app'], function (app) {
 					if (typeof data.result.ESettings.idBatteryVolt != 'undefined') {
      					$scope.idBattVolt = data.result.ESettings.idBatteryVolt;
  					}
+					if (typeof data.result.ESettings.idBatteryEnergyIn != 'undefined') {
+						$scope.idBattEnergyIn = data.result.ESettings.idBatteryEnergyIn;
+					}
+					if (typeof data.result.ESettings.idBatteryEnergyOut != 'undefined') {
+						$scope.idBattEnergyOut = data.result.ESettings.idBatteryEnergyOut;
+					}
 					$scope.idTextObj = data.result.ESettings.idTextSensor;
 					if (typeof data.result.ESettings.idOutsideTempSensor != 'undefined') {
 						$scope.idOutsideTemp = data.result.ESettings.idOutsideTempSensor;
@@ -245,6 +273,12 @@ define(['app'], function (app) {
 				case $scope.idBattVolt:
      				bHandledData = $scope.handleBattVolt(item);
      				break;
+				case $scope.idBattEnergyIn:
+					bHandledData = $scope.handleBattEnergyIn(item);
+					break;
+				case $scope.idBattEnergyOut:
+					bHandledData = $scope.handleBattEnergyOut(item);
+					break;
 				case $scope.idTextObj:
 					bHandledData = $scope.handleTextObj(item);
 					break;
@@ -456,6 +490,26 @@ define(['app'], function (app) {
 			return true;
 		}
 
+		$scope.handleBattEnergyIn = function(item) {
+			if (item.hasOwnProperty("CounterToday")) {
+				$scope.fBattEnergyIn = parseFloat(item["CounterToday"].replace(' kWh','')) || 0;
+			}
+			if (item.hasOwnProperty("price")) {
+				$scope.battEnergyInPrice = parseFloat(item["price"]) || 0;
+			}
+			return true;
+		}
+
+		$scope.handleBattEnergyOut = function(item) {
+			if (item.hasOwnProperty("CounterToday")) {
+				$scope.fBattEnergyOut = parseFloat(item["CounterToday"].replace(' kWh','')) || 0;
+			}
+			if (item.hasOwnProperty("price")) {
+				$scope.battEnergyOutPrice = parseFloat(item["price"]) || 0;
+			}
+			return true;
+		}
+
 		$scope.handleTextObj = function(item) {
 			$scope.txtObjText = item["Data"];
 			return true;
@@ -560,8 +614,12 @@ define(['app'], function (app) {
 				fSec = 3;
 			else if (aPower < 3000)
 				fSec = 2;
-			else
+			else if (aPower < 5000)
 				fSec = 1.5;
+			else if (aPower < 7000)
+				fSec = 1.2;
+			else
+				fSec = 1.0;
 			return fSec;
 		}
 
@@ -589,6 +647,20 @@ define(['app'], function (app) {
 			let fadeElement = document.getElementById(fadeId);
 			if (fadeElement) {
 				fadeElement.setAttribute('dur', fSec);
+			}
+		}
+
+		$scope.setFlowAnim = function(cacheKey, fPower, lineId, sphereId, isReverse) {
+			isReverse = isReverse || false;
+			let anim = $scope.GetAnim(fPower, isReverse);
+			if ($scope[cacheKey] != anim) {
+				$scope[cacheKey] = anim;
+				if ($scope.flowAsLines == true) {
+					let elem = document.getElementById(lineId);
+					if (elem) elem.style.animation = anim;
+				} else {
+					$scope.SetEclipseAnim(sphereId, fPower, isReverse);
+				}
 			}
 		}
 
@@ -666,6 +738,27 @@ define(['app'], function (app) {
 			
 			// Total Home usage: Calculated
 			$scope.fTotalHomeUsage = $scope.fDayNetUsage + $scope.fDaySolar - $scope.fDayNetDeliv;
+			if ($scope.idBattEnergyOut != -1) {
+				$scope.fTotalHomeUsage += $scope.fBattEnergyOut;
+			}
+			if ($scope.idBattEnergyIn != -1) {
+				$scope.fTotalHomeUsage -= $scope.fBattEnergyIn;
+			}
+
+			// House price: sum of individual device prices (each price is already the total cost for today)
+			$scope.fHousePrice = 0;
+			if ($scope.p1Price != 1000) {
+				$scope.fHousePrice += $scope.p1Price;
+			}
+			if ($scope.solarPrice != 1000) {
+				$scope.fHousePrice += $scope.solarPrice;
+			}
+			if (($scope.idBattEnergyOut != -1) && ($scope.battEnergyOutPrice != 1000)) {
+				$scope.fHousePrice += $scope.battEnergyOutPrice;
+			}
+			if (($scope.idBattEnergyIn != -1) && ($scope.battEnergyInPrice != 1000)) {
+				$scope.fHousePrice -= $scope.battEnergyInPrice;
+			}
 
 			let fActualNet = $scope.fActualNet;
 			let fActualSolar = $scope.fActualSolar;
@@ -705,7 +798,7 @@ define(['app'], function (app) {
 			if (fActualBattWatt < 0) {
 				//Discharging
 				if (fActualNet < 0) {
-					let total_return = Math.abs(fActualBattWatt) + fActualSolar;
+					let total_return = Math.abs(fActualBattWatt);
 					let house_usage = total_return - Math.abs(fActualNet);
 					if (house_usage<0) {
 						//That's not possible, not enough power to return to the grid
@@ -724,33 +817,32 @@ define(['app'], function (app) {
 			} else if (fActualBattWatt > 0) {
 				//We need power from the grid to charge the battery
 				if (fActualNet > 0) {
-					fBattToNet = -fActualBattWatt;
+					fBattToNet = -Math.min(fActualBattWatt, fActualNet);
 					fActualNet -= Math.abs(fBattToNet);
 				} else {
 					//We have a problem!!! Not enough power to charge the battery!!
 					//The reason is likely that the Solar Wattage is not accurate
 					//Or that the battery is fully charged and not taking any power
-					if ($scope.fBattSoc==100) {
+					if ($scope.fBattSoc >= 99.9) {
 						fActualBattWatt = 0;
 						fSolarToHome += fSolarToBatt;
 						fActualHomeUsage += fSolarToBatt;
 						fSolarToBatt = 0;
 					} else {
 						//Add it to the Solar
-						$scope.fActualSolar += Math.abs(fActualBattWatt);
+						fActualSolar += Math.abs(fActualBattWatt);
 						fSolarToBatt += Math.abs(fActualBattWatt);
-						fActualSolar = $scope.fActualSolar;
 						fActualBattWatt = 0;
 					}
 				}
 			}
-			if ((fActualNet< 0) && ($scope.idSolar!=-1)) {
+			if (fActualNet < 0) {
 				//It seems we return more Energy then is possible
 				//The reason is likely that the Solar Wattage is not accurate
-				//Add it to the Solar
-				$scope.fActualSolar += Math.abs(fActualNet);
-				fSolarToGrid += Math.abs(fActualNet);
-				fActualSolar = $scope.fActualSolar;
+				if ($scope.idSolar != -1) {
+					fActualSolar += Math.abs(fActualNet);
+					fSolarToGrid += Math.abs(fActualNet);
+				}
 				fActualNet = 0;
 			}
 			fGridToHome += fActualNet;
@@ -765,83 +857,23 @@ define(['app'], function (app) {
 			$scope.fBattToHome = fBattToHome;
 			$scope.fGridToHome = fGridToHome;
 			$scope.fActualHomeUsage = fActualHomeUsage;
-			if ($scope.fSolarToHome>=0) {
-				let anim = $scope.GetAnim($scope.fSolarToHome);
-				if ($scope.SolarToHomeflowAnim != anim) {
-					$scope.SolarToHomeflowAnim = anim;
-					if ($scope.flowAsLines == true) {
-						let SolarToHomeflow=document.getElementById('SolarToHome-flow');
-						SolarToHomeflow.style.animation = anim;
-					} else {
-						$scope.SetEclipseAnim("SolarToHome-sphere", $scope.fSolarToHome);
-					}
-				}
-			}
+			if ($scope.fSolarToHome > 0)
+				$scope.setFlowAnim('SolarToHomeflowAnim', $scope.fSolarToHome, 'SolarToHome-flow', 'SolarToHome-sphere');
 
-			if ($scope.fSolarToBatt > 0) {
-				let anim = $scope.GetAnim($scope.fSolarToBatt);
-				if ($scope.SolarToBattflowAnim != anim) {
-					$scope.SolarToBattflowAnim = anim;
-					if ($scope.flowAsLines == true) {
-						let SolarToBattflow=document.getElementById('SolarToBatt-flow');
-						SolarToBattflow.style.animation = anim;
-					} else {
-						$scope.SetEclipseAnim("SolarToBatt-sphere", $scope.fSolarToBatt);
-					}
-				}
-			}
+			if ($scope.fSolarToBatt > 0)
+				$scope.setFlowAnim('SolarToBattflowAnim', $scope.fSolarToBatt, 'SolarToBatt-flow', 'SolarToBatt-sphere');
 
-			if ($scope.fSolarToGrid>=0) {
-				let anim = $scope.GetAnim($scope.fSolarToGrid);
-				if ($scope.SolarToGridflowAnim != anim) {
-					$scope.SolarToGridflowAnim = anim;
-					if ($scope.flowAsLines == true) {
-						let SolarToGridflow=document.getElementById('SolarToGrid-flow');
-						SolarToGridflow.style.animation = anim;	
-					} else {
-						$scope.SetEclipseAnim("SolarToGrid-sphere", $scope.fSolarToGrid);
-					}
-				}
-			}
+			if ($scope.fSolarToGrid > 0)
+				$scope.setFlowAnim('SolarToGridflowAnim', $scope.fSolarToGrid, 'SolarToGrid-flow', 'SolarToGrid-sphere');
 
-			if ($scope.fBattToNet!=0) {
-				let anim = $scope.GetAnim($scope.fBattToNet, ($scope.fBattToNet<0));
-				if ($scope.BattToGridflowAnim != anim) {
-					$scope.BattToGridflowAnim = anim;
-					if ($scope.flowAsLines == true) {
-						let BattNetflow=document.getElementById('BattNet-flow');
-						BattNetflow.style.animation = anim;
-					} else {
-						$scope.SetEclipseAnim("BattNet-sphere", $scope.fBattToNet, ($scope.fBattToNet<0));
-					}
-				}
-			}
+			if ($scope.fBattToNet != 0)
+				$scope.setFlowAnim('BattToGridflowAnim', $scope.fBattToNet, 'BattNet-flow', 'BattNet-sphere', $scope.fBattToNet < 0);
 
-			if ($scope.fBattToHome >= 0) {
-				let anim = $scope.GetAnim($scope.fBattToHome);
-				if ($scope.BattToHomeflowAnim != anim) {
-					$scope.BattToHomeflowAnim = anim;
-					if ($scope.flowAsLines == true) {
-						let BattHomeflow=document.getElementById('BattHome-flow');
-						BattHomeflow.style.animation = anim;
-					} else {
-						$scope.SetEclipseAnim("BattHome-sphere", $scope.fBattToHome);
-					}
-				}
-			}
+			if ($scope.fBattToHome > 0)
+				$scope.setFlowAnim('BattToHomeflowAnim', $scope.fBattToHome, 'BattHome-flow', 'BattHome-sphere');
 
-			if ($scope.fGridToHome>=0) {
-				let anim = $scope.GetAnim($scope.fGridToHome, ($scope.fGridToHome<0));
-				if ($scope.Grid2HomeFlowAnim != anim) {
-					$scope.Grid2HomeFlowAnim = anim;
-					if ($scope.flowAsLines == true) {
-						let Grid2HomeFlow = document.getElementById('GridToHome-flow');
-						Grid2HomeFlow.style.animation = anim;
-					} else {
-						$scope.SetEclipseAnim("GridToHome-sphere", $scope.fGridToHome, ($scope.fGridToHome<0));
-					}
-				}
-			}
+			if ($scope.fGridToHome > 0)
+				$scope.setFlowAnim('Grid2HomeFlowAnim', $scope.fGridToHome, 'GridToHome-flow', 'GridToHome-sphere');
 
 			$scope.finalHomeUsage = $scope.fActualHomeUsage;
 			

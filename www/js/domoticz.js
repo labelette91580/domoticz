@@ -43,8 +43,9 @@ if (typeof (Highcharts) !== 'undefined') {
 				) {
 					fProceed_.apply(this, Array.prototype.slice.call(arguments, 1));
 					try {
-						var sStorageId = 'highcharts_series_visibility_' + $.devIdx;
-						var sStateId = $(this.chart.container).parent().attr('id') + '_' + this.options.id;
+						var sStorageId = 'highcharts_series_visibility';
+						if (!this.chart.renderTo.id) { return; }
+						var sStateId = this.chart.renderTo.id + '_' + this.options.id;
 						var sCurrentState = localStorage.getItem(sStorageId) || '{}';
 						var oCurrentState = JSON.parse(sCurrentState);
 						oCurrentState[sStateId] = this.visible;
@@ -55,12 +56,15 @@ if (typeof (Highcharts) !== 'undefined') {
 
 			H_.wrap(H_.Series.prototype, 'init', function (fProceed_, oChart_, oOptions_) {
 				try {
-					var sStorageId = 'highcharts_series_visibility_' + $.devIdx;
-					var sStateId = $(oChart_.container).parent().attr('id') + '_' + oOptions_.id;
-					var sCurrentState = localStorage.getItem(sStorageId) || '{}';
-					var oCurrentState = JSON.parse(sCurrentState);
-					if (sStateId in oCurrentState) {
-						oOptions_.visible = oCurrentState[sStateId];
+					var sStorageId = 'highcharts_series_visibility';
+					var renderToId = oChart_.renderTo && oChart_.renderTo.id;
+					if (renderToId) {
+						var sStateId = renderToId + '_' + oOptions_.id;
+						var sCurrentState = localStorage.getItem(sStorageId) || '{}';
+						var oCurrentState = JSON.parse(sCurrentState);
+						if (sStateId in oCurrentState) {
+							oOptions_.visible = oCurrentState[sStateId];
+						}
 					}
 				} catch (oException_) { /* too bad, no state */ }
 				fProceed_.apply(this, Array.prototype.slice.call(arguments, 1));
@@ -662,7 +666,7 @@ function SwitchScene(idx, switchcmd, isprotected) {
 	}
 }
 
-function ResetSecurityStatus(idx, switchcmd) {
+function ResetSecurityStatus(idx, switchcmd, callback) {
 	if (window.my_config.userrights == 0) {
 		HideNotify();
 		ShowNotify($.t('You do not have permission to do that!'), 2500, true);
@@ -680,6 +684,9 @@ function ResetSecurityStatus(idx, switchcmd) {
 			//wait 1 second
 			setTimeout(function () {
 				HideNotify();
+				if (typeof callback === 'function') {
+					callback();
+				}
 			}, 1000);
 		},
 		error: function () {

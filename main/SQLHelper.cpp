@@ -5566,6 +5566,7 @@ uint64_t CSQLHelper::UpdateValueInt(
 	int nValueBeforeUpdate = -1;
 	std::string sValueBeforeUpdate;
 	_eSwitchType stype = STYPE_OnOff;
+	std::string sValueUpdate;
 
 	if (result.empty())
 	{
@@ -5635,9 +5636,8 @@ uint64_t CSQLHelper::UpdateValueInt(
 			if (!powerAndEnergyUpdate.empty())
 			{
 				const char* powerUpdate = powerAndEnergyUpdate[0].c_str();
-				char sValueUpdate[100];
-				sprintf(sValueUpdate, "%s;%.4f", powerUpdate, energyAfterInterval);
-				sValue = sValueUpdate;
+				sValueUpdate = std_format("%s;%.4f", powerUpdate, energyAfterInterval);
+				sValue = sValueUpdate.c_str();
 			}
 			else
 			{
@@ -10678,7 +10678,6 @@ void CSQLHelper::RefreshActualPrices()
 		"Type=%d OR " //pTypeYouLess
 		"Type=%d OR " //pTypeENERGY
 		"Type=%d OR " //pTypePOWER
-		"Type=%d OR " //pTypeUsage
 		"(Type=%d AND SubType=%d) OR " //pTypeGeneral,sTypeCounterIncremental
 		"(Type=%d AND SubType=%d)"	 //pTypeGeneral,sTypeKwh
 		")",
@@ -10687,7 +10686,6 @@ void CSQLHelper::RefreshActualPrices()
 		pTypeYouLess,
 		pTypeENERGY,
 		pTypePOWER,
-		pTypeUsage,
 		pTypeGeneral, sTypeCounterIncremental,
 		pTypeGeneral, sTypeKwh
 	);
