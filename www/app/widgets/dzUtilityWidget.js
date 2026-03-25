@@ -144,6 +144,7 @@ define(['app'], function (app) {
                     } else if (ctrl.isEnergy()) {
                         if (typeof device.CounterToday !== 'undefined') {
                             status = $.t('Today') + ': ' + device.CounterToday;
+                            status += $.t(" Total") + ': ' + device.Data;
                         }
                     } else if (device.Type === 'Air Quality') {
                         status = device.Quality;
