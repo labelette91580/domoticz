@@ -1179,12 +1179,13 @@ void HandleGraphDay(const GraphContext& ctx, const request& req,
 					double tvalue = ConvertTemperature(atof(sd[0].c_str()), tempsign);
 					root["result"][ii]["te"] = tvalue;
 				}
-				if (((dType == pTypeWIND) && (dSubType == sTypeWIND4)) || ((dType == pTypeWIND) && (dSubType == sTypeWINDNoTemp)))
+				bool isVirtualThermostat = (dType == pTypeSetpoint && dSubType == sTypeSetpoint && sd[1] != "0.0");
+				if (((dType == pTypeWIND) && (dSubType == sTypeWIND4)) || ((dType == pTypeWIND) && (dSubType == sTypeWINDNoTemp)) || isVirtualThermostat )
 				{
 					double tvalue = ConvertTemperature(atof(sd[1].c_str()), tempsign);
 					root["result"][ii]["ch"] = tvalue;
 				}
-				if ((dType == pTypeHUM) || (dType == pTypeTEMP_HUM) || (dType == pTypeTEMP_HUM_BARO) || ((dType == pTypeThermostat6) && ((dSubType == sTypeThermostat6TempHum) || (dSubType == sTypeThermostat6TempHumBaro))))
+				if ((dType == pTypeHUM) || (dType == pTypeTEMP_HUM) || (dType == pTypeTEMP_HUM_BARO) || ((dType == pTypeThermostat6) && ((dSubType == sTypeThermostat6TempHum) || (dSubType == sTypeThermostat6TempHumBaro))) || isVirtualThermostat )
 				{
 					root["result"][ii]["hu"] = sd[2];
 				}
