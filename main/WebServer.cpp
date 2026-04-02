@@ -20,10 +20,13 @@
 #include <libwebem/Base64.h>
 #include "../smtpclient/SMTPClient.h"
 #include "../push/BasePush.h"
+#include "../push/McpPush.h"
 #include "../notifications/NotificationHelper.h"
 
 #include "WebServerLoggerAdapter.h"
 #include "DomoticzWebsocketHandler.h"
+#include "../mcpserver/McpSseSession.h"
+#include "../mcpserver/McpSessionRegistry.h"
 
 #ifdef ENABLE_PYTHON
 #include "../hardware/plugins/Plugins.h"
@@ -64,7 +67,6 @@ extern std::string szAppHash;
 extern std::string szAppDate;
 extern std::string szPyVersion;
 
-extern bool g_bLlmMCPSupport;
 extern bool bDoCachePages;
 
 namespace http
@@ -226,6 +228,18 @@ namespace http
 				"domoticz"
 			);
 
+			m_pWebEm->RegisterSseEndpoint(
+				"/mcp",
+				[](std::function<void(const std::string&)> writer,
+				   const http::server::WebEmSession& session,
+				   const std::string& context)
+				   -> std::shared_ptr<http::server::ISseHandler>
+				{
+					return std::make_shared<CMcpSseHandler>(writer, session, context);
+				});
+
+			g_McpPush.Start();
+
 			m_pWebEm->SetDigistRealm(sRealm);
 			// Maintain backward compatibility: libwebem defaults to "SID" but Domoticz
 			// uses "DMZSID" to preserve existing session cookies from before the libwebem extraction
@@ -266,10 +280,7 @@ namespace http
 					m_iamsettings.discovery_url.c_str(), [this](auto&& session, auto&& req, auto&& rep) { GetOpenIDConfiguration(session, req, rep); }, true);
 			}
 
-			if (g_bLlmMCPSupport)
-			{
-				m_pWebEm->RegisterPageCode("/mcp", [this](auto&& session, auto&& req, auto&& rep) { PostMcp(session, req, rep); }, false);
-			}
+			m_pWebEm->RegisterPageCode("/mcp", [this](auto&& session, auto&& req, auto&& rep) { PostMcp(session, req, rep); }, false);
 
 			m_pWebEm->RegisterPageCode("/json.htm", [this](auto&& session, auto&& req, auto&& rep) { GetJSonPage(session, req, rep); });
 			m_pWebEm->RegisterPageCode("/alexa.htm", [this](auto&& session, auto&& req, auto&& rep) { GetAlexaPage(session, req, rep); });
@@ -531,6 +542,7 @@ namespace http
 			RegisterCommandCode("vacuumdatabase", [this](auto&& session, auto&& req, auto&& root) { Cmd_VacuumDatabase(session, req, root); });
 			RegisterCommandCode("getdbstats", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetDbStats(session, req, root); });
 			RegisterCommandCode("fixkwhcounterspikes", [this](auto&& session, auto&& req, auto&& root) { Cmd_FixKwhCounterSpikes(session, req, root); });
+			RegisterCommandCode("spreadcounterspike", [this](auto&& session, auto&& req, auto&& root) { Cmd_SpreadCounterSpike(session, req, root); });
 
 			RegisterCommandCode("addmobiledevice", [this](auto&& session, auto&& req, auto&& root) { Cmd_AddMobileDevice(session, req, root); });
 			RegisterCommandCode("updatemobiledevice", [this](auto&& session, auto&& req, auto&& root) { Cmd_UpdateMobileDevice(session, req, root); });
@@ -682,6 +694,8 @@ namespace http
 			//kWh stats
 			RegisterCommandCode("getkwhstats", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetkWhStats(session, req, root); });
 			RegisterCommandCode("resetkwhstats", [this](auto&& session, auto&& req, auto&& root) { Cmd_ResetkWhStats(session, req, root); });
+			RegisterCommandCode("fixkwhstats", [this](auto&& session, auto&& req, auto&& root) { Cmd_FixkWhStats(session, req, root); });
+			RegisterCommandCode("fixcounterprices", [this](auto&& session, auto&& req, auto&& root) { Cmd_FixCounterPrices(session, req, root); });
 
 			//Whitelist
 			m_pWebEm->RegisterWhitelistURLString("/images/floorplans/plan");
@@ -699,6 +713,7 @@ namespace http
 
 		void CWebServer::StopServer()
 		{
+			g_McpPush.Stop();
 			m_bDoStop = true;
 			try
 			{

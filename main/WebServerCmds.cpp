@@ -39,6 +39,7 @@
 #include <libwebem/Base64.h>
 #include "../smtpclient/SMTPClient.h"
 #include "../push/BasePush.h"
+#include "../push/McpPush.h"
 #include "../notifications/NotificationHelper.h"
 
 #ifdef ENABLE_PYTHON
@@ -1492,13 +1493,13 @@ namespace http
 			}
 			// Below Hardware Types do not have any input checks at the moment
 			else if ( (htype == HTYPE_TE923) || (htype == HTYPE_VOLCRAFTCO20) ||  (htype == HTYPE_1WIRE) || (htype == HTYPE_Rtl433) || (htype == HTYPE_Pinger) || (htype == HTYPE_Kodi)
+					|| (htype == HTYPE_VirtualThermostat)
 					|| (htype == HTYPE_PanasonicTV) || (htype == HTYPE_LogitechMediaServer) || (htype == HTYPE_RaspberryBMP085) || (htype == HTYPE_RaspberryHTU21D) || (htype == HTYPE_RaspberryTSL2561)
 					|| (htype == HTYPE_RaspberryBME280) || (htype == HTYPE_RaspberryMCP23017) || (htype == HTYPE_Dummy) || (htype == HTYPE_Tellstick)
 					|| (htype == HTYPE_EVOHOME_SCRIPT) || (htype == HTYPE_EVOHOME_SERIAL) || (htype == HTYPE_EVOHOME_WEB) || (htype == HTYPE_EVOHOME_TCP)
 					|| (htype == HTYPE_PiFace) || (htype == HTYPE_HTTPPOLLER) || (htype == HTYPE_BleBox) || (htype == HTYPE_HEOS) || (htype == HTYPE_Yeelight) || (htype == HTYPE_XiaomiGateway)
 					|| (htype == HTYPE_Arilux) || (htype == HTYPE_USBtinGateway) || (htype == HTYPE_BuienRadar) || (htype == HTYPE_Honeywell) ||(htype == HTYPE_RaspberryGPIO)
-					|| (htype == HTYPE_SysfsGpio) || (htype == HTYPE_OpenWebNetTCP) || (htype == HTYPE_Daikin) || (htype == HTYPE_PythonPlugin) || (htype == HTYPE_RaspberryPCF8574)
-					|| (htype == HTYPE_VirtualThermostat)
+					|| (htype == HTYPE_SysfsGpio) || (htype == HTYPE_OpenWebNetTCP) || (htype == HTYPE_Daikin) || (htype == HTYPE_DaikinModbus) || (htype == HTYPE_PythonPlugin) || (htype == HTYPE_RaspberryPCF8574)
 					|| (htype == HTYPE_OpenWebNetUSB) || (htype == HTYPE_IntergasInComfortLAN2RF) || (htype == HTYPE_EnphaseAPI) || (htype == HTYPE_EcoCompteur) || (htype == HTYPE_Meteorologisk) || (htype == HTYPE_OpenMeteo)
 					|| (htype == HTYPE_AirconWithMe) || (htype == HTYPE_EneverPriceFeeds) || (htype == HTYPE_Tado))
 			{
@@ -1707,6 +1708,7 @@ namespace http
 
 				m_mainworker.AddHardwareFromParams(ID, name, (senabled == "true") ? true : false, htype, iLogLevelEnabled, address, port, sport, username, password, extra, mode1,
 					mode2, mode3, mode4, mode5, mode6, iDataTimeout, true);
+				g_McpPush.onDeviceTableChanged();
 			}
 		}
 
@@ -1815,7 +1817,7 @@ namespace http
 				}
 				else if ((htype == HTYPE_RFXtrx433) || (htype == HTYPE_RFXtrx868))
 				{
-					// No Extra field here, handled in CWebServer::SetRFXCOMMode 
+					// No Extra field here, handled in CWebServer::SetRFXCOMMode
 					m_sql.safe_query("UPDATE Hardware SET Name='%q', Enabled=%d, Type=%d, LogLevel=%d, Address='%q', Port=%d, SerialPort='%q', Username='%q', Password='%q', "
 						"Mode1=%d, Mode2=%d, Mode3=%d, Mode4=%d, Mode5=%d, Mode6=%d, DataTimeout=%d WHERE (ID == '%q')",
 						name.c_str(), (bEnabled == true) ? 1 : 0, htype, iLogLevelEnabled, address.c_str(), port, sport.c_str(), username.c_str(), password.c_str(),
@@ -2134,6 +2136,7 @@ namespace http
 
 			m_mainworker.RemoveDomoticzHardware(hwID);
 			m_sql.DeleteHardware(idx);
+			g_McpPush.onDeviceTableChanged();
 		}
 
 		void CWebServer::Cmd_GetLog(WebEmSession& session, const request& req, Json::Value& root)
@@ -4037,6 +4040,7 @@ namespace http
 			root["title"] = "DeleteDevice";
 			m_sql.DeleteDevices(idx);
 			m_mainworker.m_scheduler.ReloadSchedules();
+			g_McpPush.onDeviceTableChanged();
 		}
 
 		void CWebServer::Cmd_AddScene(WebEmSession& session, const request& req, Json::Value& root)
@@ -5424,6 +5428,40 @@ namespace http
 				root["result"][i] = results[i];
 		}
 
+		void CWebServer::Cmd_SpreadCounterSpike(WebEmSession& session, const request& req, Json::Value& root)
+		{
+			if (session.rights != URIGHTS_ADMIN)
+			{
+				session.reply_status = reply::forbidden;
+				return;
+			}
+
+			std::string sidx = request::findValue(&req, "idx");
+			std::string sdate = request::findValue(&req, "date");
+			if (sidx.empty() || sdate.empty())
+			{
+				root["status"] = "ERR";
+				root["message"] = "idx and date parameters required";
+				return;
+			}
+
+			uint64_t idx = 0;
+			try { idx = std::stoull(sidx); }
+			catch (const std::exception&)
+			{
+				root["status"] = "ERR";
+				root["message"] = "Invalid idx format";
+				return;
+			}
+
+			std::vector<std::string> results;
+			bool ok = m_sql.SpreadCounterSpike(idx, sdate, results);
+			root["status"] = ok ? "OK" : "ERR";
+			root["title"] = "SpreadCounterSpike";
+			for (int i = 0; i < static_cast<int>(results.size()); i++)
+				root["result"][i] = results[i];
+		}
+
 		void CWebServer::Cmd_ClearShortLog(WebEmSession& session, const request& req, Json::Value& root)
 		{
 			if (session.rights != URIGHTS_ADMIN)
@@ -6747,6 +6785,43 @@ namespace http
 			CKWHStats::ResetJSONStats(idx);
 			root["status"] = "OK";
 			root["title"] = "ResetkWhStats";
+		}
+
+		void CWebServer::Cmd_FixkWhStats(WebEmSession& session, const request& req, Json::Value& root)
+		{
+			if (session.rights != URIGHTS_ADMIN)
+			{
+				session.reply_status = reply::forbidden;
+				return; //Only admin user allowed
+			}
+			if (request::findValue(&req, "idx").empty())
+				return;
+			uint64_t idx = std::stoull(request::findValue(&req, "idx"));
+
+			bool changed = CKWHStats::RemoveSpikeStats(idx);
+			root["changed"] = changed;
+			root["status"] = "OK";
+			root["title"] = "FixkWhStats";
+		}
+
+		void CWebServer::Cmd_FixCounterPrices(WebEmSession& session, const request& req, Json::Value& root)
+		{
+			if (session.rights != URIGHTS_ADMIN)
+			{
+				session.reply_status = reply::forbidden;
+				return; //Only admin user allowed
+			}
+			if (request::findValue(&req, "idx").empty())
+				return;
+			uint64_t idx = std::stoull(request::findValue(&req, "idx"));
+
+			bool changed = CKWHStats::RemoveSpikeStats(idx);
+			int pricesFixed = m_sql.SanitizeCalendarData(idx);
+			root["changed"] = changed || (pricesFixed > 0);
+			root["kwhStatsFixed"] = changed;
+			root["pricesFixed"] = pricesFixed;
+			root["status"] = "OK";
+			root["title"] = "FixCounterPrices";
 		}
 
 		// Helper function to convert ANSI color codes to HTML spans

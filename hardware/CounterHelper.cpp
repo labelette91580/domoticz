@@ -22,10 +22,18 @@ constexpr double COUNTER_RESET_TOLERANCE_KWH = 0.1;
 
 CounterHelper::CounterHelper()
 {
+	m_devtype = pTypeGeneral;
+	m_subtype = sTypeKwh;
 }
 
 CounterHelper::~CounterHelper()
 {
+}
+
+void CounterHelper::SetType(const int devtype, const int subtype)
+{
+	m_devtype = devtype;
+	m_subtype = subtype;
 }
 
 void CounterHelper::Reset()
@@ -39,7 +47,7 @@ void CounterHelper::Reset()
 	m_sql.safe_query("UPDATE DeviceStatus SET LastLevel=0, LastUpdate='%s' WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit==%d) AND (Type=%d) AND (SubType=%d)",
 		TimeToString(nullptr, TF_DateTime).c_str(),
 		m_HwdID, m_szID.c_str(), m_Unit,
-		pTypeGeneral, sTypeKwh
+		m_devtype, m_subtype
 		);
 }
 
@@ -81,12 +89,14 @@ void CounterHelper::Init(const CDomoticzHardwareBase* pHardwareBase, const std::
 
 void CounterHelper::InitInt()
 {
-	auto result = m_sql.safe_query("SELECT sValue, LastLevel FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit==%d) AND (Type=%d) AND (SubType=%d)",
+	auto result = m_sql.safe_query("SELECT sValue, LastLevel, ID, Name FROM DeviceStatus WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit==%d) AND (Type=%d) AND (SubType=%d)",
 		m_HwdID, m_szID.c_str(), m_Unit,
-		pTypeGeneral, sTypeKwh);
+		m_devtype, m_subtype);
 	if (!result.empty())
 	{
 		std::string sValue = result[0][0];
+		m_DeviceIdx = std::stoi(result[0][2]);
+		m_DeviceName = result[0][3];
 
 		try
 		{
@@ -118,13 +128,13 @@ void CounterHelper::InitInt()
 		// to 0 to prevent counter values from doubling after restart.
 		if ((m_CounterOffset > 0) && (m_nLastCounterValue > 0) && (m_CounterOffset >= m_nLastCounterValue))
 		{
-			_log.Log(LOG_ERROR, "CounterHelper: Detected corrupted counter data (offset %.3f >= total %.3f). Resetting offset to 0.",
-				m_CounterOffset, m_nLastCounterValue);
+			_log.Log(LOG_ERROR, "CounterHelper: Detected corrupted counter data (offset %.3f >= total %.3f). Resetting offset to 0.", m_CounterOffset, m_nLastCounterValue);
+
 			m_CounterOffset = 0;
 			m_sql.safe_query("UPDATE DeviceStatus SET LastLevel=0, LastUpdate='%s' WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit==%d) AND (Type=%d) AND (SubType=%d)",
 				TimeToString(nullptr, TF_DateTime).c_str(),
 				m_HwdID, m_szID.c_str(), m_Unit,
-				pTypeGeneral, sTypeKwh);
+				m_devtype, m_subtype);
 		}
 	}
 
@@ -165,7 +175,12 @@ double CounterHelper::CheckTotalCounter(const double mtotal, bool& bLooped)
 {
 	if (mtotal == 0)
 	{
-		_log.Log(LOG_STATUS, "CounterHelper: Received 0 reading, returning cached value (%.3f) to avoid DB corruption", m_nLastCounterValue);
+/*
+		if (m_nLastCounterValue >= 0.0005)
+		{
+			_log.Log(LOG_STATUS, "CounterHelper: Device %d (%s): Received 0 reading, returning cached value (%.3f) to avoid DB corruption", m_DeviceIdx, m_DeviceName.c_str(), m_nLastCounterValue);
+		}
+*/
 		return m_nLastCounterValue; //ignore 0 readings, return last known value to avoid corrupting the DB
 	}
 
@@ -194,7 +209,7 @@ double CounterHelper::CheckTotalCounter(const double mtotal, bool& bLooped)
 			m_sql.safe_query("UPDATE DeviceStatus SET LastLevel=%lld, LastUpdate='%s' WHERE (HardwareID==%d) AND (DeviceID=='%q') AND (Unit==%d) AND (Type=%d) AND (SubType=%d)",
 				static_cast<long long int>(m_CounterOffset * 1000.0), TimeToString(nullptr, TF_DateTime).c_str(),
 				m_HwdID, m_szID.c_str(), m_Unit,
-				pTypeGeneral, sTypeKwh);
+				m_devtype, m_subtype);
 
 			rTotal = m_CounterOffset + mtotal;
 		}

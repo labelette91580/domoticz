@@ -1328,14 +1328,19 @@ namespace Plugins
 					goto Error;
 				}
 
-				// Ensure sys.stdin/stdout/stderr are set immediately after interpreter creation.
-				// Python 3.13+ sub-interpreters don't inherit stdio from the main interpreter,
-				// causing "RuntimeError: sys.stderr is None" during any subsequent import.
+				// NullStream is only needed on Python 3.13+, where sub-interpreters no longer
+				// inherit sys.stderr/stdout/stdin from the main interpreter, causing
+				// "RuntimeError: sys.stderr is None" during any subsequent import.
 				// Plugins use Domoticz.Log() not print(), so a NullStream is sufficient.
 				// Explicitly inject __builtins__ before PyEval_EvalCode so the class definition
 				// works in fresh sub-interpreters where auto-injection may fail.
-				try
+				const char *pPyVer = Py_GetVersion();
+				int iPyMajor = 0, iPyMinor = 0;
+				if (pPyVer) sscanf(pPyVer, "%d.%d", &iPyMajor, &iPyMinor);
+				if (iPyMajor > 3 || (iPyMajor == 3 && iPyMinor >= 13))
 				{
+					try
+					{
 					PyNewRef	pCode = Py_CompileString(
 						"class _NullStream:\n"
 						"    encoding = 'utf-8'\n"
@@ -1399,10 +1404,11 @@ namespace Plugins
 					}
 					if (PyErr_Occurred()) PyErr_Clear();
 				}
-				catch (...)
-				{
-					Log(LOG_ERROR, "(%s) exception initializing stdio streams, continuing.", m_PluginKey.c_str());
-					if (PyErr_Occurred()) PyErr_Clear();
+					catch (...)
+					{
+						Log(LOG_ERROR, "(%s) exception initializing stdio streams, continuing.", m_PluginKey.c_str());
+						if (PyErr_Occurred()) PyErr_Clear();
+					}
 				}
 
 				// Prepend plugin directory to path so that python will search it early when importing
@@ -2737,8 +2743,42 @@ namespace Plugins
 				PyObject* pSysModules = PyImport_GetModuleDict();
 				if (pSysModules)
 				{
-					PyDict_DelItemString(pSysModules, "plugin");
-					PyErr_Clear();
+					// Remove 'plugin' and any sub-modules loaded from the plugin directory.
+					// Only removing "plugin" leaves imported sub-modules cached in sys.modules,
+					// so changes to those files would not be picked up on reload.
+					std::vector<std::string> modsToRemove;
+					modsToRemove.push_back("plugin");
+					if (!m_HomeFolder.empty())
+					{
+						PyObject *pKey, *pValue;
+						Py_ssize_t pos = 0;
+						while (PyDict_Next(pSysModules, &pos, &pKey, &pValue))
+						{
+							if (!pKey || !pValue)
+								continue;
+							// PyUnicode_AsUTF8 returns NULL (+ sets TypeError) for non-unicode keys;
+							// PyErr_Clear() below suppresses that without needing PyUnicode_Check.
+							const char* pModName = PyUnicode_AsUTF8(pKey);
+							PyErr_Clear();
+							if (!pModName || std::string(pModName) == "plugin")
+								continue;
+							// Check if the module was loaded from the plugin's directory
+							PyNewRef pFile = PyObject_GetAttrString(pValue, "__file__");
+							PyErr_Clear();
+							if (pFile)
+							{
+								const char* pFilePath = PyUnicode_AsUTF8(pFile);
+								PyErr_Clear();
+								if (pFilePath && std::string(pFilePath).find(m_HomeFolder) == 0)
+									modsToRemove.push_back(pModName);
+							}
+						}
+					}
+					for (const auto& name : modsToRemove)
+					{
+						PyDict_DelItemString(pSysModules, name.c_str());
+						PyErr_Clear();
+					}
 				}
 				if (!m_bShared)
 				{

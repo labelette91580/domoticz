@@ -426,6 +426,9 @@
     <Filter Include="Pushers\Websocket">
       <UniqueIdentifier>{ec8bbfd7-5375-4170-93dd-c470284d1512}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Pushers\MCP">
+      <UniqueIdentifier>{d3a1c5f8-9b42-4e7d-8f3a-6c2e0b1d4a95}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Devices\eHouse">
       <UniqueIdentifier>{b56cf9a6-abbb-4578-8e1a-23b4cd57a309}</UniqueIdentifier>
     </Filter>
@@ -521,6 +524,9 @@
     </Filter>
     <Filter Include="Webserver\IamService">
       <UniqueIdentifier>{81a998bf-9440-48ed-acad-561718cb579e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Webserver\MCP">
+      <UniqueIdentifier>{129c491d-9fbd-4e51-bf25-6ba221b50060}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -1669,6 +1675,9 @@
     <ClInclude Include="..\hardware\PhilipsHue\PhilipsHueV2Sensors.h">
       <Filter>Devices\Philips Hue</Filter>
     </ClInclude>
+    <ClInclude Include="..\hardware\PhilipsHue\PhilipsHueSSE.h">
+      <Filter>Devices\Philips Hue</Filter>
+    </ClInclude>
     <ClInclude Include="..\hardware\EvohomeBase.h">
       <Filter>Devices\EvoHome</Filter>
     </ClInclude>
@@ -1891,6 +1900,9 @@
     <ClInclude Include="..\hardware\Daikin.h">
       <Filter>Devices\Daikin</Filter>
     </ClInclude>
+    <ClInclude Include="..\hardware\DaikinModbus.h">
+      <Filter>Devices\Daikin</Filter>
+    </ClInclude>
     <ClInclude Include="..\hardware\HEOS.h">
       <Filter>Devices\HEOS</Filter>
     </ClInclude>
@@ -1974,6 +1986,9 @@
     </ClInclude>
     <ClInclude Include="..\push\WebsocketPush.h">
       <Filter>Pushers\Websocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\push\McpPush.h">
+      <Filter>Pushers\MCP</Filter>
     </ClInclude>
     <ClInclude Include="..\notifications\NotificationBrowser.h">
       <Filter>Notifications</Filter>
@@ -2230,9 +2245,6 @@
     <ClInclude Include="..\main\KWHStats.h">
       <Filter>Helpers</Filter>
     </ClInclude>
-    <ClInclude Include="..\mcpserver\McpService.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\iamserver\iam_settings.hpp">
       <Filter>Webserver\IamService</Filter>
     </ClInclude>
@@ -2250,6 +2262,15 @@
     </ClInclude>
     <ClInclude Include="..\main\WebServerLoggerAdapter.h">
       <Filter>Webserver</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mcpserver\McpService.hpp">
+      <Filter>Webserver\MCP</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mcpserver\McpSseSession.h">
+      <Filter>Webserver\MCP</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mcpserver\McpSessionRegistry.h">
+      <Filter>Webserver\MCP</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -2440,6 +2461,9 @@
       <Filter>Devices\Philips Hue</Filter>
     </ClCompile>
     <ClCompile Include="..\hardware\PhilipsHue\PhilipsHueV2Sensors.cpp">
+      <Filter>Devices\Philips Hue</Filter>
+    </ClCompile>
+    <ClCompile Include="..\hardware\PhilipsHue\PhilipsHueSSE.cpp">
       <Filter>Devices\Philips Hue</Filter>
     </ClCompile>
     <ClCompile Include="..\hardware\EvohomeBase.cpp">
@@ -2706,6 +2730,9 @@
     <ClCompile Include="..\hardware\Daikin.cpp">
       <Filter>Devices\Daikin</Filter>
     </ClCompile>
+    <ClCompile Include="..\hardware\DaikinModbus.cpp">
+      <Filter>Devices\Daikin</Filter>
+    </ClCompile>
     <ClCompile Include="..\hardware\HEOS.cpp">
       <Filter>Devices\HEOS</Filter>
     </ClCompile>
@@ -2786,6 +2813,9 @@
     </ClCompile>
     <ClCompile Include="..\push\WebsocketPush.cpp">
       <Filter>Pushers\Websocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\push\McpPush.cpp">
+      <Filter>Pushers\MCP</Filter>
     </ClCompile>
     <ClCompile Include="..\notifications\NotificationBrowser.cpp">
       <Filter>Notifications</Filter>
@@ -3003,9 +3033,6 @@
     <ClCompile Include="..\main\KWHStats.cpp">
       <Filter>Helpers</Filter>
     </ClCompile>
-    <ClCompile Include="..\mcpserver\McpService.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\iamserver\IamService.cpp">
       <Filter>Webserver\IamService</Filter>
     </ClCompile>
@@ -3050,6 +3077,15 @@
     </ClCompile>
     <ClCompile Include="..\main\WebServerHandleGraphWeek.cpp">
       <Filter>Webserver</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mcpserver\McpService.cpp">
+      <Filter>Webserver\MCP</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mcpserver\McpSseSession.cpp">
+      <Filter>Webserver\MCP</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mcpserver\McpSessionRegistry.cpp">
+      <Filter>Webserver\MCP</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

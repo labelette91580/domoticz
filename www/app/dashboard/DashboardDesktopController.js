@@ -68,7 +68,7 @@ define([
 			$scope.rowItems = 3;
 
 			// Search/filter
-			$scope.searchFilter = '';
+			$scope.searchFilter = (window.myglobals && window.myglobals.LastSearchFilter) || '';
 
 			// Room plan controller
 			$scope.ctrl = {
@@ -77,6 +77,8 @@ define([
 				changeRoom: function () {
 					var idx = $scope.ctrl.roomSelected;
 					window.myglobals.LastPlanSelected = idx;
+					window.myglobals.LastSearchFilter = '';
+					$('.jsLiveSearch').val('').trigger('change');
 					$route.updateParams({
 						room: idx >= 0 ? idx : undefined
 					});
@@ -136,6 +138,7 @@ define([
 							initMobileSliders();
 							$scope.ResizeDimSliders();
 							initDragAndDrop();
+							ScheduleLiveSearchRestore();
 						}, 100);
 					})
 					.catch(function (error) {
@@ -524,20 +527,24 @@ define([
 			};
 
 			/**
-			 * Global: Switch a light device (called from inline onclick handlers)
-			 * This is a wrapper that delegates to the widget/service layer
+			 * Global: Switch a light device (called from inline onclick handlers in the mobile template)
 			 */
 			window.SwitchLight = function (idx, command, isProtectedOrPasscode) {
+				if (window.my_config.userrights == 0) {
+					HideNotify();
+					ShowNotify($.t('You do not have permission to do that!'), 2500, true);
+					return;
+				}
 				// If third arg is a non-empty string, it's already a passcode
 				if (typeof isProtectedOrPasscode === 'string' && isProtectedOrPasscode !== '') {
-					dashboardService.switchDeviceWithPasscode(idx, command, isProtectedOrPasscode)
-						.catch(function () {
-							bootbox.alert($.t('Problem sending switch command'));
-						});
+					SwitchLightInt(idx, command, isProtectedOrPasscode);
 					return;
 				}
 				if (isProtectedOrPasscode === true || isProtectedOrPasscode === 1) {
-					// Widget will handle password prompt
+					bootbox.prompt($.t("Please enter Password") + ":", function (result) {
+						if (result === null || result === "") return;
+						SwitchLightInt(idx, command, result);
+					});
 					return;
 				}
 
@@ -555,20 +562,24 @@ define([
 			};
 
 			/**
-			 * Global: Switch a scene (called from inline onclick handlers)
-			 * This is a wrapper that delegates to the widget/service layer
+			 * Global: Switch a scene (called from inline onclick handlers in the mobile template)
 			 */
 			window.SwitchScene = function (idx, command, isProtectedOrPasscode) {
+				if (window.my_config.userrights == 0) {
+					HideNotify();
+					ShowNotify($.t('You do not have permission to do that!'), 2500, true);
+					return;
+				}
 				// If third arg is a non-empty string, it's already a passcode
 				if (typeof isProtectedOrPasscode === 'string' && isProtectedOrPasscode !== '') {
-					dashboardService.switchSceneWithPasscode(idx, command, isProtectedOrPasscode)
-						.catch(function () {
-							bootbox.alert($.t('Problem sending switch command'));
-						});
+					SwitchSceneInt(idx, command, isProtectedOrPasscode);
 					return;
 				}
 				if (isProtectedOrPasscode === true || isProtectedOrPasscode === 1) {
-					// Widget will handle password prompt
+					bootbox.prompt($.t("Please enter Password") + ":", function (result) {
+						if (result === null || result === "") return;
+						SwitchSceneInt(idx, command, result);
+					});
 					return;
 				}
 
