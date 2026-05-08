@@ -5,21 +5,54 @@ define(['angularAMD', 'angular', 'angular-route'], function (angularAMD) {
         $locationProvider.hashPrefix('');
 
         $routeProvider
-            .when('/Dashboard', angularAMD.route({
+            .when('/Dashboard', {
                 templateUrl: function() {
+                    var enableDynamic = false;
+                    var mobileType = 0;
+                    try {
+                        var $rootScope = angular.element(document).injector().get('$rootScope');
+                        if ($rootScope.config) {
+                            enableDynamic = !!$rootScope.config.EnableTabDashboardDynamic;
+                            mobileType = $rootScope.config.MobileType || 0;
+                        }
+                    } catch (e) {}
+                    // Apply MobileType=1 (Force Desktop) directly here so iOS Safari's
+                    // async:false timing differences don't leave the early UA detection
+                    // in index.html (which has no MobileType knowledge) in control.
+                    var isMobile = !!(window.myglobals && window.myglobals.ismobile);
+                    if (mobileType == 1) isMobile = false;
+                    var useDash2 = enableDynamic && !isMobile;
+                    if (useDash2) {
+                        return 'views/dashboardDynamic.html';
+                    }
                     var dt = (window.myglobals && window.myglobals.DashboardType) || 0;
-                    var isMobile = window.myglobals && window.myglobals.ismobile;
                     if (dt == 2 || isMobile) {
                         return 'views/dashboard_mobile.html';
                     }
                     return 'views/dashboard_desktop.html';
                 },
-                // DashboardDesktopController handles both mobile and desktop templates.
-                // It detects mobile via window.myglobals.ismobile and applies the
-                // appropriate body classes and scope bindings for each template.
-                controllerUrl: 'dashboard/DashboardDesktopController',
-                controller: 'DashboardDesktopController'
-            }))
+                resolve: {
+                    loadCtrl: ['$q', '$rootScope', function($q, $rootScope) {
+                        var d = $q.defer();
+                        var isMobile = !!(window.myglobals && window.myglobals.ismobile)
+                                       && $rootScope.config.MobileType != 1;
+                        var useDash2 = $rootScope.config.EnableTabDashboardDynamic && !isMobile;
+                        var ctrlName   = useDash2 ? 'DashboardDynamicController'       : 'DashboardDesktopController';
+                        var modulePath = useDash2 ? 'dashboardDynamic/DashboardDynamicController' : 'dashboard/DashboardDesktopController';
+                        require([modulePath], function() {
+                            if ($rootScope.$$phase) {
+                                d.resolve(ctrlName);
+                            } else {
+                                $rootScope.$apply(function() { d.resolve(ctrlName); });
+                            }
+                        });
+                        return d.promise;
+                    }]
+                },
+                controller: ['$scope', '$injector', 'loadCtrl', function($scope, $injector, loadCtrl) {
+                    $injector.get('$controller')(loadCtrl, { $scope: $scope });
+                }]
+            })
             .when('/Devices', angularAMD.route({
                 templateUrl: 'app/devices/Devices.html',
                 controller: 'DevicesController',

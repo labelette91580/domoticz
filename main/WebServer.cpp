@@ -327,6 +327,7 @@ namespace http
 			RegisterCommandCode("getmetertypes", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetMeterTypes(session, req, root); }, true);
 			RegisterCommandCode("getthemes", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetThemes(session, req, root); }, true);
 			RegisterCommandCode("gettitle", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetTitle(session, req, root); }, true);
+			RegisterCommandCode("fetchurl", [this](auto&& session, auto&& req, auto&& root) { Cmd_FetchUrl(session, req, root); });
 			RegisterCommandCode("logincheck", [this](auto&& session, auto&& req, auto&& root) { Cmd_LoginCheck(session, req, root); }, true);
 
 			RegisterCommandCode("getversion", [this](auto&& session, auto&& req, auto&& root) { Cmd_GetVersion(session, req, root); }, true);
@@ -696,6 +697,13 @@ namespace http
 			RegisterCommandCode("resetkwhstats", [this](auto&& session, auto&& req, auto&& root) { Cmd_ResetkWhStats(session, req, root); });
 			RegisterCommandCode("fixkwhstats", [this](auto&& session, auto&& req, auto&& root) { Cmd_FixkWhStats(session, req, root); });
 			RegisterCommandCode("fixcounterprices", [this](auto&& session, auto&& req, auto&& root) { Cmd_FixCounterPrices(session, req, root); });
+
+			// Dashboard 2.0 layout management
+			RegisterCommandCode("getdashboardlayouts",    [this](auto&& session, auto&& req, auto&& root) { Cmd_GetDashboardLayouts(session, req, root); });
+			RegisterCommandCode("getdashboardlayout",     [this](auto&& session, auto&& req, auto&& root) { Cmd_GetDashboardLayout(session, req, root); });
+			RegisterCommandCode("savedashboardlayout",    [this](auto&& session, auto&& req, auto&& root) { Cmd_SaveDashboardLayout(session, req, root); });
+			RegisterCommandCode("deletedashboardlayout",  [this](auto&& session, auto&& req, auto&& root) { Cmd_DeleteDashboardLayout(session, req, root); });
+			RegisterCommandCode("copydashboardlayout",    [this](auto&& session, auto&& req, auto&& root) { Cmd_CopyDashboardLayout(session, req, root); });
 
 			//Whitelist
 			m_pWebEm->RegisterWhitelistURLString("/images/floorplans/plan");
@@ -4562,6 +4570,11 @@ namespace http
 				_log.Debug(DEBUG_WEBSERVER, "CWebServer::GetJSonPage(rtype) :%s :%s", rtype.c_str(), req.uri.c_str());
 				rep.status = http::server::reply::not_found;
 				return;
+			}
+
+			if (root["status"].asString() != "OK" && session.reply_status == http::server::reply::ok)
+			{
+				session.reply_status = http::server::reply::bad_request;
 			}
 
 			reply::set_content(&rep, root.toStyledString());

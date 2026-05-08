@@ -121,6 +121,14 @@ define(['app'], function (app) {
                         bigtext = device.Data + '\u00B0 ' + $scope.$parent.config.TempSign;
                     } else if (ctrl.isThermostatMode() || ctrl.isThermostatFanMode() || ctrl.isThermostatOperatingState()) {
                         bigtext = device.Data;
+                    } else if (typeof device.Direction !== 'undefined') {
+                        var windSign = ($.myglobals && $.myglobals.windsign) ? $.myglobals.windsign : 'm/s';
+                        bigtext = device.DirectionStr || '';
+                        if (typeof device.Speed !== 'undefined') {
+                            bigtext += ' / ' + device.Speed + ' ' + windSign;
+                        } else if (typeof device.Gust !== 'undefined') {
+                            bigtext += ' / ' + device.Gust + ' ' + windSign;
+                        }
                     } else if (!ctrl.isText() && !ctrl.isAlert() && typeof device.Data !== 'undefined') {
                         bigtext = device.Data;
                     }
@@ -165,6 +173,22 @@ define(['app'], function (app) {
                     } else if(ctrl.isSetpoint()) {
                         if (typeof device.Power != 'undefined') {
                             status = "Power:" + device.Power + '%';
+                        }
+                    } else if (typeof device.Direction !== 'undefined') {
+                        var windSign = ($.myglobals && $.myglobals.windsign) ? $.myglobals.windsign : 'm/s';
+                        var tempSign = ($rootScope.config && $rootScope.config.TempSign) ? $rootScope.config.TempSign : 'C';
+                        status = device.Direction + ' ' + (device.DirectionStr || '');
+                        if (typeof device.Speed !== 'undefined') {
+                            status += ', ' + $.t('Speed') + ': ' + device.Speed + ' ' + windSign;
+                        }
+                        if (typeof device.Gust !== 'undefined') {
+                            status += ', ' + $.t('Gust') + ': ' + device.Gust + ' ' + windSign;
+                        }
+                        if (typeof device.Temp !== 'undefined') {
+                            status += '<br>' + $.t('Temp') + ': ' + device.Temp + '\u00B0 ' + tempSign;
+                            if (typeof device.Chill !== 'undefined') {
+                                status += ', ' + $.t('Chill') + ': ' + device.Chill + '\u00B0 ' + tempSign;
+                            }
                         }
                     }
 
@@ -297,6 +321,22 @@ define(['app'], function (app) {
                         image = (device.CustomImage == 0) ? 'Speaker48_On.png' : device.Image + '48_On.png';
                     } else if (device.SubType === 'Waterflow') {
                         image = (device.CustomImage == 0) ? 'moisture48.png' : device.Image + '48_On.png';
+                    } else if (typeof device.Direction !== 'undefined') {
+                        image = device.DirectionStr ? 'Wind' + device.DirectionStr + '.png' : 'wind48.png';
+                    } else if (typeof device.Temp !== 'undefined' || typeof device.Chill !== 'undefined') {
+                        // Temperature / weather devices: use temperature-range icon
+                        var tempVal = typeof device.Temp !== 'undefined' ? device.Temp : device.Chill;
+                        image = (typeof GetTemp48Item === 'function') ? GetTemp48Item(tempVal) : 'Temp-48_On.png';
+                    } else if (device.Type === 'Humidity') {
+                        image = 'gauge48.png';
+                    } else if (typeof device.Rain !== 'undefined') {
+                        image = 'Rain48_On.png';
+                    } else if (typeof device.UVI !== 'undefined') {
+                        image = 'uv48.png';
+                    } else if (typeof device.Visibility !== 'undefined') {
+                        image = (device.CustomImage == 0) ? 'visibility48.png' : device.Image + '48_On.png';
+                    } else if (typeof device.Radiation !== 'undefined') {
+                        image = (device.CustomImage == 0) ? 'radiation48.png' : device.Image + '48_On.png';
                     } else {
                         image = (device.CustomImage == 0) ? 'current48.png' : device.Image + '48_On.png';
                     }

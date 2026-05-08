@@ -666,6 +666,17 @@ constexpr auto sqlCreateApplications =
 "[LastUpdate] DATETIME DEFAULT(datetime('now', 'localtime'))"
 ");";
 
+constexpr auto sqlCreateDashboardLayouts =
+"CREATE TABLE IF NOT EXISTS [DashboardLayouts]("
+"[id] TEXT NOT NULL PRIMARY KEY,"
+"[userid] INTEGER NOT NULL,"
+"[name] TEXT NOT NULL DEFAULT 'My Dashboard',"
+"[isdefault] INTEGER NOT NULL DEFAULT 0,"
+"[layout] TEXT NOT NULL DEFAULT '{}',"
+"[created] DATETIME NOT NULL DEFAULT (datetime('now','localtime')),"
+"[updated] DATETIME NOT NULL DEFAULT (datetime('now','localtime'))"
+");";
+
 extern std::string szUserDataFolder;
 
 CSQLHelper::CSQLHelper()
@@ -797,6 +808,7 @@ bool CSQLHelper::OpenDatabase()
 	query(sqlCreateUserSessions);
 	query(sqlCreateMobileDevices);
 	query(sqlCreateApplications);
+	query(sqlCreateDashboardLayouts);
 	//Add indexes to log tables
 	query("create index if not exists ds_hduts_idx	on DeviceStatus(HardwareID, DeviceID, Unit, Type, SubType);");
 	query("create index if not exists f_id_idx		on Fan(DeviceRowID);");
@@ -835,6 +847,7 @@ bool CSQLHelper::OpenDatabase()
 	query("create index if not exists w_id_date_idx   on Wind(DeviceRowID, Date);");
 	query("create index if not exists wc_id_idx	   on Wind_Calendar(DeviceRowID);");
 	query("create index if not exists wc_id_date_idx  on Wind_Calendar(DeviceRowID, Date);");
+	query("CREATE INDEX IF NOT EXISTS [ix_DashboardLayouts_userid] ON [DashboardLayouts]([userid]);");
 	sqlite3_exec(m_dbase, "END TRANSACTION;", nullptr, nullptr, nullptr);
 
 	if ((!bNewInstall) && (dbversion < DB_VERSION))
@@ -8653,14 +8666,49 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 		return false;
 	}
 
-	double clamped_threshold = std::min(max_daily_kwh, 1e9);
-	int64_t threshold_wh = static_cast<int64_t>(clamped_threshold * 1000.0);
-
 	// --- Phase 1: Detect anomalous days in Meter_Calendar ---
 	//   Positive spike: Value > threshold  — false counter jump upward (e.g. reset artefact)
 	//   Negative spike: Value < -threshold — counter reset stored without offset correction
 	auto calresult = safe_query(
 		"SELECT Date, Value FROM Meter_Calendar WHERE (DeviceRowID='%" PRIu64 "') ORDER BY Date ASC", idx);
+
+	// Auto-detect threshold when max_daily_kwh <= 0:
+	// Compute the median of positive daily values, then use 100x as the spike threshold.
+	// Using the median (not the mean) ensures that a small number of spike days cannot
+	// inflate the baseline and hide themselves from detection.
+	// This scales correctly for all device types:
+	//   - Low-power sensor  (median ~0.45 kWh) → threshold ~45 kWh
+	//   - EV charger        (median ~50 kWh)   → threshold ~5000 kWh  (300 kWh real peaks not flagged)
+	//   - Heavy power user  (median ~1000 kWh) → threshold ~100000 kWh (large-but-real days not flagged)
+	if (max_daily_kwh <= 0.0)
+	{
+		std::vector<int64_t> positive_values;
+		positive_values.reserve(calresult.size());
+		for (const auto& row : calresult)
+		{
+			int64_t v = 0;
+			try { v = std::stoll(row[1]); } catch (...) { continue; }
+			if (v > 0)
+				positive_values.push_back(v);
+		}
+		if (positive_values.size() >= 5)
+		{
+			std::sort(positive_values.begin(), positive_values.end());
+			int64_t median_wh = positive_values[positive_values.size() / 2];
+			int64_t auto_threshold_wh = std::max(median_wh * int64_t(100), int64_t(1000)); // floor: 1 kWh
+			max_daily_kwh = auto_threshold_wh / 1000.0;
+			results.push_back(std_format("Auto-detected threshold: %.1f kWh (100x median daily usage of %.3f kWh)",
+				max_daily_kwh, median_wh / 1000.0));
+		}
+		else
+		{
+			max_daily_kwh = 1000.0; // not enough history, fall back to safe default
+			results.push_back("Not enough history for auto-detection; using default 1000 kWh threshold");
+		}
+	}
+
+	double clamped_threshold = std::min(max_daily_kwh, 1e9);
+	int64_t threshold_wh = static_cast<int64_t>(clamped_threshold * 1000.0);
 
 	struct SpikeDay
 	{
@@ -9404,8 +9452,8 @@ bool CSQLHelper::SpreadCounterSpike(uint64_t idx, const std::string& sdate, std:
 	{
 		t.tm_mday--;
 		mktime(&t);
-		char datebuf[12];
-		snprintf(datebuf, sizeof(datebuf), "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+		char datebuf[16];
+		strftime(datebuf, sizeof(datebuf), "%Y-%m-%d", &t);
 		std::string check_date(datebuf);
 
 		auto it = row_map.find(check_date);
@@ -11810,5 +11858,105 @@ bool CSQLHelper::TransferDevice(const std::string& sOldIdx, const std::string& s
 	return true;
 }
 
+bool CSQLHelper::GetDashboardLayouts(int userid, Json::Value &result)
+{
+	result = Json::Value(Json::arrayValue);
+	auto dbresult = safe_query(
+		"SELECT id, name, isdefault, updated FROM DashboardLayouts "
+		"WHERE userid=%d ORDER BY isdefault DESC, name ASC",
+		userid);
+	for (const auto &sd : dbresult)
+	{
+		Json::Value item;
+		item["id"]        = sd[0];
+		item["name"]      = sd[1];
+		item["isDefault"] = (sd[2] == "1");
+		item["updated"]   = sd[3];
+		result.append(item);
+	}
+	return true;
+}
+
+bool CSQLHelper::GetDashboardLayout(int userid, const std::string &layoutid, Json::Value &result)
+{
+	auto dbresult = safe_query(
+		"SELECT id, name, isdefault, layout, updated FROM DashboardLayouts "
+		"WHERE userid=%d AND id='%q'",
+		userid, layoutid.c_str());
+	if (dbresult.empty())
+		return false;
+	const auto &sd    = dbresult[0];
+	result["id"]      = sd[0];
+	result["name"]    = sd[1];
+	result["isDefault"] = (sd[2] == "1");
+	result["layout"]  = sd[3];
+	result["updated"] = sd[4];
+	return true;
+}
+
+bool CSQLHelper::SaveDashboardLayout(int userid, const std::string &layoutid, const std::string &name, bool isDefault, const std::string &layout_json)
+{
+	bool bUpdateLayout = !layout_json.empty();
+
+	// Check if the row already exists (owned by this user)
+	auto existing = safe_query(
+		"SELECT id FROM DashboardLayouts WHERE userid=%d AND id='%q'",
+		userid, layoutid.c_str());
+	if (existing.empty())
+	{
+		safe_query(
+			"INSERT INTO DashboardLayouts (id, userid, name, isdefault, layout, created, updated) "
+			"VALUES ('%q', %d, '%q', %d, '%q', datetime('now','localtime'), datetime('now','localtime'))",
+			layoutid.c_str(), userid, name.c_str(), isDefault ? 1 : 0, layout_json.c_str());
+	}
+	else
+	{
+		if (bUpdateLayout)
+		{
+			safe_query(
+				"UPDATE DashboardLayouts SET name='%q', isdefault=%d, layout='%q', updated=datetime('now','localtime') "
+				"WHERE userid=%d AND id='%q'",
+				name.c_str(), isDefault ? 1 : 0, layout_json.c_str(), userid, layoutid.c_str());
+		}
+		else
+		{
+			safe_query(
+				"UPDATE DashboardLayouts SET name='%q', isdefault=%d, updated=datetime('now','localtime') "
+				"WHERE userid=%d AND id='%q'",
+				name.c_str(), isDefault ? 1 : 0, userid, layoutid.c_str());
+		}
+	}
+	// Atomically set the new default and clear all others for this user in one statement,
+	// after the layout row is guaranteed to exist.
+	if (isDefault)
+	{
+		safe_query(
+			"UPDATE [DashboardLayouts] SET [isdefault] = CASE WHEN [id]='%q' THEN 1 ELSE 0 END WHERE [userid]=%d",
+			layoutid.c_str(), userid);
+	}
+	return true;
+}
+
+bool CSQLHelper::DeleteDashboardLayout(int userid, const std::string &layoutid)
+{
+	safe_query("DELETE FROM DashboardLayouts WHERE userid=%d AND id='%q'",
+		userid, layoutid.c_str());
+	return true;
+}
+
+bool CSQLHelper::CopyDashboardLayout(int userid, const std::string &srcid, const std::string &newid, const std::string &newname)
+{
+	auto dbresult = safe_query(
+		"SELECT layout FROM DashboardLayouts WHERE userid=%d AND id='%q'",
+		userid, srcid.c_str());
+	if (dbresult.empty())
+		return false;
+	const std::string &layout_json = dbresult[0][0];
+	safe_query(
+		"INSERT INTO DashboardLayouts (id, userid, name, isdefault, layout, created, updated) "
+		"VALUES ('%q', %d, '%q', 0, '%q', datetime('now','localtime'), datetime('now','localtime'))",
+		newid.c_str(), userid, newname.c_str(), layout_json.c_str());
+	return true;
+}
 
 
