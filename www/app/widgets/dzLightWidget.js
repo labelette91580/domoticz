@@ -80,6 +80,7 @@ define(['app'], function (app) {
                 };
 
                 ctrl.getStatusText = function () {
+                    if (ctrl.dragText) return ctrl.dragText;
                     if (device.SubType == "Evohome") {
                         return ctrl.evoDisplayTextMode(device.Status);
                     } else if (device.SwitchType === "Selector") {
@@ -190,9 +191,13 @@ define(['app'], function (app) {
                     }
 
                     if (device.Protected) {
-                        bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-                            if (result === null || result === "") return;
-                            SwitchLightInt(device.idx, cmd, result);
+                        bootbox.prompt({
+                            title: $.t("Please enter Password") + ":",
+                            inputType: 'password',
+                            callback: function (result) {
+                                if (result === null || result === "") return;
+                                SwitchLightInt(device.idx, cmd, result);
+                            }
                         });
                     } else {
                         ctrl.executeSwitchCommand(cmd);
@@ -232,14 +237,18 @@ define(['app'], function (app) {
                     }
 
                     if (device.Protected) {
-                        bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-                            if (result === null || result === "") return;
-                            domoticzApi.sendCommand('switchlight', {
-                                idx: device.idx,
-                                switchcmd: 'Set Level',
-                                level: level,
-                                passcode: result
-                            });
+                        bootbox.prompt({
+                            title: $.t("Please enter Password") + ":",
+                            inputType: 'password',
+                            callback: function (result) {
+                                if (result === null || result === "") return;
+                                domoticzApi.sendCommand('switchlight', {
+                                    idx: device.idx,
+                                    switchcmd: 'Set Level',
+                                    level: level,
+                                    passcode: result
+                                });
+                            }
                         });
                     } else {
                         ctrl.executeSetLevel(level);
@@ -267,14 +276,18 @@ define(['app'], function (app) {
                     }
 
                     if (device.Protected) {
-                        bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-                            if (result === null || result === "") return;
-                            domoticzApi.sendCommand('switchlight', {
-                                idx: device.idx,
-                                switchcmd: 'Set Level',
-                                level: level,
-                                passcode: result
-                            });
+                        bootbox.prompt({
+                            title: $.t("Please enter Password") + ":",
+                            inputType: 'password',
+                            callback: function (result) {
+                                if (result === null || result === "") return;
+                                domoticzApi.sendCommand('switchlight', {
+                                    idx: device.idx,
+                                    switchcmd: 'Set Level',
+                                    level: level,
+                                    passcode: result
+                                });
+                            }
                         });
                     } else {
                         ctrl.executeSetSelectorLevel(level, levelName);
@@ -707,9 +720,13 @@ define(['app'], function (app) {
                     }
                     $.devIdx = device.idx;
                     if (device.Protected) {
-                        bootbox.prompt($.t('Please enter Password') + ':', function(result) {
-                            if (!result) return;
-                            SendX10Command(device.idx, cmd, result);
+                        bootbox.prompt({
+                            title: $.t('Please enter Password') + ':',
+                            inputType: 'password',
+                            callback: function(result) {
+                                if (!result) return;
+                                SendX10Command(device.idx, cmd, result);
+                            }
                         });
                     } else {
                         SendX10Command(device.idx, cmd, '');
@@ -834,7 +851,7 @@ define(['app'], function (app) {
                                     var deviceElem = element.closest('.itemBlock');
                                     if (deviceElem.length > 0) {
                                         var bigtext = fPercentage + " %";
-                                        deviceElem.find('#bigtext').text(bigtext);
+                                        scope.$apply(function() { scope.ctrl.dragText = bigtext; });
 
                                         // Update icon for non-blinds non-LED dimmers
                                         if ((dtype != "blinds") && !isled) {
@@ -925,6 +942,7 @@ define(['app'], function (app) {
 
                 // Update slider/selectmenu value when device.LevelInt changes (e.g. WebSocket updates)
                 scope.$watch('device.LevelInt', function(newVal) {
+                    scope.ctrl.dragText = null;
                     if (typeof newVal !== 'undefined') {
                         element.find('.dimslider').each(function() {
                             var $slider = $(this);

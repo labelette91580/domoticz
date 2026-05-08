@@ -133,27 +133,31 @@ function HandleProtection(isprotected, callbackfunction) {
 		callbackfunction("");
 		return;
 	}
-	bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-		if (result === null) {
-			return;
-		} else {
-			if (result == "") {
+	bootbox.prompt({
+		title: $.t("Please enter Password") + ":",
+		inputType: 'password',
+		callback: function (result) {
+			if (result === null) {
 				return;
-			}
-			//verify password
-			$.ajax({
-				url: "json.htm?type=command&param=verifypasscode" +
-				"&passcode=" + result,
-				async: false,
-				dataType: 'json',
-				success: function (data) {
-					if (data.status == "OK") {
-						callbackfunction(result);
-					}
-				},
-				error: function () {
+			} else {
+				if (result == "") {
+					return;
 				}
-			});
+				//verify password
+				$.ajax({
+					url: "json.htm?type=command&param=verifypasscode" +
+					"&passcode=" + result,
+					async: false,
+					dataType: 'json',
+					success: function (data) {
+						if (data.status == "OK") {
+							callbackfunction(result);
+						}
+					},
+					error: function () {
+					}
+				});
+			}
 		}
 	});
 }
@@ -192,6 +196,8 @@ function CalculateTrendLine(data) {
 	dReturn.y0 = y0;
 	dReturn.x1 = x1;
 	dReturn.y1 = y1;
+	dReturn.m = m;
+	dReturn.b = b;
 	return dReturn;
 };
 
@@ -260,15 +266,19 @@ function ArmSystem(idx, switchcmd, isprotected) {
 	var passcode = "";
 	if (typeof isprotected != 'undefined') {
 		if (isprotected == true) {
-			bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-				if (result === null) {
-					return;
-				} else {
-					if (result == "") {
+			bootbox.prompt({
+				title: $.t("Please enter Password") + ":",
+				inputType: 'password',
+				callback: function (result) {
+					if (result === null) {
 						return;
+					} else {
+						if (result == "") {
+							return;
+						}
+						passcode = result;
+						ArmSystemInt(idx, switchcmd, passcode);
 					}
-					passcode = result;
-					ArmSystemInt(idx, switchcmd, passcode);
 				}
 			});
 		}
@@ -338,15 +348,19 @@ function ArmSystemMeiantech(idx, switchcmd, isprotected) {
 	var passcode = "";
 	if (typeof isprotected != 'undefined') {
 		if (isprotected == true) {
-			bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-				if (result === null) {
-					return;
-				} else {
-					if (result == "") {
+			bootbox.prompt({
+				title: $.t("Please enter Password") + ":",
+				inputType: 'password',
+				callback: function (result) {
+					if (result === null) {
 						return;
+					} else {
+						if (result == "") {
+							return;
+						}
+						passcode = result;
+						ArmSystemMeiantechInt(idx, switchcmd, passcode);
 					}
-					passcode = result;
-					ArmSystemMeiantechInt(idx, switchcmd, passcode);
 				}
 			});
 		}
@@ -468,15 +482,19 @@ function ArmSystemX10(idx, switchcmd, isprotected) {
 	var passcode = "";
 	if (typeof isprotected != 'undefined') {
 		if (isprotected == true) {
-			bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-				if (result === null) {
-					return;
-				} else {
-					if (result == "") {
+			bootbox.prompt({
+				title: $.t("Please enter Password") + ":",
+				inputType: 'password',
+				callback: function (result) {
+					if (result === null) {
 						return;
+					} else {
+						if (result == "") {
+							return;
+						}
+						passcode = result;
+						ArmSystemX10Int(idx, switchcmd, passcode);
 					}
-					passcode = result;
-					ArmSystemX10Int(idx, switchcmd, passcode);
 				}
 			});
 		}
@@ -529,15 +547,19 @@ function SwitchLight(idx, switchcmd, isprotected) {
 	var passcode = "";
 	if (typeof isprotected != 'undefined') {
 		if (isprotected == true) {
-			bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-				if (result === null) {
-					return;
-				} else {
-					if (result == "") {
+			bootbox.prompt({
+				title: $.t("Please enter Password") + ":",
+				inputType: 'password',
+				callback: function (result) {
+					if (result === null) {
 						return;
+					} else {
+						if (result == "") {
+							return;
+						}
+						passcode = result;
+						SwitchLightInt(idx, switchcmd, passcode);
 					}
-					passcode = result;
-					SwitchLightInt(idx, switchcmd, passcode);
 				}
 			});
 		}
@@ -588,15 +610,19 @@ function SwitchSelectorLevel(idx, levelName, levelValue, isprotected) {
 	var passcode = "";
 	if (typeof isprotected != 'undefined') {
 		if (isprotected == true) {
-			bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-				if (result === null) {
-					return;
-				} else {
-					if (result == "") {
+			bootbox.prompt({
+				title: $.t("Please enter Password") + ":",
+				inputType: 'password',
+				callback: function (result) {
+					if (result === null) {
 						return;
+					} else {
+						if (result == "") {
+							return;
+						}
+						passcode = result;
+						SwitchSelectorLevelInt(idx, levelName, levelValue, passcode);
 					}
-					passcode = result;
-					SwitchSelectorLevelInt(idx, levelName, levelValue, passcode);
 				}
 			});
 		}
@@ -645,15 +671,19 @@ function SwitchScene(idx, switchcmd, isprotected) {
 	var passcode = "";
 	if (typeof isprotected != 'undefined') {
 		if (isprotected == true) {
-			bootbox.prompt($.t("Please enter Password") + ":", function (result) {
-				if (result === null) {
-					return;
-				} else {
-					if (result == "") {
+			bootbox.prompt({
+				title: $.t("Please enter Password") + ":",
+				inputType: 'password',
+				callback: function (result) {
+					if (result === null) {
 						return;
+					} else {
+						if (result == "") {
+							return;
+						}
+						passcode = result;
+						SwitchSceneInt(idx, switchcmd, passcode);
 					}
-					passcode = result;
-					SwitchSceneInt(idx, switchcmd, passcode);
 				}
 			});
 		}
