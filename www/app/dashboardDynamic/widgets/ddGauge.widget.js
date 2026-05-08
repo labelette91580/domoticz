@@ -4,10 +4,10 @@ define([
 ], function(app, widgetRegistry) {
     'use strict';
 
-    var RADIUS        = 40;
-    var CIRCUMFERENCE = 2 * Math.PI * RADIUS;   // ~251.33
+    var RADIUS        = 42;
+    var CIRCUMFERENCE = 2 * Math.PI * RADIUS;   // ~263.89
     var ARC_FRACTION  = 220 / 360;               // ~0.6111
-    var ARC_LENGTH    = CIRCUMFERENCE * ARC_FRACTION; // ~153.59
+    var ARC_LENGTH    = CIRCUMFERENCE * ARC_FRACTION; // ~161.49
 
     widgetRegistry.register({
         type:        'gauge',
@@ -21,13 +21,13 @@ define([
         minH:        3,
         maxW:        4,
         maxH:        4,
+        transparentBackground: true,
         configSchema: [
             {
-                key:          'deviceIdx',
-                type:         'device-picker',
-                label:        'Device',
-                required:     true,
-                deviceFilter: 'numeric'
+                key:      'deviceIdx',
+                type:     'device-picker',
+                label:    'Device',
+                required: true
             },
             {
                 key:      'title',
@@ -50,31 +50,16 @@ define([
             {
                 key:     'unit',
                 type:    'text',
-                label:   'Unit suffix',
-                default: '%'
+                label:   'Unit suffix (blank = auto from device)',
+                default: ''
             },
             {
-                key:     'thresholdWarn',
-                type:    'number',
-                label:   'Warning threshold',
-                default: 50
+                key:   'ranges',
+                type:  'range-list',
+                label: 'Value ranges',
+                help:  'Map value intervals to colors: normal (green), warning (amber), critical (red). Ranges are checked in order; the first match wins.'
             },
-            {
-                key:     'thresholdCrit',
-                type:    'number',
-                label:   'Critical threshold',
-                default: 80
-            },
-            {
-                key:     'thresholdMode',
-                type:    'select',
-                label:   'Threshold mode',
-                default: 'low-is-good',
-                options: [
-                    { value: 'low-is-good',  label: 'Low is good (e.g. CPU load)' },
-                    { value: 'high-is-good', label: 'High is good (e.g. battery %)' }
-                ]
-            }
+            { key: 'showBackground', type: 'boolean', label: 'Show panel background', default: true }
         ]
     });
 
@@ -88,40 +73,66 @@ define([
             },
             controllerAs:     'ctrl',
             bindToController: true,
-            controller: ['$scope', '$http', '$interval', '$q', function($scope, $http, $interval, $q) {
+            controller: ['$scope', '$http', '$interval', '$q', '$location', function($scope, $http, $interval, $q, $location) {
                 var ctrl      = this;
                 ctrl.title    = '';
                 ctrl.value    = null;
+                ctrl.humidity = null;
+                ctrl.baro     = null;
+                ctrl.autoUnit = '';
                 var cancelToken = null;
 
                 ctrl.unitStr = function() {
                     var cfg = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
-                    return (cfg.unit !== undefined && cfg.unit !== null) ? cfg.unit : '%';
+                    var u = String(cfg.unit || '').trim();
+                    return u || ctrl.autoUnit;
                 };
 
                 ctrl.valueStr = function() {
-                    return ctrl.value !== null ? String(ctrl.value) : '--';
+                    if (ctrl.value === null) { return '--'; }
+                    return String(Math.abs(ctrl.value) > 1000 ? Math.round(ctrl.value) : ctrl.value);
                 };
 
                 ctrl.gaugeColor = function() {
                     if (ctrl.value === null) { return 'var(--dz-widget-stat-muted)'; }
-                    var cfg       = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
-                    var warn      = parseFloat(cfg.thresholdWarn);
-                    var crit      = parseFloat(cfg.thresholdCrit);
-                    var mode      = cfg.thresholdMode || 'low-is-good';
+                    var c = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
+                    var v = ctrl.value;
+
+                    // Range-based coloring: narrowest matching range wins
+                    var ranges = c.ranges;
+                    if (Array.isArray(ranges) && ranges.length > 0) {
+                        var matched = null, matchedWidth = Infinity;
+                        for (var i = 0; i < ranges.length; i++) {
+                            var r    = ranges[i];
+                            var from = parseFloat(r.from);
+                            var to   = parseFloat(r.to);
+                            if (!isNaN(from) && !isNaN(to) && v >= from && v <= to) {
+                                var width = Math.abs(to - from);
+                                if (width < matchedWidth) { matched = r; matchedWidth = width; }
+                            }
+                        }
+                        if (matched) {
+                            if (matched.status === 'critical') { return 'var(--dz-accent-red)'; }
+                            if (matched.status === 'warning')  { return 'var(--dz-widget-amber)'; }
+                            return 'var(--dz-widget-energy-export)';
+                        }
+                        return 'var(--dz-widget-amber)';
+                    }
+
+                    // Legacy threshold coloring (backward compat)
+                    var warn = parseFloat(c.thresholdWarn);
+                    var crit = parseFloat(c.thresholdCrit);
+                    var mode = c.thresholdMode || 'low-is-good';
                     if (isNaN(warn)) { warn = 50; }
                     if (isNaN(crit)) { crit = 80; }
 
-                    var v = ctrl.value;
-
                     if (mode === 'high-is-good') {
                         if (v >= crit) { return 'var(--dz-widget-energy-export)'; }
-                        if (v >= warn) { return 'var(--dz-widget-sunpv)'; }
+                        if (v >= warn) { return 'var(--dz-widget-amber)'; }
                         return 'var(--dz-accent-red)';
                     } else {
-                        // low-is-good
                         if (v < warn)  { return 'var(--dz-widget-energy-export)'; }
-                        if (v < crit)  { return 'var(--dz-widget-sunpv)'; }
+                        if (v < crit)  { return 'var(--dz-widget-amber)'; }
                         return 'var(--dz-accent-red)';
                     }
                 };
@@ -145,8 +156,32 @@ define([
                 function applyDevice(d) {
                     var cfg   = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
                     ctrl.title = cfg.title || d.Name || '';
-                    var match = (d.Data || '').match(/^([-\d.]+)/);
+
+                    // Temp / Temp+Hum / Temp+Hum+Baro
+                    if (d.Temp !== undefined) {
+                        ctrl.value    = parseFloat(d.Temp);
+                        if (isNaN(ctrl.value)) { ctrl.value = null; }
+                        var h = (d.Humidity  !== undefined) ? parseInt(d.Humidity,  10) : NaN;
+                        var b = (d.Barometer !== undefined) ? parseFloat(d.Barometer)   : NaN;
+                        ctrl.humidity = isNaN(h) ? null : h;
+                        ctrl.baro     = isNaN(b) ? null : b;
+                        // Auto-detect unit from data string (e.g. "21.5 C" → "°C")
+                        var tempMatch = String(d.Data || '').match(/^[-\d.]+\s*([CF])\b/);
+                        ctrl.autoUnit = tempMatch ? '\u00b0' + tempMatch[1] : '\u00b0C';
+                        return;
+                    }
+
+                    ctrl.humidity = null;
+                    ctrl.baro     = null;
+
+                    // Generic numeric — extract value and unit from Data string
+                    var raw   = (d.SubType === 'kWh' && d.Usage) ? d.Usage : (d.Data || '');
+                    var match = raw.match(/^([-\d.]+)/);
                     ctrl.value = match ? parseFloat(match[1]) : null;
+                    var unitMatch = raw.match(/^[-\d.]+\s*([^\d\s].*)/);
+                    var rawUnit   = unitMatch ? unitMatch[1].trim() : (d.Unit || '');
+                    // Reject pure-digit units — they're parsing artifacts, not real units
+                    ctrl.autoUnit = /^\d+$/.test(String(rawUnit)) ? '' : rawUnit;
                 }
 
                 function load() {
@@ -193,6 +228,11 @@ define([
                         if (val !== old) { load(); }
                     }
                 );
+
+                ctrl.goToLog = function() {
+                    var cfg = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
+                    if (cfg.deviceIdx) { $location.path('/Devices/' + cfg.deviceIdx + '/Log'); }
+                };
 
                 ctrl.$onInit = load;
             }]
