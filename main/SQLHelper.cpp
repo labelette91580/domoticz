@@ -666,6 +666,17 @@ constexpr auto sqlCreateApplications =
 "[LastUpdate] DATETIME DEFAULT(datetime('now', 'localtime'))"
 ");";
 
+constexpr auto sqlCreateAccessTokens =
+"CREATE TABLE IF NOT EXISTS [AccessTokens]("
+"[ID] INTEGER PRIMARY KEY, "
+"[Name] VARCHAR(100) NOT NULL DEFAULT '', "
+"[Rights] INTEGER NOT NULL DEFAULT 0, "
+"[Expiry] INTEGER NOT NULL DEFAULT 0, "
+"[TokenHash] VARCHAR(64) NOT NULL DEFAULT '', "
+"[CreatedAt] DATETIME DEFAULT(datetime('now', 'localtime')), "
+"[LastUpdate] DATETIME DEFAULT NULL"
+");";
+
 constexpr auto sqlCreateDashboardLayouts =
 "CREATE TABLE IF NOT EXISTS [DashboardLayouts]("
 "[id] TEXT NOT NULL PRIMARY KEY,"
@@ -808,6 +819,7 @@ bool CSQLHelper::OpenDatabase()
 	query(sqlCreateUserSessions);
 	query(sqlCreateMobileDevices);
 	query(sqlCreateApplications);
+	query(sqlCreateAccessTokens);
 	query(sqlCreateDashboardLayouts);
 	//Add indexes to log tables
 	query("create index if not exists ds_hduts_idx	on DeviceStatus(HardwareID, DeviceID, Unit, Type, SubType);");
@@ -9295,7 +9307,7 @@ int CSQLHelper::SanitizeCalendarData(uint64_t idx)
 			{
 				const float value = static_cast<float>(atof(row[1].c_str()));
 				const float price = static_cast<float>(atof(row[2].c_str()));
-				if (price != 0.0f && value > 0)
+				if (price > 0.0f && value > 0)
 					rates.push_back(price / (value / divider));
 			}
 
@@ -9312,13 +9324,15 @@ int CSQLHelper::SanitizeCalendarData(uint64_t idx)
 				bool bad;
 				if (value <= 0)
 					bad = true;
+				else if (price < 0.0f)
+					bad = false;  // negative prices (earned money at negative tariffs) are always valid
 				else if (use_iqr)
 				{
 					const float rate = price / (value / divider);
 					bad = (rate < fence_lo || rate > fence_hi);
 				}
 				else
-					bad = (std::abs(price) > (value / divider) * fallback_max_unit_rate);
+					bad = (price > (value / divider) * fallback_max_unit_rate);
 
 				if (!bad) continue;
 
@@ -9349,10 +9363,12 @@ int CSQLHelper::SanitizeCalendarData(uint64_t idx)
 
 						const float spread_rate = price / (total_value / divider);
 						bool spread_ok;
-						if (use_iqr)
+						if (price < 0.0f)
+							spread_ok = false;  // don't spread earned credits across dead days
+						else if (use_iqr)
 							spread_ok = (spread_rate >= fence_lo && spread_rate <= fence_hi);
 						else
-							spread_ok = (std::abs(price) <= (total_value / divider) * fallback_max_unit_rate);
+							spread_ok = (price <= (total_value / divider) * fallback_max_unit_rate);
 
 						if (spread_ok)
 						{
@@ -12176,6 +12192,55 @@ bool CSQLHelper::CopyDashboardLayout(int userid, const std::string &srcid, const
 		"INSERT INTO DashboardLayouts (id, userid, name, isdefault, layout, created, updated) "
 		"VALUES ('%q', %d, '%q', 0, '%q', datetime('now','localtime'), datetime('now','localtime'))",
 		newid.c_str(), userid, newname.c_str(), layout_json.c_str());
+	return true;
+}
+
+std::vector<CSQLHelper::_tAccessToken> CSQLHelper::GetAccessTokens()
+{
+	std::vector<_tAccessToken> result;
+	auto rows = safe_query("SELECT ID, Name, Rights, Expiry, CreatedAt, LastUpdate FROM AccessTokens ORDER BY ID ASC");
+	for (const auto& row : rows)
+	{
+		_tAccessToken t;
+		t.ID = static_cast<unsigned long>(atol(row[0].c_str()));
+		t.Name = row[1];
+		t.Rights = atoi(row[2].c_str());
+		t.Expiry = static_cast<time_t>(atol(row[3].c_str()));
+		t.CreatedAt = row[4];
+		t.LastUpdate = row[5];
+		result.push_back(t);
+	}
+	return result;
+}
+
+bool CSQLHelper::GetAccessToken(unsigned long ID, _tAccessToken& token)
+{
+	auto rows = safe_query("SELECT ID, Name, Rights, Expiry, CreatedAt, LastUpdate FROM AccessTokens WHERE ID=%lu", ID);
+	if (rows.empty())
+		return false;
+	token.ID = static_cast<unsigned long>(atol(rows[0][0].c_str()));
+	token.Name = rows[0][1];
+	token.Rights = atoi(rows[0][2].c_str());
+	token.Expiry = static_cast<time_t>(atol(rows[0][3].c_str()));
+	token.CreatedAt = rows[0][4];
+	token.LastUpdate = rows[0][5];
+	return true;
+}
+
+bool CSQLHelper::CreateAccessToken(const std::string& name, int rights, time_t expiry, const std::string& tokenHash, unsigned long& outID)
+{
+	safe_query("INSERT INTO AccessTokens (Name, Rights, Expiry, TokenHash) VALUES ('%q', %d, %lld, '%q')",
+		name.c_str(), rights, static_cast<long long>(expiry), tokenHash.c_str());
+	auto rows = safe_query("SELECT last_insert_rowid()");
+	if (rows.empty() || rows[0][0].empty())
+		return false;
+	outID = static_cast<unsigned long>(atol(rows[0][0].c_str()));
+	return true;
+}
+
+bool CSQLHelper::DeleteAccessToken(unsigned long ID)
+{
+	safe_query("DELETE FROM AccessTokens WHERE ID=%lu", ID);
 	return true;
 }
 

@@ -1,7 +1,8 @@
 define([
     'app',
-    'dashboardDynamic/widgetRegistry.service'
-], function(app, widgetRegistry) {
+    'dashboardDynamic/widgetRegistry.service',
+    'dashboardDynamic/ddVisibility.service'
+], function(app, widgetRegistry, ddVisibility) {
     'use strict';
 
     widgetRegistry.register({
@@ -49,14 +50,21 @@ define([
             },
             controllerAs:     'ctrl',
             bindToController: true,
-            controller: ['$scope', '$http', '$interval', '$sce',
-                function($scope, $http, $interval, $sce) {
+            controller: ['$scope', '$http', '$interval', '$sce', '$q', '$timeout', 'ddVisibility',
+                function($scope, $http, $interval, $sce, $q, $timeout, ddVisibility) {
                 var ctrl = this;
                 ctrl.imageUrl    = null;
                 ctrl.cameraName  = '';
                 ctrl.cameraAspect = 0;
                 ctrl.error       = null;
-                var timer       = null;
+                var timer              = null;
+                var currentBlobUrl     = null;
+                var fetchCanceller     = null;
+                var requestTimeoutHnd  = null;
+
+                // Blob URL lifecycle is supported by all browsers we target; this
+                // guard provides a graceful fallback for very old environments.
+                var blobUrlSupported = (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function');
 
                 function getInterval() {
                     var cfg = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
@@ -64,9 +72,26 @@ define([
                     return (isNaN(secs) || secs < 1) ? 5 : secs;
                 }
 
-                function buildUrl(idx) {
-                    // Cache-bust with timestamp so browser doesn't serve stale image
-                    return $sce.trustAsResourceUrl('camsnapshot.jpg?idx=' + encodeURIComponent(idx) + '&_t=' + Date.now());
+                function revokeCurrent() {
+                    if (currentBlobUrl && blobUrlSupported) {
+                        URL.revokeObjectURL(currentBlobUrl);
+                        currentBlobUrl = null;
+                    }
+                }
+
+                function clearRequestTimeout() {
+                    if (requestTimeoutHnd) {
+                        $timeout.cancel(requestTimeoutHnd);
+                        requestTimeoutHnd = null;
+                    }
+                }
+
+                function abortInflight() {
+                    clearRequestTimeout();
+                    if (fetchCanceller) {
+                        fetchCanceller.resolve('cancelled');
+                        fetchCanceller = null;
+                    }
                 }
 
                 function refresh() {
@@ -75,7 +100,57 @@ define([
                         ctrl.imageUrl = null;
                         return;
                     }
-                    ctrl.imageUrl = buildUrl(cfg.cameraIdx);
+
+                    // Abort any previous in-flight request before starting a new one.
+                    abortInflight();
+
+                    if (!blobUrlSupported) {
+                        // Fallback: old string-URL approach (no blob lifecycle management).
+                        ctrl.imageUrl = $sce.trustAsResourceUrl(
+                            'camsnapshot.jpg?idx=' + encodeURIComponent(cfg.cameraIdx) + '&_t=' + Date.now()
+                        );
+                        return;
+                    }
+
+                    var thisCanceller = $q.defer();
+                    fetchCanceller = thisCanceller;
+
+                    // Auto-cancel if the server takes too long to respond. Without this, a slow or
+                    // unavailable camera causes camsnapshot.jpg to hang, accumulating connections that
+                    // exhaust the browser's per-host connection pool and freeze all other widgets.
+                    var timeoutMs = Math.max(3000, Math.min(10000, (getInterval() - 1) * 1000));
+                    requestTimeoutHnd = $timeout(function() {
+                        requestTimeoutHnd = null;
+                        if (fetchCanceller === thisCanceller) { abortInflight(); }
+                    }, timeoutMs);
+
+                    $http.get('camsnapshot.jpg', {
+                        params:   { idx: cfg.cameraIdx, _t: Date.now() },
+                        responseType: 'blob',
+                        timeout:  thisCanceller.promise
+                    }).then(function(resp) {
+                        clearRequestTimeout();
+
+                        // Guard: widget may have been destroyed while the request was in flight.
+                        if ($scope.$$destroyed) { return; }
+
+                        // Reject non-image responses (e.g. camera returning an HTML error page with HTTP 200).
+                        if (!resp.data || !resp.data.type || resp.data.type.indexOf('image/') !== 0) { return; }
+
+                        var newBlobUrl = URL.createObjectURL(resp.data);
+
+                        // Release the previous frame's pixel buffer before adopting the new one.
+                        revokeCurrent();
+
+                        currentBlobUrl = newBlobUrl;
+                        ctrl.imageUrl  = $sce.trustAsResourceUrl(newBlobUrl);
+                    }).catch(function() {
+                        clearRequestTimeout();
+                        // Only clear the canceller if it still refers to this request — a concurrent
+                        // refresh() may have already replaced it with a newer deferred.
+                        if (fetchCanceller === thisCanceller) { fetchCanceller = null; }
+                        // leave currentBlobUrl and ctrl.imageUrl intact — keep last good frame
+                    });
                 }
 
                 function loadCameraName() {
@@ -114,17 +189,25 @@ define([
                     if (timer) { $interval.cancel(timer); timer = null; }
                 }
 
+                function teardown() {
+                    stopTimer();
+                    abortInflight();
+                    revokeCurrent();
+                }
+
                 ctrl.$onInit = function() {
                     refresh();
                     loadCameraName();
-                    startTimer();
+                    if (!ddVisibility.isHidden()) { startTimer(); }
                 };
 
-                $scope.$on('$destroy', stopTimer);
+                $scope.$on('$destroy', teardown);
                 $scope.$on('dd:widget:refresh', function() {
                     refresh();
                     loadCameraName();
                 });
+                $scope.$on('dd:page:hidden', function() { stopTimer(); });
+                $scope.$on('dd:page:visible', function() { refresh(); startTimer(); });
 
                 $scope.$watch(
                     function() {

@@ -14,10 +14,33 @@ define(['app', 'widgets/dzBar'], function (app) {
             $(dialogId + ' #deviceunit').text(device.Unit);
             $(dialogId + ' #devicename').val(device.Name);
             $(dialogId + ' #devicedescription').val(device.Description);
+            var $iconRow = $(dialogId + ' #combosensoricon').closest('tr');
             if (isText) {
                 $(dialogId + ' #devicetext').val(device.Data);
+                showIcon = (device.ShowIcon !== '0');
+                $(dialogId + ' #deviceshowicon').prop('checked', showIcon);
+                $(dialogId + ' #deviceshowicon').off('change').on('change', function () {
+                    if ($(this).is(':checked')) {
+                        $iconRow.show();
+                        if (!$(dialogId + ' #combosensoricon').data('ddslick')) {
+                            $(dialogId + ' #combosensoricon').ddslick({
+                                data: $.ddData,
+                                width: 260,
+                                height: 490,
+                                selectText: "Sensor Icon",
+                                imagePosition: "left"
+                            });
+                            $.each($.ddData, function (i, item) {
+                                if (item.value == device.CustomImage) {
+                                    $(dialogId + ' #combosensoricon').ddslick('select', { index: i });
+                                }
+                            });
+                        }
+                    } else {
+                        $iconRow.hide();
+                    }
+                });
             }
-            var $iconRow = $(dialogId + ' #combosensoricon').closest('tr');
             if (showIcon) {
                 $iconRow.show();
                 $(dialogId + ' #combosensoricon').ddslick({
@@ -243,7 +266,7 @@ define(['app', 'widgets/dzBar'], function (app) {
         }
 
         function openDialog(device) {
-            if (typeof device.Counter !== 'undefined') {
+            if (typeof device.Counter !== 'undefined' || device.SubType === 'kWh' || device.Type === 'Energy') {
                 if (device.Type === 'P1 Smart Meter') {
                     openUtilityDialog(device);
                 } else {
@@ -436,6 +459,10 @@ define(['app', 'widgets/dzBar'], function (app) {
                     return device.SubType === 'Text';
                 };
 
+                ctrl.hideTextIcon = function () {
+                    return device.ShowIcon === '0';
+                };
+
                 ctrl.isAlert = function () {
                     return device.SubType === 'Alert';
                 };
@@ -486,6 +513,8 @@ define(['app', 'widgets/dzBar'], function (app) {
                         bigtext = device.Data + '\u00B0 ' + $scope.$parent.config.TempSign;
                     } else if (ctrl.isThermostatMode() || ctrl.isThermostatFanMode() || ctrl.isThermostatOperatingState()) {
                         bigtext = device.Data;
+                    } else if (typeof device.Rain !== 'undefined') {
+                        bigtext = device.Rain + ' mm';
                     } else if (typeof device.Direction !== 'undefined') {
                         var windSign = ($.myglobals && $.myglobals.windsign) ? $.myglobals.windsign : 'm/s';
                         bigtext = device.DirectionStr || '';
@@ -531,6 +560,8 @@ define(['app', 'widgets/dzBar'], function (app) {
                         if (typeof device.Power != 'undefined') {
                             status = "Power:" + device.Power + '%';
                         }
+                    } else if (typeof device.Rain !== 'undefined' && typeof device.RainRate !== 'undefined') {
+                        status = $.t('Rain rate') + ': ' + device.RainRate + ' mm/h';
                     } else if (typeof device.Direction !== 'undefined') {
                         var windSign = ($.myglobals && $.myglobals.windsign) ? $.myglobals.windsign : 'm/s';
                         var tempSign = ($rootScope.config && $rootScope.config.TempSign) ? $rootScope.config.TempSign : 'C';
@@ -746,41 +777,10 @@ define(['app', 'widgets/dzBar'], function (app) {
                 // Edit function dispatching - delegates to utilityEditService
                 ctrl.editDevice = function() {
                     if (!permissions.hasPermission('Admin')) return;
-<<<<<<< HEAD
-
-                    if (typeof device.Counter !== 'undefined') {
-                        if (device.Type === 'P1 Smart Meter') {
-                            EditUtilityDevice(device.idx, escape(device.Name), escape(device.Description), device.CustomImage, device.ID, device.Unit);
-                        } else {
-                            EditMeterDevice(device.idx, escape(device.Name), escape(device.Description), device.SwitchTypeVal, device.AddjValue, device.AddjValue2, escape(device.ValueQuantity), escape(device.ValueUnits), device.CustomImage, device.ID, device.Unit);
-                        }
-                    } else if (device.SubType === 'Custom Sensor') {
-                        EditCustomSensorDevice(device.idx, escape(device.Name), escape(device.Description), device.CustomImage, device.SensorType, escape(device.SensorUnit), device.ID, device.Unit);
-                    } else if (device.SubType === 'Text') {
-                        EditTextDevice(device.idx, escape(device.Name), escape(device.Data), escape(device.Description), device.CustomImage, device.ID, device.Unit);
-                    } else if ((device.Type === 'Setpoint' && device.SubType === 'SetPoint') || device.Type === 'Radiator 1') {
-                        if (device.isVirtualThermostat) {
+                    if (device.isVirtualThermostat) {
                             Editvirtualthermostatdevice(device.idx, device.Protected, ShowUtilities, (device.vunit),0);
-                        } else {
-                            EditSetPoint(device.idx, escape(device.Name), escape(device.Description), escape(device.vunit), device.step, device.min, device.max, device.Protected, device.CustomImage, device.ID, device.Unit);
-                        }
-                    } else if (device.SubType === 'Thermostat Clock') {
-                        EditThermostatClock(device.idx, escape(device.Name), escape(device.Description), device.DayTime, device.Protected, device.CustomImage, device.ID, device.Unit);
-                    } else if (device.SubType === 'Thermostat Mode') {
-                        EditThermostatMode(device.idx, escape(device.Name), escape(device.Description), device.Mode, device.Modes, device.Protected, device.CustomImage, device.ID, device.Unit);
-                    } else if (device.SubType === 'Thermostat Fan Mode') {
-                        EditThermostatFanMode(device.idx, escape(device.Name), escape(device.Description), device.Mode, device.Modes, device.Protected, device.CustomImage, device.ID, device.Unit);
-                    } else if ((device.Type === 'Energy' || device.SubType === 'kWh')) {
-                        var energyMeterMode = device.EnergyMeterMode || '0';
-                        EditEnergyDevice(device.idx, escape(device.Name), escape(device.Description), device.SwitchTypeVal, energyMeterMode, device.CustomImage, device.ID, device.Unit);
-                    } else if (device.SubType === 'Distance') {
-                        EditDistanceDevice(device.idx, escape(device.Name), escape(device.Description), device.SwitchTypeVal, device.CustomImage, device.ID, device.Unit);
-                    } else {
-                        EditUtilityDevice(device.idx, escape(device.Name), escape(device.Description), device.CustomImage, device.ID, device.Unit);
-                    }
-=======
-                    utilityEditService.openDialog(device);
->>>>>>> 8fc73ed1ad9385649d13ee8045e1c460e9e86ad7
+                    } else 
+                       utilityEditService.openDialog(device);
                 };
 
                 // Determine if this device type supports a log link
