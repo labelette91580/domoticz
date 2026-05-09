@@ -33,7 +33,8 @@ define([
                 label:    'Title (optional, falls back to device name)',
                 required: false
             },
-            { key: 'showBackground', type: 'boolean', label: 'Show panel background', default: true }
+            { key: 'showBackground', type: 'boolean', label: 'Show panel background', default: true },
+            { key: 'ranges', type: 'range-list', label: 'Bar ranges (optional)' }
         ]
     });
 
@@ -47,7 +48,7 @@ define([
             },
             controllerAs:     'ctrl',
             bindToController: true,
-            controller: ['$scope', '$http', '$interval', '$q', function($scope, $http, $interval, $q) {
+            controller: ['$scope', '$http', '$q', function($scope, $http, $q) {
                 var ctrl = this;
                 ctrl.title           = '';
                 ctrl.value           = null;
@@ -126,6 +127,7 @@ define([
                     }).then(function() {
                         ctrl.value   = newVal;
                         ctrl.sending = false;
+                        $(document).trigger('dz:setpoint:saved', { idx: c.deviceIdx, value: newVal });
                     }).catch(function() {
                         ctrl.sending = false;
                     });
@@ -173,6 +175,14 @@ define([
                     return ctrl.value !== null && ctrl.value >= maxVal();
                 };
 
+                function onSetpointSaved(e, data) {
+                    var c = cfg();
+                    if (c && String(data.idx) === String(c.deviceIdx)) {
+                        $scope.$applyAsync(function() { ctrl.value = data.value; });
+                    }
+                }
+                $(document).on('dz:setpoint:saved', onSetpointSaved);
+
                 ctrl.clickToEdit = function(event) {
                     if (ctrl.sending) { return; }
                     var c = cfg();
@@ -190,11 +200,9 @@ define([
                     }
                 });
 
-                var timer = $interval(load, 30000);
-
                 $scope.$on('$destroy', function() {
                     if (cancelToken) { cancelToken.resolve(); cancelToken = null; }
-                    $interval.cancel(timer);
+                    $(document).off('dz:setpoint:saved', onSetpointSaved);
                 });
 
                 $scope.$on('dd:widget:refresh', load);

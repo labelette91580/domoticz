@@ -77,14 +77,15 @@ MQTTAutoDiscover::MQTTAutoDiscover(const int ID, const std::string& Name, const 
 
 void MQTTAutoDiscover::on_message(const struct mosquitto_message* message)
 {
+	std::string topic = message->topic;
 	std::lock_guard<std::mutex> lock(m_inc_msg_mutex);
-	if (m_incoming_messages.size() > 1000)
+	if (m_incoming_messages.size() > 10000)
 	{
 		//Prevent flooding
+		Log(LOG_ERROR, "MQTT Auto Discover: Incoming message queue full! Dropping message on topic: %s", topic.c_str());
 		return;
 	}
 
-	std::string topic = message->topic;
 	std::string qMessage;
 	if (message->payload != nullptr && message->payloadlen > 0)
 		qMessage = std::string((char*)message->payload, (char*)message->payload + message->payloadlen);
@@ -97,6 +98,7 @@ void MQTTAutoDiscover::on_message(const struct mosquitto_message* message)
 	incmsg.retain = message->retain;
 
 	m_incoming_messages.push_back(incmsg);
+	m_inc_msg_cv.notify_one();
 }
 
 void MQTTAutoDiscover::on_connect(int rc)
@@ -6559,8 +6561,12 @@ bool MQTTAutoDiscover::StartHardware()
 
 bool MQTTAutoDiscover::StopHardware()
 {
-	// Request stop first so Do_Work exits its loop
+	// Request stop first so Do_Work exits its loop.
+	// Any messages arriving after this point may be lost, but that is safe:
+	// MQTT::StopHardware() (called below) disconnects the broker, so no new
+	// retained bursts can arrive after the thread is joined.
 	RequestStop();
+	m_inc_msg_cv.notify_all();
 	// Join the worker thread before stopping MQTT to avoid
 	// on_disconnect clearing m_discovered_sensors while Do_Work
 	// is still processing messages
@@ -6575,7 +6581,7 @@ bool MQTTAutoDiscover::StopHardware()
 
 void MQTTAutoDiscover::Do_Work()
 {
-	while (!IsStopRequested(1000))
+	while (!IsStopRequested(0))
 	{
 		if (m_bDisconnected)
 		{
@@ -6584,12 +6590,13 @@ void MQTTAutoDiscover::Do_Work()
 			m_discovered_sensors.clear();
 		}
 		std::unique_lock<std::mutex> lock(m_inc_msg_mutex);
+		m_inc_msg_cv.wait_for(lock, std::chrono::seconds(1), [this] { return !m_incoming_messages.empty(); });
 		if (m_incoming_messages.empty())
 			continue;
 		std::list<_tIncommingMsg> mlist;
 		std::copy(m_incoming_messages.begin(), m_incoming_messages.end(), std::back_inserter(mlist));
 		m_incoming_messages.clear();
-		lock.unlock();
+		lock.unlock(); // Release before processing so on_message() can queue new messages concurrently
 
 		for (const auto& msg : mlist)
 		{

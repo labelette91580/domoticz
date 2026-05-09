@@ -105,16 +105,23 @@ define(['app'], function(app) {
 
         function extractDeviceValue(d) {
             var type = (d.Type || '').toLowerCase();
+            if (d.SwitchType === 'Selector') {
+                var levelNames = [];
+                try { levelNames = b64DecodeUnicode(d.LevelNames).split('|'); } catch(e) { levelNames = (d.LevelNames || '').split('|'); }
+                var levelIdx  = (d.LevelInt !== undefined) ? Math.round(d.LevelInt / 10) : 0;
+                var levelName = levelNames[levelIdx] || d.Status || d.Data || '—';
+                return { value: levelName, isOn: d.LevelInt > 0, unit: '', unit2: null, secondValue: null, typeClass: 'switch' };
+            }
             if (d.SwitchType !== undefined || type.indexOf('light') >= 0 || type.indexOf('switch') >= 0) {
                 var statusStr = d.Status || d.Data || '';
                 var isOn = (d.SwitchType === 'Dimmer')
                     ? (statusStr !== '' && statusStr !== 'Off')
                     : (statusStr === 'On');
-                return { value: statusStr, isOn: isOn, unit: '', unit2: null, secondValue: null, typeClass: 'switch' };
+                return { value: $.t(statusStr) || statusStr, isOn: isOn, unit: '', unit2: null, secondValue: null, typeClass: 'switch' };
             }
             if (type.indexOf('scene') >= 0 || type.indexOf('group') >= 0) {
                 var sceneStatus = d.Status || d.Data || '';
-                return { value: sceneStatus, isOn: sceneStatus === 'On', unit: '', unit2: null, secondValue: null, typeClass: 'switch' };
+                return { value: $.t(sceneStatus) || sceneStatus, isOn: sceneStatus === 'On', unit: '', unit2: null, secondValue: null, typeClass: 'switch' };
             }
             if (type.indexOf('wind') >= 0) {
                 var dirSpeed = ((d.DirectionStr || '') + ' ' + (d.Speed || '')).trim();

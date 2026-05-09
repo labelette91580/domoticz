@@ -3926,7 +3926,7 @@ bool CSQLHelper::OpenDatabase()
 
 void CSQLHelper::CloseDatabase()
 {
-	std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+	std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 	if (m_dbase != nullptr)
 	{
 		OptimizeDatabase(m_dbase);
@@ -4658,7 +4658,12 @@ bool CSQLHelper::safe_UpdateBlobInTableWithID(const std::string& Table, const st
 	if (!m_dbase)
 		return false;
 
-	std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+	std::unique_lock<std::timed_mutex> l(m_sqlQueryMutex, std::defer_lock);
+	if (!l.try_lock_for(std::chrono::minutes(5)))
+	{
+		_log.Log(LOG_ERROR, "SQL blob-update mutex timeout (Table=%s, ID=%s)", Table.c_str(), sID.c_str());
+		return false;
+	}
 
 	sqlite3_stmt *stmt = nullptr;
 	char* zQuery = sqlite3_mprintf("UPDATE %q SET %q = ? WHERE ID=%q", Table.c_str(), Column.c_str(), sID.c_str());
@@ -4669,20 +4674,17 @@ bool CSQLHelper::safe_UpdateBlobInTableWithID(const std::string& Table, const st
 	}
 	int rc = sqlite3_prepare_v2(m_dbase, zQuery, -1, &stmt, nullptr);
 	sqlite3_free(zQuery);
-	if (rc != SQLITE_OK) {
+	if (rc != SQLITE_OK)
 		return false;
-	}
 	rc = sqlite3_bind_blob(stmt, 1, BlobData.c_str(), static_cast<int>(BlobData.size()), SQLITE_STATIC);
-	if (rc != SQLITE_OK) {
+	if (rc != SQLITE_OK)
+	{
+		sqlite3_finalize(stmt);
 		return false;
 	}
 	rc = sqlite3_step(stmt);
-	if (rc != SQLITE_DONE)
-	{
-		return false;
-	}
 	sqlite3_finalize(stmt);
-	return true;
+	return (rc == SQLITE_DONE);
 }
 
 std::vector<std::vector<std::string>> CSQLHelper::safe_query(const char *fmt, ...)
@@ -4728,11 +4730,16 @@ std::vector<std::vector<std::string> > CSQLHelper::query(const std::string& szQu
 		std::vector<std::vector<std::string> > results;
 		return results;
 	}
-	std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+	std::unique_lock<std::timed_mutex> l(m_sqlQueryMutex, std::defer_lock);
+	if (!l.try_lock_for(std::chrono::minutes(5)))
+	{
+		_log.Log(LOG_ERROR, "SQL query mutex timeout (>5min, possible query backlog). Query: %.200s", szQuery.c_str());
+		return {};
+	}
 
 	sqlite3_stmt* statement;
 	std::vector<std::vector<std::string> > results;
-    _log.Debug(DEBUG_SQL, "Query:%s", szQuery.c_str());
+	_log.Debug(DEBUG_SQL, "Query:%s", szQuery.c_str());
 	if (sqlite3_prepare_v2(m_dbase, szQuery.c_str(), -1, &statement, nullptr) == SQLITE_OK)
 	{
 		int cols = sqlite3_column_count(statement);
@@ -4795,7 +4802,7 @@ std::vector<std::vector<std::string> > CSQLHelper::queryBlob(const std::string& 
 		std::vector<std::vector<std::string> > results;
 		return results;
 	}
-	std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+	std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 
 	sqlite3_stmt* statement;
 	std::vector<std::vector<std::string> > results;
@@ -8589,7 +8596,7 @@ void CSQLHelper::ClearShortLog()
 int CSQLHelper::PruneUnusedSensorLogs()
 {
 	int total = 0;
-	std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+	std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 
 	char* errorMessage = nullptr;
 	int rc = sqlite3_exec(m_dbase, "BEGIN TRANSACTION;", nullptr, nullptr, &errorMessage);
@@ -8951,6 +8958,7 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 	}
 
 	int64_t total_positive_delta_wh = 0;
+	int64_t total_meter_spike_delta_wh = 0; // sum of per-jump shortlog corrections (for DeviceStatus)
 	for (const auto& spike : spikes)
 	{
 		if (spike.is_positive)
@@ -8967,7 +8975,7 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 	{
 		if (ms.is_positive)
 		{
-			total_positive_delta_wh += ms.delta;
+			total_meter_spike_delta_wh += ms.delta;
 			results.push_back(std_format("Positive spike in Meter at %s: +%.3f kWh (current period, not yet in Meter_Calendar)",
 				ms.date.c_str(), ms.delta / 1000.0));
 		}
@@ -8979,6 +8987,8 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 	}
 	if (total_positive_delta_wh > 0)
 		results.push_back(std_format("Positive spike total correction: -%.3f kWh", total_positive_delta_wh / 1000.0));
+	if (total_meter_spike_delta_wh > 0)
+		results.push_back(std_format("Shortlog correction total: -%.3f kWh", total_meter_spike_delta_wh / 1000.0));
 
 	if (dry_run)
 	{
@@ -8988,8 +8998,12 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 
 	// --- Fix positive spikes in Meter_Calendar ---
 	// Each positive spike inflated the cumulative Counter for all subsequent days.
-	// Process in chronological order; each UPDATE operates on the already-corrected DB,
-	// so sequentially subtracting each spike_delta gives the correct cumulative result.
+	// We estimate the real daily production from sub-threshold Meter increments so we
+	// can subtract only the spike component (anomaly minus real production) from the
+	// cumulative Counter, preserving the real production in the calendar Value.
+	// NOTE: The Meter shortlog is corrected by the Phase 2 meter_spikes fix below via
+	// per-jump deltas. Applying a bulk correction here too causes double-subtraction
+	// that zeros all shortlog data — so we do NOT touch the Meter table here.
 	for (const auto& spike : spikes)
 	{
 		if (!spike.is_positive)
@@ -8997,23 +9011,48 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 
 		const std::string& spike_date = spike.date;
 
-		// Subtract spike_delta from Counter for spike day and all subsequent days
+		// Estimate real daily production by summing sub-threshold Meter increments for
+		// this day. Spike jumps (> threshold_wh) are excluded, so only genuine increments
+		// are counted. Uses the same logic as the negative-spike handler below.
+		int64_t actual_production_wh = 0;
+		auto spike_day_rows = safe_query(
+			"SELECT Value FROM Meter WHERE (DeviceRowID='%" PRIu64 "') "
+			"AND (Date >= '%q 00:00:00') AND (Date < datetime('%q', '+1 day')) ORDER BY Date ASC",
+			idx, spike_date.c_str(), spike_date.c_str());
+		if (spike_day_rows.size() >= 2)
+		{
+			int64_t prev_val = 0;
+			try { prev_val = std::stoll(spike_day_rows[0][0]); } catch (...) {}
+			for (size_t i = 1; i < spike_day_rows.size(); i++)
+			{
+				int64_t cur_val = 0;
+				try { cur_val = std::stoll(spike_day_rows[i][0]); } catch (...) { continue; }
+				int64_t delta = cur_val - prev_val;
+				if (delta > 0 && delta < threshold_wh)
+					actual_production_wh += delta;
+				prev_val = cur_val;
+			}
+			results.push_back(std_format("Spike day %s: real production %.3f kWh, spike component %.3f kWh",
+				spike_date.c_str(), actual_production_wh / 1000.0, (spike.value - actual_production_wh) / 1000.0));
+		}
+		else
+		{
+			results.push_back(std_format("Spike day %s: no Meter data, zeroing calendar Value", spike_date.c_str()));
+		}
+
+		// Subtract only the spike component (anomaly minus real production) from the
+		// cumulative Counter for the spike day and all subsequent days.
+		int64_t spike_component = spike.value - actual_production_wh;
 		safe_query(
 			"UPDATE Meter_Calendar SET Counter = Counter - %" PRId64 " "
 			"WHERE (DeviceRowID='%" PRIu64 "') AND (Date >= '%q')",
-			spike.value, idx, spike_date.c_str());
+			spike_component, idx, spike_date.c_str());
 
-		// Zero out Value for the spike day itself
+		// Set Value for the spike day to the real estimated production (not 0).
 		safe_query(
-			"UPDATE Meter_Calendar SET Value = 0 "
+			"UPDATE Meter_Calendar SET Value = %" PRId64 " "
 			"WHERE (DeviceRowID='%" PRIu64 "') AND (Date = '%q')",
-			idx, spike_date.c_str());
-
-		// Subtract spike_delta from cumulative counter Values in the short log
-		safe_query(
-			"UPDATE Meter SET Value = MAX(0, Value - %" PRId64 ") "
-			"WHERE (DeviceRowID='%" PRIu64 "') AND (Date >= '%q 00:00:00')",
-			spike.value, idx, spike_date.c_str());
+			actual_production_wh, idx, spike_date.c_str());
 	}
 
 	// --- Fix negative spikes in Meter_Calendar (counter reset stored without offset correction) ---
@@ -9055,7 +9094,6 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 				}
 				catch (const std::exception&)
 				{
-					prev_val = cur_val;
 					continue;
 				}
 				int64_t delta = cur_val - prev_val;
@@ -9079,6 +9117,7 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 	}
 
 	// --- Fix positive spikes found in recent Meter short log (current period, not yet in Meter_Calendar) ---
+	// Apply each per-jump spike correction to the Meter shortlog.
 	for (const auto& ms : meter_spikes)
 	{
 		if (!ms.is_positive)
@@ -9091,9 +9130,12 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 			ms.delta, idx, ms.date.c_str());
 	}
 
-	// Correct DeviceStatus: fix sValue total and LastLevel for positive spikes only.
-	// Negative spikes do not affect the current sValue (the live counter is already correct).
-	if (total_positive_delta_wh > 0)
+	// Correct DeviceStatus: fix sValue total and LastLevel.
+	// Use total_meter_spike_delta_wh (sum of per-jump corrections Phase 2 applied to the
+	// shortlog) so the DeviceStatus correction matches the corrected Meter value exactly.
+	// Negative calendar spikes do not affect the current sValue (the live counter is correct).
+	int64_t total_shortlog_correction_wh = total_meter_spike_delta_wh;
+	if (total_shortlog_correction_wh > 0)
 	{
 		auto devstatus = safe_query("SELECT sValue, LastLevel FROM DeviceStatus WHERE (ID='%" PRIu64 "')", idx);
 		if (!devstatus.empty())
@@ -9116,7 +9158,7 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 				double total_wh = atof(sValue.substr(pos + 1).c_str());
 				if (usage >= 0 && total_wh >= 0)
 				{
-					double new_total_wh = std::max(0.0, total_wh - static_cast<double>(total_positive_delta_wh));
+					double new_total_wh = std::max(0.0, total_wh - static_cast<double>(total_shortlog_correction_wh));
 					std::string new_svalue = std_format("%.3f;%.3f", usage, new_total_wh);
 
 					// Only correct LastLevel if it was inflated by a post-spike reset confirmation.
@@ -9124,7 +9166,7 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 					// the inflated post-spike value as the new offset; subtract the spike delta.
 					int64_t new_last_level = last_level;
 					if (last_level > static_cast<int64_t>(std::floor(new_total_wh)))
-						new_last_level = std::max(int64_t(0), last_level - total_positive_delta_wh);
+						new_last_level = std::max(int64_t(0), last_level - total_shortlog_correction_wh);
 
 					safe_query(
 						"UPDATE DeviceStatus SET sValue='%q', LastLevel='%" PRId64 "' WHERE (ID='%" PRIu64 "')",
@@ -9137,14 +9179,34 @@ bool CSQLHelper::FixKwhCounterSpikes(uint64_t idx, double max_daily_kwh, bool dr
 		}
 	}
 
-	_log.Log(LOG_STATUS, "FixKwhCounterSpikes: device %" PRIu64 " corrected %d spike(s), total -%.3f kWh",
-		idx, static_cast<int>(spikes.size() + meter_spikes.size()), total_positive_delta_wh / 1000.0);
+	_log.Log(LOG_STATUS, "FixKwhCounterSpikes: device %" PRIu64 " corrected %d calendar spike(s), %d shortlog spike(s), shortlog correction -%.3f kWh",
+		idx, static_cast<int>(spikes.size()), static_cast<int>(meter_spikes.size()), total_meter_spike_delta_wh / 1000.0);
 
 	if (CKWHStats::RemoveSpikeStats(idx))
 		results.push_back("Weekly pattern: removed contaminated hourly/daily averages");
 	int pricesFixed = SanitizeCalendarData(idx);
 	if (pricesFixed > 0)
 		results.push_back(std_format("Fixed %d invalid price entries in calendar", pricesFixed));
+
+	// Immediately refresh the cached today-price so the month chart shows the correct
+	// "earned/costs" value without waiting for the next UpdateMeter() cycle (up to 5 min).
+	{
+		int tValue = 0;
+		float energyDivider = 1000.0F;
+		if (GetPreferencesVar("MeterDividerEnergy", tValue))
+			energyDivider = float(tValue);
+		time_t now = mytime(nullptr);
+		struct tm tm1;
+		localtime_r(&now, &tm1);
+		char szDateStart[40], szDateEnd[40];
+		sprintf(szDateStart, "%04d-%02d-%02d", tm1.tm_year + 1900, tm1.tm_mon + 1, tm1.tm_mday);
+		sprintf(szDateEnd, "%s 23:59:59", szDateStart);
+		float freshPrice = 0;
+		if (CalcMeterPrice(idx, energyDivider, szDateStart, szDateEnd, freshPrice))
+			m_actual_prices[idx] = freshPrice;
+		else
+			m_actual_prices.erase(idx);
+	}
 
 	return true;
 }
@@ -9758,7 +9820,7 @@ void CSQLHelper::DeleteDevices(const std::string& idx)
 #endif
 	{
 		//Avoid mutex deadlock here
-		std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+		std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 
 		char* errorMessage;
 		sqlite3_exec(m_dbase, "BEGIN TRANSACTION", nullptr, nullptr, &errorMessage);
@@ -9831,7 +9893,7 @@ void CSQLHelper::DeleteScenes(const std::string& idx)
 		return;
 	{
 		//Avoid mutex deadlock here
-		std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+		std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 
 		char* errorMessage;
 		sqlite3_exec(m_dbase, "BEGIN TRANSACTION", nullptr, nullptr, &errorMessage);
@@ -10334,7 +10396,7 @@ bool CSQLHelper::BackupDatabase(const std::string& OutputFile)
 	// Lightweight optimization — no VACUUM (too expensive for large databases
 	// and redundant since the backup API creates a compacted copy)
 	{
-		std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+		std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 		sqlite3_exec(m_dbase, "PRAGMA optimize;", nullptr, nullptr, nullptr);
 	}
 
@@ -10348,7 +10410,7 @@ bool CSQLHelper::BackupDatabase(const std::string& OutputFile)
 
 	// Initialize backup — must hold mutex while accessing m_dbase
 	{
-		std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+		std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 		pBackup = sqlite3_backup_init(pFile, "main", m_dbase, "main");
 	}
 
@@ -10366,7 +10428,7 @@ bool CSQLHelper::BackupDatabase(const std::string& OutputFile)
 	// Mutex is held only during each step, allowing other queries between steps.
 	do {
 		{
-			std::lock_guard<std::mutex> l(m_sqlQueryMutex);
+			std::lock_guard<std::timed_mutex> l(m_sqlQueryMutex);
 			rc = sqlite3_backup_step(pBackup, 256);
 		}
 

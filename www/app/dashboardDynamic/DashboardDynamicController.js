@@ -9,6 +9,7 @@ define([
     'dashboardDynamic/ddGrid',
     'dashboardDynamic/ddWidgetSettings.controller',
     'dashboardDynamic/ddWcpColor.directive',
+    'dashboardDynamic/ddStatBar.directive',
     'dashboardDynamic/ddDashboardManager.controller',
     'dashboardDynamic/ddExportImport.controller',
     'widgets/dzLightWidget',
@@ -63,9 +64,9 @@ define([
 
     app.controller('DashboardDynamicController', [
         '$scope', '$timeout', '$interval', '$document', '$location', '$route', '$uibModal', '$q', '$http',
-        'dashboardDynamicService', 'widgetRegistry', 'ddToast', 'bootbox',
+        'dashboardDynamicService', 'widgetRegistry', 'ddToast', 'bootbox', 'livesocket',
         function($scope, $timeout, $interval, $document, $location, $route, $uibModal, $q, $http,
-                 dashboardDynamicService, widgetRegistry, ddToast, bootbox) {
+                 dashboardDynamicService, widgetRegistry, ddToast, bootbox, livesocket) {
 
         // One-time migration of legacy localStorage keys
         try {

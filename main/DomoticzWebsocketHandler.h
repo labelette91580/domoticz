@@ -5,7 +5,11 @@
 #include "../push/WebsocketPush.h"
 #include "StoppableTask.h"
 #include <thread>
+#include <atomic>
 #include <mutex>
+#include <condition_variable>
+#include <set>
+#include <vector>
 #include <memory>
 #include <map>
 #include <string>
@@ -48,15 +52,25 @@ namespace http
 			bool HandleRequest(const std::string& szEvent, const Json::Value& value, bool outbound);
 			bool HandleSubscribe(const std::string& szEvent, const Json::Value& value, bool outbound);
 			bool HandleUnsubscribe(const std::string& szEvent, const Json::Value& value, bool outbound);
+			bool HandleUnsubscribeDevices(const Json::Value& value, bool outbound);
 			bool isSubscribed(const std::string& szTopic);
 			std::map<std::string, bool> m_subscribed_topics;
 			std::map<uint64_t, bool> m_subscribed_devices;
 			std::mutex m_subscribe_mutex;
+			std::mutex m_subscribed_devices_mutex;
+			std::atomic<bool> m_device_updates_active = true;
 
 			void SendDateTime();
-			std::shared_ptr<std::thread> m_thread;
-			std::mutex m_mutex;
+			void ProcessDeviceUpdates(const std::vector<uint64_t>& deviceIndices);
+			void ProcessSceneUpdate(uint64_t SceneRowIdx);
 			void Do_Work();
+			std::shared_ptr<std::thread> m_thread;
+			std::atomic<bool> m_started = false;
+			std::atomic<bool> m_stop_requested = false;
+			std::mutex m_pending_mutex;
+			std::condition_variable m_pending_cv;
+			std::set<uint64_t> m_pending_device_updates;
+			std::set<uint64_t> m_pending_scene_updates;
 		};
 
 	} // namespace server

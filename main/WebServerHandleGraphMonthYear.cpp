@@ -8,6 +8,7 @@
  */
 
 #include "stdafx.h"
+#include <set>
 #include "WebServer.h"
 #include "WebServerHandleGraphInternals.h"
 
@@ -1871,7 +1872,7 @@ static void HandleGraphMonthYear_Counter(
 		if (!sgroupby.empty())
 		{
 			root["title"] = "Comparing " + sensor;
-			webserver.MakeCompareDataSensor(root, sgroupby, dbasetable, idx, "Value3", 10.0);
+			webserver.MakeCompareDataSensor(root, sgroupby, dbasetable, idx, "Value3", 1.0);
 			if (sql.m_weightscale != 1.0)
 			{
 				for (auto& itt : root["result"])
@@ -2432,6 +2433,19 @@ void HandleGraphMonthYear(const GraphContext& ctx, const request& req,
 				{
 					root["title"] = "Comparing " + sensor;
 					std::string var_name = request::findValue(&req, "var_name");
+					static const std::set<std::string> allowedFields = {
+						"Temp_Min", "Temp_Max", "Temp_Avg",
+						"Chill_Min", "Chill_Max",
+						"Humidity",
+						"Barometer",
+						"DewPoint",
+						"SetPoint_Min", "SetPoint_Max", "SetPoint_Avg"
+					};
+					if (allowedFields.find(var_name) == allowedFields.end())
+					{
+						root["status"] = "ERR";
+						return;
+					}
 					webserver.MakeCompareDataSensor(root, sgroupby, dbasetable, idx, var_name);
 
 					if (sensor == "temp")

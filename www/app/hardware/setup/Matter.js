@@ -26,6 +26,9 @@ define(['app'], function (app) {
 			$element.find('a[data-target="#mattertabneighbours"]').on('shown.bs.tab', function () {
 				RefreshNetworkGraph();
 			});
+			$element.find('a[data-target="#mattertabsettings"]').on('shown.bs.tab', function () {
+				RefreshServerInfo();
+			});
 		};
 
 		function setNodeButtonsEnabled(enabled) {
@@ -74,19 +77,50 @@ define(['app'], function (app) {
 
 				if (typeof data.result !== 'undefined') {
 					$.each(data.result, function (i, item) {
+						var isController = item.RoutingRole === 7;
+
 						var now = Math.floor(Date.now() / 1000);
 						var oneHourAgo = now - 3600;
-						var statusOk = item.available && item.LastSeenTimestamp >= oneHourAgo;
+						var statusOk = isController
+							? item.available
+							: item.available && item.LastSeenTimestamp >= oneHourAgo;
 
 						var tdStatus = $('<td align="center"></td>');
 						tdStatus.append($('<img>').attr('src', statusOk ? 'images/ok.png' : 'images/failed.png'));
 
+						// Battery cell
+						var tdBattery = $('<td align="center"></td>');
+						if (item.Battery !== undefined && item.Battery !== null) {
+							var batPct = item.Battery;
+							var batClass = batPct < 10 ? 'empty' : batPct < 40 ? 'half' : 'full';
+							var batWidth = Math.ceil(batPct * 14 / 100);
+							tdBattery.append($('<div></div>').attr({ class: 'battery ' + batClass, title: $.t('Battery level') + ': ' + batPct + '%' }).css('width', batWidth + 'px'));
+						}
+
+						// RSSI cell (dBm) — Thread RSSI typically -100 to -30 dBm
+						var tdLqi = $('<td align="center"></td>');
+						if (item.RSSI !== undefined && item.RSSI !== null) {
+							var rssi = item.RSSI;
+							var rssiColor = rssi >= -70 ? '#4CAF50' : rssi >= -85 ? '#FF9800' : '#F44336';
+							tdLqi.append($('<span></span>').css('color', rssiColor).text(rssi));
+						}
+
+						var $infoIcon = $('<i class="fa fa-info-circle lcursor"></i>').css('color', 'var(--dz-accent-color)');
+						$infoIcon.on('click', function (e) {
+							e.stopPropagation();
+							showNodeDetailPopup(item);
+						});
+						var $nodeIdTd = $('<td></td>');
+						$nodeIdTd.append($infoIcon).append(' ').append(document.createTextNode(item.NodeID));
+
 						var trow = $('<tr class="lcursor"></tr>');
-						$('<td align="center"></td>').text(item.NodeID).appendTo(trow);
+						$nodeIdTd.appendTo(trow);
 						$('<td></td>').text(item.DeviceNames || '').appendTo(trow);
 						$('<td></td>').text(item.VendorName).appendTo(trow);
 						$('<td></td>').text(item.ProductName).appendTo(trow);
 						$('<td></td>').text(item.LastSeen).appendTo(trow);
+						tdBattery.appendTo(trow);
+						tdLqi.appendTo(trow);
 						tdStatus.appendTo(trow);
 
 						trow.data('nodeId', item.NodeID);
@@ -94,7 +128,7 @@ define(['app'], function (app) {
 							$('#matterNodeTable tbody tr').removeClass('row_selected');
 							$(this).addClass('row_selected');
 							selectedNodeId = $(this).data('nodeId');
-							setNodeButtonsEnabled(true);
+							if (!isController) setNodeButtonsEnabled(true);
 						});
 
 						trow.appendTo(tbody);
@@ -111,6 +145,69 @@ define(['app'], function (app) {
 				oNodeTable = $('#matterNodeTable').DataTable(oTableSettings);
 			}).fail(function () {
 				bootbox.alert($.t('Error retrieving Matter nodes'));
+			});
+		}
+
+		function showNodeDetailPopup(item) {
+			function fmtUptime(s) {
+				if (!s) return '-';
+				var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+				var parts = [];
+				if (d) parts.push(d + 'd');
+				if (h) parts.push(h + 'h');
+				if (m || !parts.length) parts.push(m + 'm');
+				return parts.join(' ');
+			}
+			var isController = item.RoutingRole === 7;
+			var roleNames = ['Unspecified','Unassigned','SleepyEndDevice','EndDevice','REED','Router','Leader','Controller'];
+			var roleName = roleNames[item.RoutingRole] || 'Unknown';
+
+			var rows;
+			if (isController) {
+				rows = [
+					['Node ID',              item.NodeID],
+					['SDK Version',          item.SoftwareVersion || '-'],
+					['Role',                 roleName],
+					['Fabric ID',            item.FabricId || '-'],
+					['Compressed Fabric ID', item.CompressedFabricId || '-'],
+					['WiFi Credentials',     item.WifiCredentialsSet ? $.t('Set') : $.t('Not set')],
+					['Thread Credentials',   item.ThreadCredentialsSet ? $.t('Set') : $.t('Not set')],
+				];
+			} else {
+				rows = [
+					['Node ID',          item.NodeID],
+					['Vendor',           item.VendorName + (item.VendorId ? ' (' + item.VendorId + ')' : '')],
+					['Product',          item.ProductName + (item.ProductId ? ' (' + item.ProductId + ')' : '')],
+					['Hardware Version', item.HardwareVersion || '-'],
+					['Software Version', item.SoftwareVersion || '-'],
+					['Role',             roleName],
+					['Uptime',           fmtUptime(item.Uptime)],
+					['Last Seen',        item.LastSeen || '-'],
+				];
+				if (item.Battery !== undefined && item.Battery !== null)
+					rows.push(['Battery', item.Battery + '%']);
+				if (item.LQI !== undefined && item.LQI !== null)
+					rows.push(['LQI', item.LQI]);
+				if (item.RSSI !== undefined && item.RSSI !== null)
+					rows.push(['RSSI', item.RSSI + ' dBm']);
+				if (item.IPAddresses)
+					rows.push(['IP Addresses', item.IPAddresses.split(', ').join('<br>')]);
+			}
+
+			var tbl = '<table class="table table-condensed table-bordered" style="margin-bottom:0;user-select:text">';
+			$.each(rows, function (i, r) {
+				tbl += '<tr><td style="width:140px;font-weight:bold">' + $.t(r[0]) + '</td><td>' + r[1] + '</td></tr>';
+			});
+			tbl += '</table>';
+
+			var title = isController
+				? $.t('Controller') + ' — ' + (item.SoftwareVersion || '')
+				: $.t('Node') + ' ' + item.NodeID + ' — ' + item.VendorName + ' ' + item.ProductName;
+
+			bootbox.dialog({
+				title: title,
+				message: tbl,
+				buttons: { ok: { label: $.t('Close'), className: 'btn-default' } }
 			});
 		}
 
@@ -234,6 +331,55 @@ define(['app'], function (app) {
 			RefreshMatterNodeTable();
 		};
 
+		function RefreshServerInfo() {
+			$.ajax({
+				url: 'json.htm?type=command&param=mattergetserverinfo&idx=' + hwIdx,
+				async: true,
+				dataType: 'json'
+			}).done(function (data) {
+				if (data.status !== 'OK') return;
+				$('#matter_sdk_version').text(data.SdkVersion || '-');
+				$('#matter_fabric_id').text(data.FabricId || '-');
+				$('#matter_compressed_fabric_id').text(data.CompressedFabricId || '-');
+				$('#matter_wifi_set').text(data.WifiCredentialsSet ? $.t('Configured') : $.t('Not configured'));
+				$('#matter_thread_set').text(data.ThreadCredentialsSet ? $.t('Configured') : $.t('Not configured'));
+				if (data.FabricLabel) $('#matter_fabric_label').val(data.FabricLabel);
+			});
+		}
+
+		$ctrl.setWifiCredentials = function () {
+			var ssid  = $('#matter_wifi_ssid').val().trim();
+			var creds = $('#matter_wifi_password').val();
+			if (!ssid) { bootbox.alert($.t('Please enter WiFi SSID')); return; }
+			matterAjax(
+				'json.htm?type=command&param=mattersetwificredentials&idx=' + hwIdx +
+					'&ssid=' + encodeURIComponent(ssid) + '&credentials=' + encodeURIComponent(creds),
+				function () { bootbox.alert($.t('WiFi credentials set')); RefreshServerInfo(); },
+				'Set WiFi credentials failed'
+			);
+		};
+
+		$ctrl.setThreadDataset = function () {
+			var dataset = $('#matter_thread_dataset').val().trim();
+			if (!dataset) { bootbox.alert($.t('Please enter Thread dataset')); return; }
+			matterAjax(
+				'json.htm?type=command&param=mattersetthreaddataset&idx=' + hwIdx +
+					'&dataset=' + encodeURIComponent(dataset),
+				function () { bootbox.alert($.t('Thread dataset set')); RefreshServerInfo(); },
+				'Set Thread dataset failed'
+			);
+		};
+
+		$ctrl.setFabricLabel = function () {
+			var label = $('#matter_fabric_label').val().trim();
+			matterAjax(
+				'json.htm?type=command&param=mattersetfabriclabel&idx=' + hwIdx +
+					'&label=' + encodeURIComponent(label),
+				function () { bootbox.alert($.t('Fabric label set')); },
+				'Set fabric label failed'
+			);
+		};
+
 		$ctrl.refreshNetworkGraph = function () {
 			RefreshNetworkGraph();
 		};
@@ -275,11 +421,9 @@ define(['app'], function (app) {
 						aaSorting: [[0, 'asc']],
 						iDisplayLength: 50,
 						createdRow: function (row, data) {
-							// data[0] is NodeID; legendNodeMap is always current when draw() fires
 							var node = legendNodeMap[String(data[0])];
-							if (node && node.isBorderRouter) {
-								$(row).css('color', '#888');
-							}
+							if (!node) return;
+							$(row).css('color', roleColor(node.RoutingRole));
 						}
 					});
 				} else {
@@ -325,6 +469,39 @@ define(['app'], function (app) {
 			return m;
 		}
 
+		function roleColor(r) {
+			if (r === 7)                            return '#FFA726';
+			if (r === 6 || r === 5 || r === 4)      return '#42A5F5';
+			if (r === 2)                            return '#7E57C2';
+			if (r === 3)                            return '#26C6DA';
+			return '#90A4AE';
+		}
+
+		function buildNodeTipHtml(id, nodeMap, edges) {
+			var n = nodeMap[String(id)];
+			if (!n) return String(id);
+			var html = '<b>' + n.NodeID + ' ' + n.Name + ' (' + n.RoleName + ')</b>';
+			if (n.FabricLabel) html += '<br>' + $.t('Fabric') + ': ' + n.FabricLabel;
+			else if (n.FabricId) html += '<br>' + $.t('Fabric ID') + ': ' + n.FabricId;
+			var peerBest = {};
+			$.each(edges, function (i, e) {
+				var f = String(e.from), t = String(e.to);
+				if (f !== String(id) && t !== String(id)) return;
+				var other = f === String(id) ? t : f;
+				if (!peerBest[other] || (!e.fromRoute && peerBest[other].fromRoute)) peerBest[other] = e;
+			});
+			var links = [];
+			$.each(peerBest, function (other, e) {
+				var om = nodeMap[other];
+				var line = om ? (om.NodeID + ' ' + om.Name) : other;
+				line += '&nbsp;&nbsp;LQI: ' + (e.lqi || 0);
+				if (!e.fromRoute && e.rssi !== undefined) line += '&nbsp;&nbsp;RSSI: ' + e.rssi + ' dBm';
+				links.push(line);
+			});
+			if (links.length) html += '<hr style="margin:4px 0;border-color:#555">' + links.join('<br>');
+			return html;
+		}
+
 		function edgeTooltipLine(edgeMap, from, to) {
 			var e = edgeMap[String(from) + '|' + String(to)];
 			if (!e) return '';
@@ -342,7 +519,7 @@ define(['app'], function (app) {
 			var edgeMap = buildEdgeMap(edges);
 			var datachart = [];
 			$.each(edges, function (i, edge) {
-				var weight = edge.lqi > 0 ? Math.round(edge.lqi / 25.5) : 1;
+				var weight = edge.lqi > 0 ? edge.lqi : 1;
 				datachart.push({ from: String(edge.from), to: String(edge.to), weight: weight || 1 });
 			});
 			var seenIds = {};
@@ -360,8 +537,7 @@ define(['app'], function (app) {
 				tooltip: {
 					enabled: true,
 					nodeFormatter: function () {
-						var n = nodeMap[String(this.id)];
-						return n ? '<b>' + n.Name + '</b><br>' + n.RoleName : String(this.id);
+						return buildNodeTipHtml(this.id, nodeMap, edges);
 					},
 					pointFormatter: function () {
 						var from = nodeMap[String(this.from)];
@@ -398,7 +574,7 @@ define(['app'], function (app) {
 				position: 'absolute', background: 'rgba(15,20,35,0.88)', color: '#eee',
 				padding: '6px 10px', borderRadius: '5px', fontSize: '12px',
 				pointerEvents: 'none', display: 'none', zIndex: 10,
-				maxWidth: '220px', lineHeight: '1.6', boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
+				lineHeight: '1.6', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
 			}).appendTo($chart);
 
 			var width  = $chart.width()  || 700;
@@ -420,22 +596,17 @@ define(['app'], function (app) {
 				vel[id] = { x: 0, y: 0 };
 			});
 
-			var LQI_GOOD = 200, LQI_OK = 100;
 			function lqiColor(lqi) {
-				if (lqi > LQI_GOOD) return '#4CAF50';
-				if (lqi > LQI_OK)   return '#FF9800';
+				if (lqi >= 3) return '#4CAF50';
+				if (lqi >= 2) return '#FF9800';
 				return '#F44336';
 			}
 
 			function nodeColors(node) {
-				if (node.isBorderRouter)      return { fill: '#FFA726', stroke: '#E65100', text: '#fff' };
 				var r = node.RoutingRole;
-				if (r === 6)                  return { fill: '#FFD54F', stroke: '#F57F17', text: '#222' };  // Leader: gold
-				if (r === 5)                  return { fill: '#42A5F5', stroke: '#1565C0', text: '#fff' };  // Router: blue
-				if (r === 4)                  return { fill: '#7E57C2', stroke: '#4527A0', text: '#fff' };  // REED: purple
-				if (r === 3)                  return { fill: '#00BCD4', stroke: '#006064', text: '#fff' };  // EndDevice: cyan
-				if (r === 2)                  return { fill: '#26C6DA', stroke: '#00838F', text: '#fff' };  // SleepyEndDevice: light cyan
-				return { fill: '#90A4AE', stroke: '#546E7A', text: '#fff' };
+				var c = roleColor(r);
+				var strokes = { '#FFA726': '#E65100', '#42A5F5': '#1565C0', '#7E57C2': '#4527A0', '#26C6DA': '#00838F', '#90A4AE': '#546E7A' };
+				return { fill: c, stroke: strokes[c] || '#546E7A', text: '#fff' };
 			}
 
 			var NR = 24; // node radius
@@ -593,28 +764,8 @@ define(['app'], function (app) {
 			}
 
 			function showNodeTip(id, px, py) {
-				var n = nodeMap[id];
-				if (!n) return;
-				var html = '<b>' + n.Name + '</b><br><i>' + n.RoleName + '</i>';
-				// Collect per-peer best edge (neighbor preferred over route)
-				var peerBest = {};
-				$.each(edges, function (i, e) {
-					var f = String(e.from), t = String(e.to);
-					if (f !== id && t !== id) return;
-					var other = f === id ? t : f;
-					if (!peerBest[other] || (!e.fromRoute && peerBest[other].fromRoute)) {
-						peerBest[other] = e;
-					}
-				});
-				var links = [];
-				$.each(peerBest, function (other, e) {
-					var om = nodeMap[other];
-					var line = (om ? om.Name : other) + ': LQI ' + (e.lqi || 0);
-					if (!e.fromRoute && e.rssi !== undefined) line += ', RSSI ' + e.rssi + ' dBm';
-					links.push(line);
-				});
-				if (links.length) html += '<hr style="margin:3px 0;border-color:#555">' + links.join('<br>');
-				positionTip(html, px, py);
+				if (!nodeMap[id]) return;
+				positionTip(buildNodeTipHtml(id, nodeMap, edges), px, py);
 			}
 
 			function showEdgeTip(edge, px, py) {

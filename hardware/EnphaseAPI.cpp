@@ -36,12 +36,11 @@ static constexpr int ENPHASE_RESET_CONFIRM_COUNT = 5;
 // Maximum drop (kWh) that is still considered normal noise / rounding error.
 static constexpr double ENPHASE_RESET_TOLERANCE_KWH = 0.5;
 
-// If the reading immediately after a confirmed reset is larger than this
-// fraction of the pre-reset lifetime, treat the "reset" as a false positive
-// caused by a temporary communications glitch and revert the offset.
-// 1 % of 27 498 kWh ≈ 275 kWh; a genuine post-reset reading cannot exceed
-// ~0.4 kWh in the 2.5 minutes the confirmation window takes at max output.
-static constexpr double ENPHASE_FALSE_POSITIVE_RATIO = 0.01;
+// Minimum upward jump (kWh) in one reading that is treated as a spurious spike.
+// Enphase Envoy firmware updates sometimes retroactively recalculate whLifetime,
+// causing sudden large upward steps that are not real production increments.
+// 1000 kWh far exceeds any legitimate single-reading increment for solar panels.
+static constexpr double ENPHASE_UPWARD_SPIKE_KWH = 1000.0;
 
 // Processes one whLifetime reading (in kWh) through the counter tracker and
 // returns the corrected cumulative total to pass to SendKwhMeter.
@@ -64,11 +63,23 @@ static double ProcessEnphaseCounter(EnphaseCounterTracker& tracker, const double
 	if (tracker.justConfirmed)
 	{
 		tracker.justConfirmed = false;
-		if (tracker.preResetTotal > 0.0 && rawKwh > tracker.preResetTotal * ENPHASE_FALSE_POSITIVE_RATIO)
+		// Guard: a firmware recalibration spike can coincide with a counter reset.
+		// Check before the spurious-reset-cancel test so it cannot slip through.
+		double postResetCandidate = tracker.offset + rawKwh;
+		if (postResetCandidate > tracker.lastGoodTotal + ENPHASE_UPWARD_SPIKE_KWH)
 		{
-			// The value jumped back close to the old lifetime total immediately
-			// after the "reset" was confirmed – this was a communications glitch,
-			// not a real Envoy reset.  Undo the offset and resume normally.
+			_log.Log(LOG_STATUS, "EnphaseAPI %s: upward spike of +%.1f kWh detected in post-reset reading "
+				"(%.3f -> %.3f kWh), applying offset correction to maintain continuity",
+				deviceLabel, postResetCandidate - tracker.lastGoodTotal,
+				tracker.lastGoodTotal, postResetCandidate);
+			tracker.offset = tracker.lastGoodTotal - rawKwh;
+			return tracker.lastGoodTotal;
+		}
+		if (tracker.preResetTotal > 0.0 && rawKwh > tracker.preResetTotal - ENPHASE_RESET_TOLERANCE_KWH)
+		{
+			// The value recovered to within tolerance of the old lifetime total –
+			// this was a communications glitch, not a real Envoy reset.
+			// Undo the offset and resume normally.
 			_log.Log(LOG_STATUS, "EnphaseAPI %s: spurious reset cancelled (recovered to %.3f kWh, pre-reset was %.3f kWh), reverting offset",
 				deviceLabel, rawKwh, tracker.preResetTotal);
 			tracker.offset          = 0.0;
@@ -85,6 +96,24 @@ static double ProcessEnphaseCounter(EnphaseCounterTracker& tracker, const double
 	}
 
 	double candidateTotal = tracker.offset + rawKwh;
+
+	// Detect impossibly large upward jumps (e.g. Envoy firmware retroactively
+	// recalculates whLifetime history).  Apply a negative offset so the adjusted
+	// total stays continuous.  On the very next poll rawKwh will be
+	// (old_rawKwh + tiny_increment), so candidateTotal collapses back to
+	// lastGoodTotal + tiny_increment and normal tracking resumes automatically.
+	// If this was a one-poll glitch (value recovers below lastGoodTotal), the
+	// resulting drop is caught by the downward-reset path below and unwound via
+	// the spurious-reset-cancel logic in the justConfirmed branch.
+	if (candidateTotal > tracker.lastGoodTotal + ENPHASE_UPWARD_SPIKE_KWH)
+	{
+		_log.Log(LOG_STATUS, "EnphaseAPI %s: upward spike of +%.1f kWh detected "
+			"(%.3f -> %.3f kWh), applying offset correction to maintain continuity",
+			deviceLabel, candidateTotal - tracker.lastGoodTotal,
+			tracker.lastGoodTotal, candidateTotal);
+		tracker.offset = tracker.lastGoodTotal - rawKwh;
+		return tracker.lastGoodTotal;
+	}
 
 	if (candidateTotal >= tracker.lastGoodTotal - ENPHASE_RESET_TOLERANCE_KWH)
 	{
@@ -129,21 +158,7 @@ static double ProcessEnphaseCounter(EnphaseCounterTracker& tracker, const double
 #define ENPHASE_API_ENSEMBLE_POWER "{ip}/ivp/ensemble/power"
 #define ENPHASE_API_TARIFF "{ip}/admin/lib/tariff"
 
-/*
-#define ENPAHSE_API_LIMIT_POWER "{ip}/ivp/ss/dpel"
-with data:
-{
-	"dynamic_pel_settings": {
-		"enable": true,
-		"export_limit": true,
-		"limit_value_W": 250.0,
-		"slew_rate": 50.0,
-		"enable_dynamic_limiting": false.
-	},
-	"filename": "site_settings",
-	"version": "00.00.01".
-}
-*/
+#define ENPHASE_API_DPEL "{ip}/ivp/ss/dpel"
 
 //3 August 2025, found a great website with all the API endpoints: https://github.com/Matthew1471/Enphase-API
 
@@ -449,6 +464,13 @@ bool EnphaseAPI::WriteToHardware(const char* pdata, const unsigned char length)
 	{
 		//Charge from Grid on/off
 		SetChargeFromGrid(command == light2_sOn);
+		return true;
+	}
+
+	if (Unit == 4)
+	{
+		//Power Export Limit enable/disable
+		SetPowerExportLimit(command == light2_sOn);
 		return true;
 	}
 
@@ -1694,6 +1716,58 @@ bool EnphaseAPI::SetChargeFromGrid(const bool bEnable)
 
 	// Clear cached tariff so next poll re-reads from device
 	m_szLastTariffData.clear();
+	return true;
+}
+
+bool EnphaseAPI::SetPowerExportLimit(const bool bEnable, const float fLimitW)
+{
+	if (m_szTokenInstaller.empty())
+	{
+		GetInstallerToken();
+	}
+	if (m_szTokenInstaller.empty())
+	{
+		Log(LOG_ERROR, "Problem with (no) installer token! Could not execute command! (dpel)");
+		return false;
+	}
+
+	if (!CheckAuthJWT(m_szTokenInstaller, false))
+	{
+		if (!GetInstallerToken())
+			return false;
+		if (!CheckAuthJWT(m_szTokenInstaller, true))
+			return false;
+	}
+
+	if (fLimitW >= 0.0F)
+		m_fPELLimitW = fLimitW;
+
+	Json::Value jSettings;
+	jSettings["enable"] = bEnable;
+	jSettings["export_limit"] = false;
+	jSettings["limit_value_W"] = m_fPELLimitW;
+	jSettings["slew_rate"] = m_fPELSlewRate;
+	jSettings["enable_dynamic_limiting"] = false;
+
+	Json::Value jdata;
+	jdata["dynamic_pel_settings"] = jSettings;
+	jdata["filename"] = "site_settings";
+	jdata["version"] = "00.00.01";
+
+	std::string szPostdata = JSonToRawString(jdata);
+
+	std::vector<std::string> ExtraHeaders;
+	ExtraHeaders.push_back("Accept: application/json");
+	ExtraHeaders.push_back("Authorization: Bearer " + m_szTokenInstaller);
+	ExtraHeaders.push_back("Content-Type: application/json");
+
+	std::string sResult;
+	if (!HTTPClient::POST(MakeURL(ENPHASE_API_DPEL), szPostdata, ExtraHeaders, sResult))
+	{
+		Log(LOG_ERROR, "Error setting http data! (dpel)");
+		return false;
+	}
+	m_bPELEnabled = bEnable;
 	return true;
 }
 

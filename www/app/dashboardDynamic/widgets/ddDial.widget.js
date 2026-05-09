@@ -65,14 +65,14 @@ define([
                         type:    'number',
                         label:   'Min',
                         default: '',
-                        help:    'Scale min (leave empty for auto). Setpoint always uses device range.'
+                        help:    'Scale min (leave empty to use device range).'
                     },
                     {
                         key:     'maxVal',
                         type:    'number',
                         label:   'Max',
                         default: '',
-                        help:    'Scale max (leave empty for auto). Setpoint always uses device range.'
+                        help:    'Scale max (leave empty to use device range).'
                     }
                 ]
             },
@@ -255,8 +255,8 @@ define([
             },
             controllerAs:     'ctrl',
             bindToController: true,
-            controller: ['$scope', '$http', '$interval', '$q', '$rootScope',
-                function($scope, $http, $interval, $q, $rootScope) {
+            controller: ['$scope', '$http', '$q', '$rootScope',
+                function($scope, $http, $q, $rootScope) {
 
                 var ctrl = this;
 
@@ -304,7 +304,6 @@ define([
                 ctrl.switchType = '';
 
                 var cancelToken = null;
-                var timer       = null;
                 var _svgEl      = null;
 
                 function cfg() { return (ctrl.widgetDef && ctrl.widgetDef.config) || {}; }
@@ -604,8 +603,9 @@ define([
                         ctrl.deviceType      = 'setpoint';
                         ctrl.deviceProtected = d.Protected || false;
                         ctrl.deviceStep   = (d.step !== undefined) ? (parseFloat(d.step) || 0.5) : 0.5;
-                        ctrl.effectiveMin = (d.min  !== undefined) ? parseFloat(d.min) : 0;
-                        ctrl.effectiveMax = (d.max  !== undefined) ? parseFloat(d.max) : 100;
+                        var spMin = (d.min !== undefined) ? parseFloat(d.min) : 0;
+                        var spMax = (d.max !== undefined) ? parseFloat(d.max) : 100;
+                        applyConfigRange(spMin, spMax);
                         ctrl.unitStr      = (d.vunit !== undefined && d.vunit !== '') ? d.vunit : '\u00b0C';
                         var sp = parseFloat(d.SetPoint !== undefined ? d.SetPoint : d.Data);
                         ctrl.value    = isNaN(sp) ? null : sp;
@@ -638,10 +638,18 @@ define([
                     if (d.SwitchType && d.SwitchType !== 'Selector' && d.Status !== undefined) {
                         ctrl.deviceType      = 'switch';
                         ctrl.deviceProtected = d.Protected || false;
-                        ctrl.switchOn    = (d.Status === 'On');
                         ctrl.switchType  = d.SwitchType || '';
+                        if (ctrl.switchType === 'Push On Button') {
+                            ctrl.switchOn = true;
+                            ctrl.valueStr = $.t('On');
+                        } else if (ctrl.switchType === 'Push Off Button') {
+                            ctrl.switchOn = true;
+                            ctrl.valueStr = $.t('Off');
+                        } else {
+                            ctrl.switchOn = (d.Status === 'On');
+                            ctrl.valueStr = d.Status ? $.t(d.Status) : '--';
+                        }
                         ctrl.value       = ctrl.switchOn ? 1 : 0;
-                        ctrl.valueStr    = d.Status || '--';
                         ctrl.unitStr     = '';
                         ctrl.scaleTicks  = [];
                         return;
@@ -807,19 +815,39 @@ define([
                     if (ctrl.switchType === 'Push On Button')       { cmd = 'On'; }
                     else if (ctrl.switchType === 'Push Off Button') { cmd = 'Off'; }
                     else                                            { cmd = 'Toggle'; }
+
+                    // Capture expected state now — ctrl.switchOn may change via WS before .then() runs
+                    var expectedOn = (cmd === 'Toggle') ? !ctrl.switchOn : (cmd === 'On');
+
+                    // Push buttons: dim to muted briefly then restore (uses existing transition)
+                    if (ctrl.switchType === 'Push On Button' || ctrl.switchType === 'Push Off Button') {
+                        ctrl.switchOn = false;
+                        setTimeout(function() {
+                            $scope.$apply(function() {
+                                ctrl.switchOn = true;
+                                ctrl.valueStr = $.t(ctrl.switchType === 'Push Off Button' ? 'Off' : 'On');
+                            });
+                        }, 300);
+                    }
+
                     $http.get('json.htm', {
                         params: { type: 'command', param: 'switchlight',
                                   idx: cfg().deviceIdx, switchcmd: cmd,
                                   passcode: passcode || '' }
                     }).then(function(resp) {
                         if (resp.data && resp.data.status === 'OK') {
-                            if (cmd === 'Toggle') {
-                                ctrl.switchOn = !ctrl.switchOn;
+                            if (ctrl.switchType === 'Push On Button') {
+                                ctrl.valueStr = $.t('On');
+                                ctrl.value    = 1;
+                            } else if (ctrl.switchType === 'Push Off Button') {
+                                ctrl.valueStr = $.t('Off');
+                                ctrl.value    = 1;
                             } else {
-                                ctrl.switchOn = (cmd === 'On');
+                                ctrl.switchOn = expectedOn;
+                                ctrl.valueStr = expectedOn ? $.t('On') : $.t('Off');
+                                ctrl.value    = expectedOn ? 1 : 0;
+                                load();
                             }
-                            ctrl.value    = ctrl.switchOn ? 1 : 0;
-                            ctrl.valueStr = ctrl.switchOn ? 'On' : 'Off';
                         }
                         ctrl.sending = false;
                     }).catch(function() { ctrl.sending = false; });
@@ -1013,13 +1041,9 @@ define([
                     $document.off('mousemove touchmove', onDragMove);
                     $document.off('mouseup touchend',   onDragEnd);
                     if (cancelToken) { cancelToken.resolve(); cancelToken = null; }
-                    if (timer)       { $interval.cancel(timer); timer = null; }
                 });
 
-                ctrl.$onInit = function() {
-                    load();
-                    timer = $interval(load, 30000);
-                };
+                ctrl.$onInit = load;
             }],
             link: function(scope, element) {
                 // AngularJS 1.x has no ng-touchstart directive, so attach a

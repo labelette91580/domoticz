@@ -36,6 +36,7 @@
 #include "../hardware/ColorSwitch.h"
 #include <libwebem/Base64.h>
 #include "../main/RFXtrx.h"
+#include "../main/RFXNames.h"
 #include "../hardware/hardwaretypes.h"
 #include "../main/WebServerHandleGraphInternals.h"
 #include "../mcpserver/McpSseSession.h"
@@ -57,6 +58,37 @@ static std::string McpGetSessionIdFromRequest(const http::server::request& req)
 {
 	const char* hdr = req.get_req_header(&req, "Mcp-Session-Id");
 	return hdr ? std::string(hdr) : std::string{};
+}
+
+static bool McpIsValidSessionId(const std::string& sid)
+{
+	if (sid.empty() || sid.size() > 64)
+		return false;
+	return sid.find_first_not_of("0123456789abcdefABCDEF") == std::string::npos;
+}
+
+static std::string McpGetSessionIdFromQuery(const http::server::request& req)
+{
+	// Parse ?sessionId=xxx or &sessionId=xxx from the URI query string
+	const std::string& uri = req.uri;
+	auto qpos = uri.find('?');
+	if (qpos == std::string::npos)
+		return {};
+	std::string query = uri.substr(qpos + 1);
+	const std::string key = "sessionId=";
+	auto kpos = query.find(key);
+	if (kpos == std::string::npos)
+		return {};
+	std::string value = query.substr(kpos + key.size());
+	auto amp = value.find('&');
+	if (amp != std::string::npos)
+		value = value.substr(0, amp);
+	if (!McpIsValidSessionId(value))
+	{
+		_log.Debug(DEBUG_WEBSERVER, "MCP: Rejecting malformed sessionId in query: %s", uri.c_str());
+		return {};
+	}
+	return value;
 }
 
 static bool McpIsValidSubscriptionUri(const std::string& uri)
@@ -99,6 +131,16 @@ namespace http
 {
 	namespace server
 	{
+		void CWebServer::OptionsMcp(WebEmSession& session, const request& req, reply& rep)
+		{
+			rep.status = http::server::reply::ok;
+			http::server::reply::add_header(&rep, "Content-Length", "0");
+			http::server::reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
+			http::server::reply::add_header(&rep, "Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS");
+			http::server::reply::add_header(&rep, "Access-Control-Allow-Headers", "Content-Type, Accept, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID");
+			http::server::reply::add_header(&rep, "Access-Control-Max-Age", "86400");
+		}
+
 		void CWebServer::PostMcp(WebEmSession &session, const request &req, reply &rep)
 		{
 			if (g_bLlmMCPSupport == false)
@@ -118,13 +160,21 @@ namespace http
 				rep.content = JSonToRawString(errRep);
 				rep.status = reply::unauthorized;
 				reply::add_header(&rep, "Content-Type", "application/json");
+				// Wildcard CORS intentional: browser must be able to read the 401 error body.
+				// The MCP endpoint does not use cookies/credentials for CORS purposes.
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
 				return;
 			}
-			_log.Debug(DEBUG_RECEIVED, "MCP: Post (%d): %s (%s)", req.content_length, req.content.c_str(), req.uri.c_str());
-
 			if (req.method == "GET")
 			{
 				HandleMcpGet(session, req, rep);
+				return;
+			}
+			if (req.method == "HEAD")
+			{
+				rep.status = reply::ok;
+				reply::add_header(&rep, "Content-Type", "text/event-stream");
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
 				return;
 			}
 			if (req.method == "DELETE")
@@ -136,7 +186,18 @@ namespace http
 			{
 				_log.Debug(DEBUG_WEBSERVER, "MCP: Invalid method: %s", req.method.c_str());
 				rep = reply::stock_reply(reply::method_not_allowed);
-				reply::add_header(&rep, "Allow", "GET, POST, DELETE");
+				reply::add_header(&rep, "Allow", "GET, HEAD, POST, DELETE, OPTIONS");
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
+				return;
+			}
+
+			_log.Debug(DEBUG_RECEIVED, "MCP: Post (%d): %s (%s)", req.content_length, req.content.c_str(), req.uri.c_str());
+
+			// Empty-body POSTs are used as connection health checks by some MCP clients
+			if (req.content.empty())
+			{
+				rep = reply::stock_reply(reply::accepted);
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
 				return;
 			}
 
@@ -145,7 +206,9 @@ namespace http
 			if (req.get_req_header(&req, "Accept") != nullptr)
 			{
 				std::string accept = req.get_req_header(&req, "Accept");
-				if (accept.find("text/event-stream") == std::string::npos && accept.find("application/json") == std::string::npos)
+				if (accept.find("text/event-stream") == std::string::npos &&
+				    accept.find("application/json") == std::string::npos &&
+				    accept.find("*/*") == std::string::npos)
 				{
 					_log.Debug(DEBUG_WEBSERVER, "MCP: Invalid Accept header: %s", accept.c_str());
 					rep = reply::stock_reply(reply::bad_request);
@@ -189,9 +252,13 @@ namespace http
 			std::string sReqMethod = jsonRequest["method"].asString();
 			_log.Debug(DEBUG_WEBSERVER, "MCP: Request method: %s", sReqMethod.c_str());
 
+			// Detect legacy SSE mode: client uses ?sessionId= query param instead of Mcp-Session-Id header
+			std::string querySid = McpGetSessionIdFromQuery(req);
+			bool isLegacySse = !querySid.empty();
+
 			if (sReqMethod != "initialize")
 			{
-				std::string reqSid = McpGetSessionIdFromRequest(req);
+				std::string reqSid = isLegacySse ? querySid : McpGetSessionIdFromRequest(req);
 				if (reqSid.empty())
 				{
 					rep = reply::stock_reply(reply::bad_request);
@@ -206,12 +273,19 @@ namespace http
 				}
 			}
 
+			auto reply202 = [&rep]() {
+				rep = reply::stock_reply(reply::accepted);
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
+				reply::add_header(&rep, "Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS");
+				reply::add_header(&rep, "Access-Control-Allow-Headers", "Content-Type, Accept, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID");
+			};
+
 			if (sReqMethod.find("notifications/") != std::string::npos)
 			{
 				// Handle notifications, notifications don't have an ID and do not require a response
 				// MCP HTTP transport expects 202 Accepted (not 204 No Content) for notifications
 				_log.Debug(DEBUG_WEBSERVER, "MCP: Handling notification %s (do nothing).", sReqMethod.c_str());
-				rep = reply::stock_reply(reply::accepted);
+				reply202();
 				return;
 			}
 
@@ -254,6 +328,14 @@ namespace http
 			else if (sReqMethod == "initialize")
 			{
 				mcp::McpInitialize(jsonRequest, jsonRPCRep);
+				if (isLegacySse)
+				{
+					// Legacy SSE: session already created when GET established the SSE stream.
+					// Send result via SSE and return 202.
+					CMcpSessionRegistry::Instance().SendToSession(querySid, JSonToRawString(jsonRPCRep));
+					reply202();
+					return;
+				}
 				newSessionId = CMcpSessionRegistry::Instance().CreateSession(session);
 			}
 			else if (sReqMethod == "tools/list")
@@ -291,7 +373,7 @@ namespace http
 			else if (sReqMethod == "logging/setLevel")
 			{
 				std::string levelStr = jsonRequest["params"]["level"].asString();
-				std::string sid = McpGetSessionIdFromRequest(req);
+				std::string sid = isLegacySse ? querySid : McpGetSessionIdFromRequest(req);
 				if (!sid.empty())
 				{
 					// Clamp at 3 (error): clients cannot enable info/debug Domoticz log forwarding.
@@ -316,7 +398,7 @@ namespace http
 				}
 				else
 				{
-					std::string sid = McpGetSessionIdFromRequest(req);
+					std::string sid = isLegacySse ? querySid : McpGetSessionIdFromRequest(req);
 					if (!sid.empty())
 					{
 						CMcpSessionRegistry::Instance().WithSession(
@@ -328,7 +410,7 @@ namespace http
 			else if (sReqMethod == "resources/unsubscribe")
 			{
 				std::string uri = jsonRequest["params"]["uri"].asString();
-				std::string sid = McpGetSessionIdFromRequest(req);
+				std::string sid = isLegacySse ? querySid : McpGetSessionIdFromRequest(req);
 				if (!sid.empty())
 				{
 					CMcpSessionRegistry::Instance().WithSession(
@@ -342,14 +424,24 @@ namespace http
 				rep = reply::stock_reply(reply::not_implemented);
 				return;
 			}
-			// Set response content
-			rep.content = JSonToRawString(jsonRPCRep);
-			rep.status = reply::ok;
-
-			// Set headers
-			reply::add_header(&rep, "Content-Type", "application/json");	// "text/event-stream" is also an option if we want to support SSE
-			if (!newSessionId.empty())
-				reply::add_header(&rep, "Mcp-Session-Id", newSessionId.c_str());
+			// Set response
+			if (isLegacySse)
+			{
+				// Legacy SSE: send result via the SSE stream and return 202 Accepted
+				CMcpSessionRegistry::Instance().SendToSession(querySid, JSonToRawString(jsonRPCRep));
+				reply202();
+			}
+			else
+			{
+				// Streamable HTTP: return result directly in the POST response body
+				rep.content = JSonToRawString(jsonRPCRep);
+				rep.status = reply::ok;
+				reply::add_header(&rep, "Content-Type", "application/json");
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
+				reply::add_header(&rep, "Access-Control-Expose-Headers", "Mcp-Session-Id, Mcp-Protocol-Version");
+				if (!newSessionId.empty())
+					reply::add_header(&rep, "Mcp-Session-Id", newSessionId.c_str());
+			}
 			//reply::add_header(&rep, "Cache-Control", "no-cache");
 			//reply::add_header(&rep, "Connection", "keep-alive");
 		}
@@ -371,6 +463,7 @@ namespace http
 
 			if (sessionIdHdr != nullptr)
 			{
+				// Streamable HTTP: session already exists, look it up
 				bool found = CMcpSessionRegistry::Instance().WithSession(
 					sessionIdHdr, [](CMcpSession& s) { s.lastActivity = time(nullptr); });
 				if (!found)
@@ -379,20 +472,42 @@ namespace http
 					return;
 				}
 				mcpSessionId = sessionIdHdr;
+
+				// Build sse_context: "sessionId" or "sessionId:lastEventId"
+				const char* lastEventId = req.get_req_header(&req, "Last-Event-ID");
+				std::string sseContext = mcpSessionId;
+				if (lastEventId != nullptr)
+					sseContext = mcpSessionId + ":" + std::string(lastEventId);
+
+				rep.status = reply::sse_stream;
+				rep.sse_session = session;
+				rep.sse_context = sseContext;
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
+
+				_log.Debug(DEBUG_WEBSERVER, "MCP: Opening SSE stream for client %s (session: %s)",
+				           session.remote_host.c_str(), mcpSessionId.c_str());
 			}
+			else
+			{
+				// Legacy SSE transport: no session header — create new session and send endpoint event
+				std::string newSid = CMcpSessionRegistry::Instance().CreateSession(session);
 
-			// Build sse_context: "sessionId" or "sessionId:lastEventId"
-			const char* lastEventId = req.get_req_header(&req, "Last-Event-ID");
-			std::string sseContext = mcpSessionId;
-			if (lastEventId != nullptr && !mcpSessionId.empty())
-				sseContext = mcpSessionId + ":" + std::string(lastEventId);
+				// Build endpoint URL from the actual local socket address (not the Host header,
+				// which is client-supplied and could be spoofed).
+				std::string endpointUrl = "http://" + session.local_host + ":" + session.local_port + "/mcp?sessionId=" + newSid;
 
-			rep.status = reply::sse_stream;
-			rep.sse_session = session;
-			rep.sse_context = sseContext;
+				// context format: "legacy|<sessionId>|<endpointUrl>"
+				// Use '|' as separator — ':' cannot be used because the URL contains colons.
+				std::string sseContext = "legacy|" + newSid + "|" + endpointUrl;
 
-			_log.Debug(DEBUG_WEBSERVER, "MCP: Opening SSE stream for client %s (session: %s)",
-			           session.remote_host.c_str(), mcpSessionId.empty() ? "(anon)" : mcpSessionId.c_str());
+				rep.status = reply::sse_stream;
+				rep.sse_session = session;
+				rep.sse_context = sseContext;
+				reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
+
+				_log.Debug(DEBUG_WEBSERVER, "MCP: Opening legacy SSE stream for client %s (new session: %s)",
+				           session.remote_host.c_str(), newSid.c_str());
+			}
 		}
 
 		void CWebServer::HandleMcpDelete(WebEmSession& /*session*/, const request& req, reply& rep)
@@ -401,6 +516,7 @@ namespace http
 			if (sessionIdHdr != nullptr)
 				CMcpSessionRegistry::Instance().RemoveSession(sessionIdHdr);
 			rep = reply::stock_reply(reply::ok);
+			reply::add_header(&rep, "Access-Control-Allow-Origin", "*");
 		}
 
 	} // namespace server
@@ -563,9 +679,11 @@ namespace mcp		// Model Context Protocol
 		{
 			"get_all_devices",
 			"List all devices",
-			"Return a list of all used devices in the system, optionally filtered by category. Use this to discover all available devices.",
+			"Return a list of devices in the system, optionally filtered by category and/or hardware. Use this to discover all available devices.",
 			{
 				{ "filter", "string", "Optional category filter: light, temp, weather, utility (leave empty for all)", false, {} },
+				{ "hw_idx", "integer", "Optional hardware IDX to return only devices belonging to that hardware adapter", false, {} },
+				{ "include_unused", "boolean", "Set to true to also include unused/disabled devices (default: false, only used devices are returned)", false, {} },
 			}
 		},
 		{
@@ -640,10 +758,11 @@ namespace mcp		// Model Context Protocol
 		},
 		{
 			"get_sensor_history",
-			"Get history for any device",
-			"Retrieve history for any device: daily aggregated calendar data for sensors "
-			"(temperature, humidity, rain, wind, UV, percentage, fan, P1, energy, gas, water, counters), "
-			"or on/off/dim event log for switches and scenes. "
+			"Get daily-aggregated history for a sensor or event log for a switch",
+			"Retrieve DAILY-AGGREGATED (calendar) data for sensors going back weeks or months, "
+			"or the on/off/dim event log for switches and scenes. "
+			"Use this for multi-day trends or long-term history. "
+			"For intraday data (today, last few hours, last 24 h) use get_sensor_short_log instead. "
 			"For sensors: specify 'days' or 'start_date'+'end_date'. "
 			"For switches/scenes: specify 'days'/'start_date'/'end_date' for date range, "
 			"or 'count' for last N events.",
@@ -654,6 +773,21 @@ namespace mcp		// Model Context Protocol
 				{ "start_date", "string", "Start date in YYYY-MM-DD format (use with end_date for custom range)", false, {} },
 				{ "end_date", "string", "End date in YYYY-MM-DD format (use with start_date for custom range)", false, {} },
 				{ "count", "integer", "For switches/scenes: return last N log entries (1-500, default 50). When specified, date params are ignored.", false, {} },
+			}
+		},
+		{
+			"get_sensor_short_log",
+			"Get recent/live sensor readings (last hours or N samples)",
+			"Retrieve recent high-resolution measurements at ~5-minute intervals from the short-log tables. "
+			"Use this for: today's data, last 24 hours, last N readings, live/recent sensor values. "
+			"Kept for a configurable number of days (default 1 day). "
+			"For multi-day or long-term history use get_sensor_history instead. "
+			"Not applicable to switches/scenes.",
+			{
+				{ "name",  "string",  "Name of the device", false, {} },
+				{ "idx",   "integer", "Device IDX (use either this or name)", false, {} },
+				{ "hours", "integer", "Time window in hours (1-168, default 24). Ignored if count is provided.", false, {} },
+				{ "count", "integer", "Return last N readings (1-1000). When specified, time window is ignored.", false, {} },
 			}
 		},
 		{
@@ -978,6 +1112,7 @@ namespace mcp		// Model Context Protocol
 			{ "create_device",          createVirtualSensor },
 			{ "update_device_value",    updateDeviceValue },
 			{ "get_sensor_history",     getSensorHistory },
+			{ "get_sensor_short_log",   getSensorShortLog },
 			{ "get_scenes",             getScenes },
 			{ "switch_scene",           switchScene },
 			{ "get_rooms",              getRooms },
@@ -1122,6 +1257,33 @@ namespace mcp		// Model Context Protocol
 			resource["mimeType"] = "text/plain";
 			jsonRPCRep["result"]["resources"].append(resource);
 		}
+		{
+			Json::Value resource;
+			resource["uri"] = "domoticz://hardware";
+			resource["name"] = "Hardware";
+			resource["title"] = "Hardware";
+			resource["description"] = "All configured hardware instances with type, enabled status, and ID";
+			resource["mimeType"] = "text/plain";
+			jsonRPCRep["result"]["resources"].append(resource);
+		}
+		{
+			Json::Value resource;
+			resource["uri"] = "domoticz://notifications";
+			resource["name"] = "Notifications";
+			resource["title"] = "Notifications";
+			resource["description"] = "All configured device notifications with trigger conditions and target systems";
+			resource["mimeType"] = "text/plain";
+			jsonRPCRep["result"]["resources"].append(resource);
+		}
+		{
+			Json::Value resource;
+			resource["uri"] = "domoticz://timers";
+			resource["name"] = "Timers";
+			resource["title"] = "Timers";
+			resource["description"] = "All device and scene timers with schedule and command details";
+			resource["mimeType"] = "text/plain";
+			jsonRPCRep["result"]["resources"].append(resource);
+		}
 
 		// Add any available floorplans as resources too
 		auto result = m_sql.safe_query("SELECT ID, Name FROM Floorplans");
@@ -1253,14 +1415,13 @@ namespace mcp		// Model Context Protocol
 		std::string sReadURI = jsonRequest["params"]["uri"].asString();
 		_log.Debug(DEBUG_WEBSERVER, "MCP: Handling resources/read request for %s.", sReadURI.c_str());
 
-		jsonRPCRep["result"]["contents"] = Json::Value(Json::arrayValue);
 		Json::Value resource;
 		resource["uri"] = sReadURI;
 
 		// --- domoticz:// scheme handler ---
-		if (sReadURI.substr(0, 12) == "domoticz://")
+		if (sReadURI.substr(0, 11) == "domoticz://")
 		{
-			std::string sPath = sReadURI.substr(12); // e.g. "device/42" or "devices"
+			std::string sPath = sReadURI.substr(11); // e.g. "device/42" or "devices"
 			std::string sResourceType = sPath.substr(0, sPath.find('/'));
 			std::string sResourceSuffix = (sPath.find('/') != std::string::npos) ? sPath.substr(sPath.find('/') + 1) : "";
 			int nIdx = -1;
@@ -1418,7 +1579,7 @@ namespace mcp		// Model Context Protocol
 			}
 			else if (sResourceType == "scenes")
 			{
-				auto result = m_sql.safe_query("SELECT ID, Name, SceneType, Status FROM Scenes ORDER BY Name");
+				auto result = m_sql.safe_query("SELECT ID, Name, SceneType, nValue FROM Scenes ORDER BY Name");
 				std::string sText;
 				if (result.empty())
 					sText = "No scenes or groups configured.";
@@ -1428,7 +1589,7 @@ namespace mcp		// Model Context Protocol
 					for (const auto &row : result)
 					{
 						std::string sType = (atoi(row[2].c_str()) == 1) ? "Group" : "Scene";
-						std::string sStatus = (row[3] == "1") ? "On" : "Off";
+						std::string sStatus = (atoi(row[3].c_str()) == 1) ? "On" : "Off";
 						sText += "- \"" + row[1] + "\" [" + sType + ", " + sStatus + ", idx=" + row[0] + "]\n";
 					}
 				}
@@ -1623,6 +1784,127 @@ namespace mcp		// Model Context Protocol
 					sText += line;
 				}
 				resource["name"] = "Virtual Sensor Types";
+				resource["mimeType"] = "text/plain";
+				resource["text"] = sText;
+			}
+			else if (sResourceType == "hardware")
+			{
+				auto result = m_sql.safe_query("SELECT ID, Name, Type, Enabled FROM Hardware ORDER BY Name");
+				std::string sText;
+				if (result.empty())
+					sText = "No hardware configured.";
+				else
+				{
+					sText = std::to_string(result.size()) + " hardware instance(s):\n";
+					for (const auto &row : result)
+					{
+						int iType = atoi(row[2].c_str());
+						bool bEnabled = (atoi(row[3].c_str()) != 0);
+						const char *sTypeName = Hardware_Type_Desc(iType);
+						sText += "- \"" + row[1] + "\" [" + (sTypeName ? sTypeName : "Unknown") + ", " + (bEnabled ? "enabled" : "disabled") + ", idx=" + row[0] + "]\n";
+					}
+				}
+				resource["name"] = "Hardware";
+				resource["mimeType"] = "text/plain";
+				resource["text"] = sText;
+			}
+			else if (sResourceType == "notifications")
+			{
+				auto result = m_sql.safe_query(
+					"SELECT N.ID, N.Params, N.CustomMessage, N.ActiveSystems, N.Priority, N.Active, D.Name "
+					"FROM Notifications N LEFT JOIN DeviceStatus D ON D.ID=N.DeviceRowID "
+					"ORDER BY D.Name, N.ID");
+				std::string sText;
+				if (result.empty())
+					sText = "No notifications configured.";
+				else
+				{
+					sText = std::to_string(result.size()) + " notification(s):\n";
+					for (const auto &row : result)
+					{
+						std::string sDevice = row[6].empty() ? "(unknown device)" : row[6];
+						std::string sParams = row[1];
+						std::string sCustomMsg = row[2];
+						std::string sSystems = row[3];
+						int iPriority = atoi(row[4].c_str());
+						bool bActive = (atoi(row[5].c_str()) != 0);
+						sText += "- Device \"" + sDevice + "\": condition=" + sParams;
+						if (!sCustomMsg.empty())
+							sText += ", msg=\"" + sCustomMsg + "\"";
+						if (!sSystems.empty())
+							sText += ", systems=" + sSystems;
+						if (iPriority != 0)
+							sText += ", priority=" + std::to_string(iPriority);
+						sText += " [" + std::string(bActive ? "active" : "inactive") + ", idx=" + row[0] + "]\n";
+					}
+				}
+				resource["name"] = "Notifications";
+				resource["mimeType"] = "text/plain";
+				resource["text"] = sText;
+			}
+			else if (sResourceType == "timers")
+			{
+				static const struct { int bit; const char* name; } kDays[] = {
+					{ 1, "Mon" }, { 2, "Tue" }, { 4, "Wed" }, { 8, "Thu" },
+					{ 16, "Fri" }, { 32, "Sat" }, { 64, "Sun" }
+				};
+				auto buildDays = [&](int iDays) -> std::string {
+					if (iDays & 128) return "Every day";
+					std::string s;
+					for (const auto &d : kDays)
+						if (iDays & d.bit) { if (!s.empty()) s += ","; s += d.name; }
+					return s.empty() ? "?" : s;
+				};
+
+				std::string sText;
+				int iTotal = 0;
+
+				auto devTimers = m_sql.safe_query(
+					"SELECT T.ID, T.Active, T.Time, T.Type, T.Cmd, T.Level, T.Days, D.Name "
+					"FROM Timers T LEFT JOIN DeviceStatus D ON D.ID=T.DeviceRowID "
+					"ORDER BY D.Name, T.Time");
+				for (const auto &row : devTimers)
+				{
+					iTotal++;
+					std::string sDevice = row[7].empty() ? "(unknown)" : row[7];
+					bool bActive = (atoi(row[1].c_str()) != 0);
+					std::string sTime = row[2];
+					int iType = atoi(row[3].c_str());
+					int iCmd = atoi(row[4].c_str());
+					int iLevel = atoi(row[5].c_str());
+					int iDays = atoi(row[6].c_str());
+					const char *sType = Timer_Type_Desc(iType);
+					const char *sCmd = Timer_Cmd_Desc(iCmd);
+					sText += "- Device \"" + sDevice + "\": " + sTime + " [" + (sType ? sType : "?") + ", " + buildDays(iDays) + ", cmd=" + (sCmd ? sCmd : "?");
+					if (iCmd == 2 || iCmd == 13)
+						sText += " level=" + std::to_string(iLevel);
+					sText += ", " + std::string(bActive ? "active" : "inactive") + ", idx=" + row[0] + "]\n";
+				}
+
+				auto sceneTimers = m_sql.safe_query(
+					"SELECT T.ID, T.Active, T.Time, T.Type, T.Cmd, T.Level, T.Days, S.Name "
+					"FROM SceneTimers T LEFT JOIN Scenes S ON S.ID=T.SceneRowID "
+					"ORDER BY S.Name, T.Time");
+				for (const auto &row : sceneTimers)
+				{
+					iTotal++;
+					std::string sScene = row[7].empty() ? "(unknown)" : row[7];
+					bool bActive = (atoi(row[1].c_str()) != 0);
+					std::string sTime = row[2];
+					int iType = atoi(row[3].c_str());
+					int iCmd = atoi(row[4].c_str());
+					int iDays = atoi(row[6].c_str());
+					const char *sType = Timer_Type_Desc(iType);
+					const char *sCmd = Timer_Cmd_Desc(iCmd);
+					sText += "- Scene \"" + sScene + "\": " + sTime + " [" + (sType ? sType : "?") + ", " + buildDays(iDays) + ", cmd=" + (sCmd ? sCmd : "?") + ", " + std::string(bActive ? "active" : "inactive") + ", idx=" + row[0] + "]\n";
+				}
+
+				if (iTotal == 0)
+					sText = "No timers configured.";
+				else
+					sText = std::to_string(iTotal) + " timer(s):\n" + sText;
+
+				resource["name"] = "Timers";
 				resource["mimeType"] = "text/plain";
 				resource["text"] = sText;
 			}
@@ -2507,7 +2789,9 @@ namespace mcp		// Model Context Protocol
 	bool getDeviceByIdx(int nIdx, Json::Value &device)
 	{
 		Json::Value jsonDevices;
-		m_webservers.GetJSonDevices(jsonDevices, "true", "", "", "", "", "", false, false, false, 0, "", "");
+		// bDisplayDisabled=true: include disabled devices so sensor history/short-log tools
+		// can still read data for devices that are temporarily disabled.
+		m_webservers.GetJSonDevices(jsonDevices, "true", "", "", "", "", "", false, true, false, 0, "", "");
 		for (const auto &dev : jsonDevices["result"])
 		{
 			if (dev.isObject() && dev.isMember("idx") && dev["idx"].asString() == std::to_string(nIdx))
@@ -2552,9 +2836,12 @@ namespace mcp		// Model Context Protocol
 
 	bool getAllDevices(const Json::Value &jsonRequest, Json::Value &jsonRPCRep)
 	{
+		// args access is safe: McpToolsCall guarantees params/arguments exists before dispatching
+		const Json::Value &args = jsonRequest["params"]["arguments"];
+
 		std::string sFilter;
-		if (jsonRequest["params"].isMember("arguments") && jsonRequest["params"]["arguments"].isMember("filter"))
-			sFilter = jsonRequest["params"]["arguments"]["filter"].asString();
+		if (args.isMember("filter"))
+			sFilter = args["filter"].asString();
 
 		// Validate filter against whitelist
 		if (!sFilter.empty() && sFilter != "light" && sFilter != "temp" && sFilter != "weather" && sFilter != "utility")
@@ -2564,9 +2851,26 @@ namespace mcp		// Model Context Protocol
 			return true;
 		}
 
+		// -1 means "not provided"; valid Hardware IDs start at 1 (AUTOINCREMENT primary key)
+		int nHwIdx = -1;
+		if (args.isMember("hw_idx"))
+		{
+			nHwIdx = args["hw_idx"].asInt();
+			auto hwResult = m_sql.safe_query("SELECT ID FROM Hardware WHERE ID=%d", nHwIdx);
+			if (hwResult.empty() || hwResult[0].empty())
+			{
+				mcp::setToolResult(jsonRPCRep, "No hardware found with hw_idx=" + std::to_string(nHwIdx), true);
+				return true;
+			}
+		}
+
+		bool bIncludeUnused = args.isMember("include_unused") && args["include_unused"].asBool();
+		std::string sUsed = bIncludeUnused ? "" : "true";
+
 		Json::Value jsonDevices;
-		std::string sUsed = "true";
-		m_webservers.GetJSonDevices(jsonDevices, sUsed, sFilter, "Name", "", "", "", false, false, false, 0, "", "");
+		std::string sHwIdxFilter = (nHwIdx >= 0 ? std::to_string(nHwIdx) : "");
+		// empty hardwareid = return devices from all hardware adapters
+		m_webservers.GetJSonDevices(jsonDevices, sUsed, sFilter, "Name", "", "", "", false, false, false, 0, "", sHwIdxFilter);
 
 		std::string sResult;
 		int iCount = 0;
@@ -2578,11 +2882,12 @@ namespace mcp		// Model Context Protocol
 					continue;
 				iCount++;
 				sResult += "- \"" + device["Name"].asString() + "\"";
-				if (device.isMember("Type"))
+				bool bHasType = device.isMember("Type");
+				if (bHasType)
 					sResult += " [" + device["Type"].asString();
 				if (device.isMember("SubType"))
 					sResult += "/" + device["SubType"].asString();
-				if (device.isMember("Type"))
+				if (bHasType)
 					sResult += "]";
 				if (device.isMember("Data"))
 					sResult += " = " + device["Data"].asString();
@@ -2591,13 +2896,13 @@ namespace mcp		// Model Context Protocol
 				if (device.isMember("BatteryLevel") && device["BatteryLevel"].isInt())
 				{
 					int iBatt = device["BatteryLevel"].asInt();
-					if (iBatt != 255)
+					if (iBatt != 255) // 255 = not available
 						sResult += " battery=" + std::to_string(iBatt) + "%";
 				}
 				if (device.isMember("SignalLevel") && device["SignalLevel"].isInt())
 				{
 					int iSignalLevel = device["SignalLevel"].asInt();
-					if (iSignalLevel != 12)
+					if (iSignalLevel != 12) // 12 = not available
 						sResult += " rssi=" + std::to_string(iSignalLevel);
 				}
 				sResult += "\n";
@@ -2605,7 +2910,13 @@ namespace mcp		// Model Context Protocol
 		}
 
 		if (iCount == 0)
-			sResult = "No devices found" + (sFilter.empty() ? "" : " with filter \"" + sFilter + "\"");
+		{
+			sResult = "No devices found";
+			if (!sFilter.empty())
+				sResult += " with filter \"" + sFilter + "\"";
+			if (nHwIdx >= 0)
+				sResult += " for hw_idx=" + std::to_string(nHwIdx);
+		}
 		else
 			sResult = std::to_string(iCount) + " device(s):\n" + sResult;
 
@@ -3097,7 +3408,9 @@ namespace mcp		// Model Context Protocol
 		// Map device type to sensor string (what HandleGraphCustomRange expects)
 		std::string sSensor;
 		if (dType == pTypeTEMP || dType == pTypeTEMP_HUM || dType == pTypeTEMP_HUM_BARO ||
-		    dType == pTypeTEMP_BARO || dType == pTypeHUM)
+		    dType == pTypeTEMP_BARO || dType == pTypeHUM ||
+		    dType == pTypeSetpoint || dType == pTypeRego6XXTemp ||
+		    dType == pTypeRadiator1 || dType == pTypeThermostat6)
 			sSensor = "temp";
 		else if (dType == pTypeRAIN)
 			sSensor = "rain";
@@ -3196,9 +3509,31 @@ namespace mcp		// Model Context Protocol
 			return true;
 		}
 
+		// For pTypeSetpoint: check if the unit is a custom (non-temperature) unit.
+		std::string sSetpointUnit;
+		bool bSetpointIsTemp = true;
+		if (dType == pTypeSetpoint)
+		{
+			auto opts = m_sql.GetDeviceOptions(std::to_string(nIdx));
+			auto it = opts.find("ValueUnit");
+			if (it != opts.end())
+				sSetpointUnit = it->second;
+			bSetpointIsTemp = sSetpointUnit.empty()
+			               || sSetpointUnit == "\xc2\xb0""C" || sSetpointUnit == "\xc2\xb0""F"
+			               || sSetpointUnit == "C" || sSetpointUnit == "F"
+			               || sSetpointUnit == "°C" || sSetpointUnit == "°F";
+			if (bSetpointIsTemp && sSetpointUnit.empty())
+				sSetpointUnit = std::string("\xc2\xb0") + sTempUnit;
+		}
+
 		// Format the JSON result as human-readable text
 		if (sSensor == "temp")
-			sResult = "Daily temperature history for \"" + sName + "\" (\xc2\xb0" + sTempUnit + " min/avg/max):\n";
+		{
+			if (dType == pTypeSetpoint && !bSetpointIsTemp)
+				sResult = "Daily setpoint history for \"" + sName + "\" (" + sSetpointUnit + " min/avg/max):\n";
+			else
+				sResult = "Daily temperature history for \"" + sName + "\" (\xc2\xb0" + sTempUnit + " min/avg/max):\n";
+		}
 		else if (sSensor == "rain")
 			sResult = "Daily rain history for \"" + sName + "\" (mm):\n";
 		else if (sSensor == "wind")
@@ -3224,10 +3559,18 @@ namespace mcp		// Model Context Protocol
 			{
 				std::string sLine = sDate + " |";
 				if (row.isMember("tm") && row.isMember("ta") && row.isMember("te"))
-					sLine += " temp: min=" + cvtTemp(row["tm"].asString()) +
-					         " avg=" + cvtTemp(row["ta"].asString()) +
-					         " max=" + cvtTemp(row["te"].asString()) +
-					         "\xc2\xb0" + sTempUnit;
+				{
+					if (dType == pTypeSetpoint && !bSetpointIsTemp)
+						sLine += " setpoint: min=" + row["tm"].asString() +
+						         " avg=" + row["ta"].asString() +
+						         " max=" + row["te"].asString() +
+						         " " + sSetpointUnit;
+					else
+						sLine += " temp: min=" + cvtTemp(row["tm"].asString()) +
+						         " avg=" + cvtTemp(row["ta"].asString()) +
+						         " max=" + cvtTemp(row["te"].asString()) +
+						         "\xc2\xb0" + sTempUnit;
+				}
 				if (row.isMember("hu"))
 					sLine += "  hum=" + row["hu"].asString() + "%";
 				if (row.isMember("ba"))
@@ -3268,6 +3611,308 @@ namespace mcp		// Model Context Protocol
 				if (!row.isMember("v1") && row.isMember("v")) sLine += " value=" + row["v"].asString();
 				sResult += sLine + "\n";
 			}
+		}
+
+		mcp::setToolResult(jsonRPCRep, sResult, false);
+		return true;
+	}
+
+	bool getSensorShortLog(const Json::Value &jsonRequest, Json::Value &jsonRPCRep)
+	{
+		const Json::Value &args = jsonRequest["params"]["arguments"];
+		bool bHasIdx  = args.isMember("idx");
+		bool bHasName = args.isMember("name") && !args["name"].asString().empty();
+		if (!bHasIdx && !bHasName)
+		{
+			_log.Debug(DEBUG_WEBSERVER, "MCP: getSensorShortLog: Missing required parameter 'name' or 'idx'");
+			return false;
+		}
+
+		Json::Value device;
+		std::string sName;
+		bool bFound;
+		if (bHasIdx)
+		{
+			bFound = getDeviceByIdx(args["idx"].asInt(), device);
+			sName  = bFound ? device["Name"].asString() : "idx=" + std::to_string(args["idx"].asInt());
+		}
+		else
+		{
+			sName  = args["name"].asString();
+			bFound = getDeviceByName(sName, device);
+		}
+		if (!bFound)
+		{
+			mcp::setToolResult(jsonRPCRep, "No device found with name \"" + sName + "\"", true);
+			return true;
+		}
+		const uint64_t nIdx = (uint64_t)atoll(device["idx"].asString().c_str());
+
+		auto devResult = m_sql.safe_query(
+			"SELECT Type, SubType FROM DeviceStatus WHERE ID=%" PRIu64, nIdx);
+		if (devResult.empty())
+		{
+			mcp::setToolResult(jsonRPCRep, "Device \"" + sName + "\" not found in database.", true);
+			return true;
+		}
+		const unsigned char dType    = (unsigned char)atoi(devResult[0][0].c_str());
+		const unsigned char dSubType = (unsigned char)atoi(devResult[0][1].c_str());
+
+		if (IsLightOrSwitch(dType, dSubType))
+		{
+			mcp::setToolResult(jsonRPCRep,
+				"\"" + sName + "\" is a switch/light device. Use get_sensor_history to retrieve its log.", true);
+			return true;
+		}
+
+		// Map device type to sensor string
+		std::string sSensor;
+		if (dType == pTypeTEMP || dType == pTypeTEMP_HUM || dType == pTypeTEMP_HUM_BARO ||
+		    dType == pTypeTEMP_BARO || dType == pTypeHUM ||
+		    dType == pTypeSetpoint || dType == pTypeRego6XXTemp ||
+		    dType == pTypeRadiator1 || dType == pTypeThermostat6)
+			sSensor = "temp";
+		else if (dType == pTypeRAIN)
+			sSensor = "rain";
+		else if (dType == pTypeWIND)
+			sSensor = "wind";
+		else if (dType == pTypeUV)
+			sSensor = "uv";
+		else if (dType == pTypeGeneral && dSubType == sTypePercentage)
+			sSensor = "Percentage";
+		else if (dType == pTypeGeneral && dSubType == sTypeFan)
+			sSensor = "fan";
+		else
+			sSensor = "counter";
+
+		// Map sensor string to short-log table
+		std::string dbasetable;
+		if (sSensor == "temp")
+			dbasetable = "Temperature";
+		else if (sSensor == "rain")
+			dbasetable = "Rain";
+		else if (sSensor == "wind")
+			dbasetable = "Wind";
+		else if (sSensor == "uv")
+			dbasetable = "UV";
+		else if (sSensor == "Percentage")
+			dbasetable = "Percentage";
+		else if (sSensor == "fan")
+			dbasetable = "Fan";
+		else
+		{
+			// counter: P1Power / CURRENT / CURRENTENERGY use MultiMeter, others use Meter
+			if (dType == pTypeP1Power || dType == pTypeCURRENT || dType == pTypeCURRENTENERGY)
+				dbasetable = "MultiMeter";
+			else
+				dbasetable = "Meter";
+		}
+
+		const char tempsign   = m_sql.m_tempsign[0];
+		const char *sTempUnit = (tempsign == 'F') ? "F" : "C";
+		auto cvtTemp = [&](const std::string &s) -> std::string {
+			if (s.empty()) return "";
+			double v = atof(s.c_str());
+			if (tempsign == 'F') v = v * 1.8 + 32.0;
+			char buf[32];
+			snprintf(buf, sizeof(buf), "%.1f", v);
+			return buf;
+		};
+
+		// Build explicit column list per table — never use SELECT * so column order is guaranteed.
+		// DeviceRowID is excluded; Date is always last.
+		// Column layout:
+		//   Temperature : Temperature, Chill, Humidity, Barometer, DewPoint, SetPoint, Date  (7 cols, indices 0-6)
+		//   Rain        : Total, Rate, Date                                                   (3 cols, indices 0-2)
+		//   Wind        : Direction, Speed, Gust, Date                                        (4 cols, indices 0-3)
+		//   UV          : Level, Date                                                         (2 cols, indices 0-1)
+		//   Percentage  : Percentage, Date                                                    (2 cols, indices 0-1)
+		//   Fan         : Speed, Date                                                         (2 cols, indices 0-1)
+		//   Meter       : Value, Usage, Price, Date                                           (4 cols, indices 0-3)
+		//   MultiMeter  : Value1,Value2,Value3,Value4,Value5,Value6, Price, Date              (8 cols, indices 0-7)
+		std::string sColumns;
+		if      (dbasetable == "Temperature") sColumns = "Temperature, Chill, Humidity, Barometer, DewPoint, SetPoint, Date";
+		else if (dbasetable == "Rain")        sColumns = "Total, Rate, Date";
+		else if (dbasetable == "Wind")        sColumns = "Direction, Speed, Gust, Date";
+		else if (dbasetable == "UV")          sColumns = "Level, Date";
+		else if (dbasetable == "Percentage")  sColumns = "Percentage, Date";
+		else if (dbasetable == "Fan")         sColumns = "Speed, Date";
+		else if (dbasetable == "Meter")       sColumns = "Value, [Usage], Price, Date";
+		else /* MultiMeter */                 sColumns = "Value1, Value2, Value3, Value4, Value5, Value6, Price, Date";
+
+		std::vector<std::vector<std::string>> result;
+		std::string sWindowDesc;
+
+		// dbasetable and sColumns are derived from internal device-type logic, never user input.
+		if (args.isMember("count") && !args["count"].isNull())
+		{
+			int iCount = std::max(1, std::min(1000, args["count"].asInt()));
+			std::string sQ = "SELECT " + sColumns + " FROM [" + dbasetable + "] WHERE DeviceRowID=%" PRIu64 " ORDER BY Date DESC LIMIT %d";
+			result = m_sql.safe_query(sQ.c_str(), nIdx, iCount);
+			std::reverse(result.begin(), result.end());
+			sWindowDesc = "last " + std::to_string(iCount) + " readings";
+		}
+		else
+		{
+			int iHours = 24;
+			if (args.isMember("hours") && !args["hours"].isNull())
+				iHours = std::max(1, std::min(168, args["hours"].asInt()));
+			std::string sQ = "SELECT " + sColumns + " FROM [" + dbasetable + "] WHERE DeviceRowID=%" PRIu64
+			                 " AND Date >= datetime('now','localtime','-%d hours') ORDER BY Date ASC";
+			result = m_sql.safe_query(sQ.c_str(), nIdx, iHours);
+			sWindowDesc = "last " + std::to_string(iHours) + " hour(s)";
+		}
+
+		_log.Debug(DEBUG_WEBSERVER, "MCP: getSensorShortLog: device='%s' table='%s' rows=%d",
+			sName.c_str(), dbasetable.c_str(), (int)result.size());
+
+		if (result.empty())
+		{
+			mcp::setToolResult(jsonRPCRep,
+				"No short-log data found for \"" + sName + "\" in the " + sWindowDesc + ".\n"
+				"Short-log data is only kept for a configurable number of days (default: 1 day).", false);
+			return true;
+		}
+
+		// For pTypeSetpoint: read ValueUnit from device options to decide whether
+		// the value is a temperature (apply conversion + °unit) or a custom unit (show raw).
+		std::string sSetpointUnit;
+		bool bSetpointIsTemp = true;
+		if (dType == pTypeSetpoint)
+		{
+			auto opts = m_sql.GetDeviceOptions(std::to_string(nIdx));
+			auto it = opts.find("ValueUnit");
+			if (it != opts.end())
+				sSetpointUnit = it->second;
+			// Treat as temperature only if unit is empty or explicitly a temperature unit
+			bSetpointIsTemp = sSetpointUnit.empty()
+			               || sSetpointUnit == "\xc2\xb0""C" || sSetpointUnit == "\xc2\xb0""F"
+			               || sSetpointUnit == "C" || sSetpointUnit == "F"
+			               || sSetpointUnit == "°C" || sSetpointUnit == "°F";
+			if (bSetpointIsTemp && sSetpointUnit.empty())
+				sSetpointUnit = std::string("\xc2\xb0") + sTempUnit;
+		}
+
+		std::string sResult = std::to_string((int)result.size()) + " short-log readings for \"" +
+		                      sName + "\" (" + sWindowDesc + "):\n";
+		sResult += "Each line: timestamp (YYYY-MM-DD HH:MM:SS) followed by key=value pairs.\n";
+		sResult += "Timestamp           | Data\n";
+		sResult += "--------------------|--------------------------------------\n";
+
+		for (const auto &row : result)
+		{
+			// Column layout per sColumns (DeviceRowID is NOT selected):
+			// Temperature: 0=Temp, 1=Chill, 2=Hum, 3=Baro, 4=Dew, 5=SetPoint, 6=Date
+			// Rain:        0=Total, 1=Rate, 2=Date
+			// Wind:        0=Dir, 1=Speed, 2=Gust, 3=Date
+			// UV:          0=Level, 1=Date
+			// Percentage:  0=Percentage, 1=Date
+			// Fan:         0=Speed, 1=Date
+			// Meter:       0=Value, 1=Usage, 2=Price, 3=Date
+			// MultiMeter:  0-5=Value1-6, 6=Price, 7=Date
+			// row.back() is always the Date string.
+			const std::string &sDate = row.back();
+			std::string sLine = sDate + " |";
+
+			if (dbasetable == "Temperature")
+			{
+				// row: 0=Temp, 1=Chill, 2=Hum, 3=Baro, 4=Dew, 5=SetPoint, 6=Date
+				if (row.size() >= 7)
+				{
+					const bool bIsSetpoint = (dType == pTypeSetpoint || dType == pTypeRego6XXTemp ||
+					                          dType == pTypeRadiator1 || dType == pTypeThermostat6);
+					const std::string &sTempVal  = row[0];
+					const std::string &sSetPtVal = row[5];
+					const bool bHasTemp  = !sTempVal.empty()  && sTempVal  != "0" && sTempVal  != "0.00";
+					const bool bHasSetPt = !sSetPtVal.empty() && sSetPtVal != "0" && sSetPtVal != "0.00";
+					if (bIsSetpoint)
+					{
+						if (bHasTemp)
+						{
+							if (bSetpointIsTemp)
+								sLine += " setpoint=" + cvtTemp(sTempVal) + sSetpointUnit;
+							else
+								sLine += " setpoint=" + sTempVal + " " + sSetpointUnit;
+						}
+					}
+					else if (dType == pTypeTEMP || dType == pTypeTEMP_HUM || dType == pTypeTEMP_HUM_BARO || dType == pTypeTEMP_BARO)
+					{
+						if (bHasTemp)
+							sLine += " temp=" + cvtTemp(sTempVal) + "\xc2\xb0" + sTempUnit;
+					}
+					else
+					{
+						if (bHasTemp)  sLine += " temp=" + cvtTemp(sTempVal) + "\xc2\xb0" + sTempUnit;
+						if (bHasSetPt) sLine += "  setpoint=" + cvtTemp(sSetPtVal) + "\xc2\xb0" + sTempUnit;
+					}
+					if (dType == pTypeTEMP_HUM || dType == pTypeTEMP_HUM_BARO || dType == pTypeHUM)
+						sLine += "  hum=" + row[2] + "%";
+					if (dType == pTypeTEMP_HUM_BARO || dType == pTypeTEMP_BARO)
+						sLine += "  baro=" + row[3] + " hPa";
+					if (dType == pTypeTEMP || dType == pTypeTEMP_HUM || dType == pTypeTEMP_HUM_BARO || dType == pTypeTEMP_BARO)
+						if (!row[4].empty() && row[4] != "0")
+							sLine += "  dew=" + cvtTemp(row[4]) + "\xc2\xb0" + sTempUnit;
+				}
+			}
+			else if (dbasetable == "Rain")
+			{
+				// row: 0=Total, 1=Rate, 2=Date
+				if (row.size() >= 3)
+					sLine += " total=" + row[0] + " mm  rate=" + row[1];
+			}
+			else if (dbasetable == "Wind")
+			{
+				// row: 0=Direction, 1=Speed, 2=Gust, 3=Date
+				if (row.size() >= 4)
+				{
+					double spd  = atof(row[1].c_str()) / 10.0;
+					double gust = atof(row[2].c_str()) / 10.0;
+					char buf[64];
+					snprintf(buf, sizeof(buf), " dir=%.0f\xc2\xb0  speed=%.1f m/s  gust=%.1f m/s",
+						atof(row[0].c_str()), spd, gust);
+					sLine += buf;
+				}
+			}
+			else if (dbasetable == "UV")
+			{
+				// row: 0=Level, 1=Date
+				if (row.size() >= 2)
+					sLine += " uvi=" + row[0];
+			}
+			else if (dbasetable == "Percentage")
+			{
+				// row: 0=Percentage, 1=Date
+				if (row.size() >= 2)
+					sLine += " pct=" + row[0] + "%";
+			}
+			else if (dbasetable == "Fan")
+			{
+				// row: 0=Speed, 1=Date
+				if (row.size() >= 2)
+					sLine += " speed=" + row[0] + " rpm";
+			}
+			else if (dbasetable == "Meter")
+			{
+				// row: 0=Value, 1=Usage, 2=Price, 3=Date
+				if (row.size() >= 4)
+					sLine += " value=" + row[0];
+			}
+			else if (dbasetable == "MultiMeter")
+			{
+				// row: 0=Value1..5=Value6, 6=Price, 7=Date
+				if (row.size() >= 8)
+				{
+					const char *labels[] = { "v1", "v2", "v3", "v4", "v5", "v6" };
+					for (int i = 0; i < 6; ++i)
+					{
+						// Zero is a valid meter reading (e.g. no solar generation, no return feed).
+						if (!row[i].empty())
+							sLine += std::string("  ") + labels[i] + "=" + row[i];
+					}
+				}
+			}
+
+			sResult += sLine + "\n";
 		}
 
 		mcp::setToolResult(jsonRPCRep, sResult, false);

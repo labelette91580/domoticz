@@ -55,6 +55,7 @@ class CWebServer : public session_store, public std::enable_shared_from_this<CWe
 	void GetOpenIDConfiguration(WebEmSession &session, const request &req, reply &rep);
 
 	void PostMcp(WebEmSession &session, const request &req, reply &rep);
+	void OptionsMcp(WebEmSession& session, const request& req, reply& rep);
 	void HandleMcpGet(WebEmSession &session, const request &req, reply &rep);
 	void HandleMcpDelete(WebEmSession &session, const request &req, reply &rep);
 
@@ -360,6 +361,18 @@ private:
 	void Cmd_SaveDashboardLayout(WebEmSession& session, const request& req, Json::Value& root);
 	void Cmd_DeleteDashboardLayout(WebEmSession& session, const request& req, Json::Value& root);
 	void Cmd_CopyDashboardLayout(WebEmSession& session, const request& req, Json::Value& root);
+
+	void Cmd_GetMatterNodes(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_GetMatterNetworkGraph(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_MatterCommissionNode(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_GetMatterCommissionStatus(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_MatterExcludeNode(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_DeleteMatterNode(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_RequestMatterNodeInfo(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_MatterGetServerInfo(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_MatterSetWifiCredentials(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_MatterSetThreadDataset(WebEmSession& session, const request& req, Json::Value& root);
+	void Cmd_MatterSetFabricLabel(WebEmSession& session, const request& req, Json::Value& root);
 
 	// Plugin functions
 	void Cmd_PluginCommand(WebEmSession & session, const request& req, Json::Value &root);

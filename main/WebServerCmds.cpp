@@ -74,6 +74,7 @@
 #include "../hardware/OTGWBase.h"
 #include "../hardware/EnphaseAPI.h"
 #include "../hardware/AlfenEve.h"
+#include "../hardware/Matter.h"
 #include "../hardware/RFLinkBase.h"
 #ifdef WITH_OPENZWAVE
 #include "../hardware/OpenZWave.h"
@@ -4073,6 +4074,17 @@ namespace http
 				std::string szESettings = JSonToRawString(ESettings);
 				m_sql.UpdatePreferencesVar("ESettings", szESettings);
 
+				std::string szThemeSettings = request::findValue(&req, "ThemeSettings");
+				if (!szThemeSettings.empty())
+				{
+					Json::Value jvalidate;
+					if (ParseJSon(szThemeSettings, jvalidate))
+					{
+						m_sql.UpdatePreferencesVar("ThemeSettings", szThemeSettings);
+					}
+					cntSettings++;
+				}
+
 				m_sql.SetUnitsAndScale();
 
 				/* To wrap up everything */
@@ -4684,6 +4696,12 @@ namespace http
 						{
 							AlfenEve* pMyHardware = dynamic_cast<AlfenEve*>(pHardware);
 							root["result"][ii]["version"] = pMyHardware->m_szSoftwareVersion;
+						}
+						else if (pHardware->HwdType == HTYPE_Matter)
+						{
+							CMatter* pMyHardware = dynamic_cast<CMatter*>(pHardware);
+							root["result"][ii]["version"]   = pMyHardware->m_szSoftwareVersion;
+							root["result"][ii]["Connected"] = pMyHardware->m_bConnected.load();
 						}
 #ifdef WITH_OPENZWAVE
 						else if (pHardware->HwdType == HTYPE_OpenZWave)
@@ -5956,7 +5974,7 @@ namespace http
 			std::string name = HTMLSanitizer::Sanitize(request::findValue(&req, "name")); stdstring_trim(name);
 
 			bool bHaveText = request::hasValue(&req, "text");
-			std::string text = HTMLSanitizer::Sanitize(request::findValue(&req, "text")); stdstring_trim(text);
+			std::string text = request::findValue(&req, "text"); stdstring_trim(text);
 
 			bool bHaveDescription = request::hasValue(&req, "description");
 			std::string description = HTMLSanitizer::Sanitize(request::findValue(&req, "description")); stdstring_trim(description);
@@ -6008,6 +6026,8 @@ namespace http
 			unsigned char dType = atoi(sd[0].c_str());
 			unsigned char dSubType = atoi(sd[1].c_str());
 			int HwdID = atoi(sd[2].c_str());
+			// Text sensor devices hold user-authored HTML; preserve tags but strip dangerous attributes
+			text = (dType == pTypeGeneral && dSubType == sTypeTextStatus) ? HTMLSanitizer::SanitizeHTML(text) : HTMLSanitizer::Sanitize(text);
 			std::string sHwdID = sd[2];
 			int OldCustomImage = atoi(sd[3].c_str());
 			std::string OldDescription = sd[4];
@@ -6187,6 +6207,12 @@ namespace http
 					VirtualThermostat::UpdateDeviceTimer( idx,  devoptions);
 //				m_sql.SetDeviceOptions(ullidx, m_sql.BuildDeviceOptions(devoptions, false));
 				m_sql.UpdateDeviceOptions(ullidx, devoptions,false);
+			}
+
+			std::string sColorParam = request::findValue(&req, "color");
+			if (request::hasValue(&req, "color"))
+			{
+				m_sql.safe_query("UPDATE DeviceStatus SET Color='%q' WHERE (ID == '%q')", sColorParam.c_str(), idx.c_str());
 			}
 
 			if (used == 0)
@@ -6629,6 +6655,15 @@ namespace http
 				{
 					root["PriceResolution"] = nValue;
 				}
+				else if (Key == "ThemeSettings")
+				{
+					Json::Value jthemesettings;
+					bool ret = ParseJSon(sValue, jthemesettings);
+					if (ret)
+					{
+						root["ThemeSettings"] = jthemesettings;
+					}
+				}
 			}
 			root["DebugLevel"] = static_cast<int>(_log.GetDebugFlags());
 		}
@@ -6935,8 +6970,6 @@ namespace http
 				return;
 			uint64_t idx = std::stoull(request::findValue(&req, "idx"));
 
-			// For General/kWh devices the CounterHelper lives in memory inside the hardware plugin.
-			// Stop hardware before fixing so in-memory CounterHelper cannot race with DB writes.
 			int hwID = -1;
 			bool bIsKwhCounter = false;
 			{
@@ -6950,9 +6983,6 @@ namespace http
 					bIsKwhCounter = (devType == pTypeGeneral && devSub == sTypeKwh);
 				}
 			}
-
-			if (bIsKwhCounter && hwID != -1)
-				m_mainworker.RemoveDomoticzHardware(hwID);
 
 			// Fix actual counter spikes in Meter_Calendar / Meter (kWh devices only).
 			// Uses auto-detected threshold (0.0 = 100x median daily usage).
@@ -6971,9 +7001,19 @@ namespace http
 			bool changed = CKWHStats::RemoveSpikeStats(idx);
 			int pricesFixed = m_sql.SanitizeCalendarData(idx);
 
-			// Always restart hardware (was stopped above); only report it when something was actually fixed.
-			if (bIsKwhCounter && hwID != -1)
+			// Only stop/restart hardware when spikes were actually corrected in the DB.
+			// The CounterHelper (used by MQTT-AD and similar plugins) caches the cumulative
+			// counter in memory and must reload from the corrected DB values.
+			// EnphaseAPI also benefits from a restart: FixKwhCounterSpikes corrects
+			// DeviceStatus.sValue to the lower baseline, and the upward-spike detection
+			// in ProcessEnphaseCounter will then catch the gap between that baseline and
+			// the Envoy's still-high whLifetime, applying the correct negative offset so
+			// the tracker continues from the corrected value.  Without the restart the
+			// corrected sValue is overwritten on the very next Envoy poll.
+			bool bNeedsRestart = bIsKwhCounter && hwID != -1 && spikesFixed > 0;
+			if (bNeedsRestart)
 			{
+				m_mainworker.RemoveDomoticzHardware(hwID);
 				auto hwRes = m_sql.safe_query(
 					"SELECT ID, Name, Enabled, Type, LogLevel, Address, Port, SerialPort, Username, Password, "
 					"Extra, Mode1, Mode2, Mode3, Mode4, Mode5, Mode6, DataTimeout FROM Hardware WHERE ID=%d", hwID);
@@ -6987,8 +7027,7 @@ namespace http
 						atoi(hw[11].c_str()), atoi(hw[12].c_str()), atoi(hw[13].c_str()),
 						atoi(hw[14].c_str()), atoi(hw[15].c_str()), atoi(hw[16].c_str()),
 						atoi(hw[17].c_str()), true);
-					if (spikesFixed > 0)
-						spikeResults.push_back("Hardware restarted to reload CounterHelper from corrected values");
+					spikeResults.push_back("Hardware restarted to reload CounterHelper from corrected values");
 				}
 			}
 

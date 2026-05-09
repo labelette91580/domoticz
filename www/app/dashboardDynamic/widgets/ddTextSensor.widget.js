@@ -57,7 +57,7 @@ define([
             },
             controllerAs:     'ctrl',
             bindToController: true,
-            controller: ['$scope', '$http', '$interval', '$q', '$sce', function($scope, $http, $interval, $q, $sce) {
+            controller: ['$scope', '$http', '$q', '$sce', function($scope, $http, $q, $sce) {
                 var ctrl = this;
                 ctrl.text        = null;
                 ctrl.deviceName  = '';
@@ -65,21 +65,13 @@ define([
                 ctrl.showTitle   = true;
                 ctrl.fontSize    = 14;
                 var cancelToken  = null;
-                var timer        = null;
 
                 function applyDevice(d) {
-                    var raw = (d.Data || '').trim();
-                    // Convert newlines to <br /> then sanitize, matching the original utility widget
-                    var html = raw.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br />$2');
-                    if (window.DOMPurify) {
-                        html = DOMPurify.sanitize(html, {
-                            ALLOWED_TAGS: ['br', 'span', 'font', 'a', 'b', 'i', 'u'],
-                            ALLOWED_ATTR: ['style', 'color', 'href', 'target']
-                        });
-                    } else if (/<[a-zA-Z]/.test(html)) {
-                        console.warn('ddTextSensor: DOMPurify not loaded; HTML content rendered unsanitized');
-                    }
-                    ctrl.text       = $sce.trustAsHtml(html);
+                    var cfg     = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
+                    var scopeId = 'dz-dd-' + String(parseInt(d.idx || cfg.deviceIdx, 10) || 0);
+                    var raw     = (d.Data || '').trim();
+                    var html    = sanitizeHTML(raw, scopeId);
+                    ctrl.text       = $sce.trustAsHtml('<div id="' + scopeId + '">' + html + '</div>');
                     ctrl.deviceName = d.Name      || '';
                     ctrl.lastUpdate = d.LastUpdate || '';
                 }
@@ -110,13 +102,6 @@ define([
                     ctrl.fontSize   = cfg.fontSize   || 14;
                 }
 
-                function resetTimer() {
-                    if (timer) { $interval.cancel(timer); }
-                    var cfg      = (ctrl.widgetDef && ctrl.widgetDef.config) || {};
-                    var interval = (cfg.refreshInterval || 60) * 1000;
-                    timer = $interval(load, interval);
-                }
-
                 $scope.$on('device_update', function(e, updated) {
                     var cfg = ctrl.widgetDef && ctrl.widgetDef.config;
                     if (cfg && String(updated.idx) === String(cfg.deviceIdx)) {
@@ -128,7 +113,6 @@ define([
 
                 $scope.$on('$destroy', function() {
                     if (cancelToken) { cancelToken.resolve(); cancelToken = null; }
-                    if (timer) { $interval.cancel(timer); timer = null; }
                 });
 
                 $scope.$watch(
@@ -138,7 +122,6 @@ define([
                     function(val, old) {
                         if (val !== old) {
                             applyConfig();
-                            resetTimer();
                             load();
                         }
                     }
@@ -147,19 +130,15 @@ define([
                 $scope.$watch(
                     function() {
                         var cfg = ctrl.widgetDef && ctrl.widgetDef.config;
-                        return cfg && (String(cfg.showTitle) + '|' + cfg.fontSize + '|' + cfg.refreshInterval);
+                        return cfg && (String(cfg.showTitle) + '|' + cfg.fontSize);
                     },
                     function(val, old) {
-                        if (val !== old) {
-                            applyConfig();
-                            resetTimer();
-                        }
+                        if (val !== old) { applyConfig(); }
                     }
                 );
 
                 ctrl.$onInit = function() {
                     applyConfig();
-                    resetTimer();
                     load();
                 };
             }]
