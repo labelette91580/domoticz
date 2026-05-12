@@ -56,6 +56,8 @@ PlanningTimerSheet = function(options){
 
 	var prevTimers = [];
 	var planning = [];
+	var copyPlanning = false;
+	var prevcopyPlanningTimers = [];
 
 	//////////////////////////////
 
@@ -989,8 +991,63 @@ PlanningTimerSheet = function(options){
 //		$element.show();
 	};
 
+	copySetPoints = function () {
+		AddXmlDialog();
+		$("#dialog-copy").dialog({
+			autoOpen: false,
+			width: 400,
+			height: 160,
+			modal: true,
+			resizable: false,
+			buttons: {
+				"OK": function () {
+					var bValid = true;
+					$(this).dialog("close");
+
+					var SensorIdx = $("#dialog-copy #sensor option:selected").val();
+					var SensorName = $("#dialog-copy #sensor option:selected").text();
+					if (typeof SensorName == 'undefined') {
+						bootbox.alert($.t('No Sensor Type Selected!'));
+						return;
+					}
+					prevcopyPlanningTimers = prevTimers;
+					copyPlanning = true;
+
+					options.refreshTimersFromIdx(SensorIdx);
+
+					bootbox.alert($.t('Sensor Timer ' + SensorName + ' copied!'));
+
+
+				},
+				Cancel: function () {
+					$(this).dialog("close");
+				}
+			},
+			close: function () {
+				$(this).dialog("close");
+			}
+		});
+		if (options.device.isSetpointTimers)
+			RefreshDeviceCombo("#dialog-copy #sensor", "utility", true);
+		else
+			RefreshDeviceCombo("#dialog-copy #sensor", "light", true);
+
+		$("#dialog-copy").i18n();
+		$("#dialog-copy").dialog("open");
+
+	};
+
+	options.copySetPoints = copySetPoints;
+
 	$( document ).on( "timersLoaded", function(event, items){
 		loadPlanning(items);
+
+		if (copyPlanning)  {
+			prevTimers = prevcopyPlanningTimers ;
+			copyPlanning = false;
+
+		}
+
 		//update show entry background to white
 		var entry = $("select[name*='_length']")
 		$(entry).css({ "background-color": 'white' });
@@ -1040,7 +1097,8 @@ $( document ).on( "timersInitialized", function(event, vm,refreshTimers){
 							 "propValueAjax":"command"});
 	}
 	 options.device = vm.device;
-	options.copySetPoints = vm.copySetPoints;
+	options.refreshTimersFromIdx = vm.refreshTimersFromIdx;
+	
 	PlanningTimerSheet(options);
 	$("#copyright").hide();
 });

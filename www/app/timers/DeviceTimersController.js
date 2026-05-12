@@ -62,48 +62,6 @@ define(['app', 'timers/factories', 'timers/components','timers/planning'], funct
             //    Combo.append(option);
         }
 
-        vm.copySetPoints = function () {
-            AddXmlDialog();
-            $("#dialog-copy").dialog({
-                autoOpen: false,
-                width: 400,
-                height: 160,
-                modal: true,
-                resizable: false,
-                buttons: {
-                    "OK": function () {
-                        var bValid = true;
-                        $(this).dialog("close");
-
-                        var SensorIdx = $("#dialog-copy #sensor option:selected").val();
-                        var SensorName = $("#dialog-copy #sensor option:selected").text();
-                        if (typeof SensorName == 'undefined') {
-                            bootbox.alert($.t('No Sensor Type Selected!'));
-                            return;
-                        }
-
-                        vm.refreshTimersFromIdx(SensorIdx);
-
-                        bootbox.alert($.t('Sensor Timer ' + SensorName + ' copied!'));
-
-                    },
-                    Cancel: function () {
-                        $(this).dialog("close");
-                    }
-                },
-                close: function () {
-                    $(this).dialog("close");
-                }
-            });
-            if (vm.device.isSetpointTimers)
-                RefreshDeviceCombo("#dialog-copy #sensor", "utility", true);
-            else
-                RefreshDeviceCombo("#dialog-copy #sensor", "light", true);
-
-            $("#dialog-copy").i18n();
-            $("#dialog-copy").dialog("open");
-
-        };
 
 
         init();
