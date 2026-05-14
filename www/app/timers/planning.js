@@ -1015,7 +1015,7 @@ PlanningTimerSheet = function(options){
 
 					options.refreshTimersFromIdx(SensorIdx);
 
-					bootbox.alert($.t('Sensor Timer ' + SensorName + ' copied!'));
+//					bootbox.alert($.t('Sensor Timer ' + SensorName + ' copied!'));
 
 
 				},
@@ -1042,11 +1042,13 @@ PlanningTimerSheet = function(options){
 	$( document ).on( "timersLoaded", function(event, items){
 		loadPlanning(items);
 
-		if (copyPlanning)  {
-			prevTimers = prevcopyPlanningTimers ;
+		if (copyPlanning) {
+			prevTimers = prevcopyPlanningTimers;
 			copyPlanning = false;
 
 		}
+		else
+			prevcopyPlanningTimers = prevTimers;
 
 		//update show entry background to white
 		var entry = $("select[name*='_length']")
