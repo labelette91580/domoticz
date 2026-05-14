@@ -1,7 +1,8 @@
 define([
     'app',
     'hardware/setup/BleBox',
-    'hardware/setup/EnOceanESP3',
+//    'hardware/setup/EnOceanESP3',
+    'hardware/setup/EnOcean',
     'hardware/setup/Kodi',
     'hardware/setup/MySensors',
     'hardware/setup/PanasonicTV',
