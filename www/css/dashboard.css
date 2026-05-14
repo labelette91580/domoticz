@@ -781,6 +781,18 @@ body.dd-navbar-hidden .dd-toolbar {
     background: var(--dz-panel-bg);
     overflow: hidden;
 }
+.dd-widget--custom-chart > .dd-widget-body {
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    background: transparent;
+}
+.dd-widget--custom-chart .dd-chart-container {
+    inset: 4px;
+    border-radius: var(--dz-border-radius, 8px);
+    background: var(--dz-panel-bg);
+    overflow: hidden;
+}
 
 .dd-chart-container {
     position: absolute;
@@ -1206,33 +1218,61 @@ body.dd-navbar-hidden .dd-toolbar {
     font-size: 0.85em;
 }
 
-/* ── Favorites / Room tab strip ───────────────────────────── */
-.dd-favorites-tabs {
+/* ── Favorites / Room category tab strip ──────────────────── */
+.dd-cat-tabs {
     flex-shrink: 0;
-    margin-bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 6px 6px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.dd-favorites-tabs > li > a {
-    color: var(--dz-body-text);
-    padding: 6px 10px;
-    font-size: 0.82em;
-    display: flex;
+.dd-cat-tab {
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
-}
-
-.dd-favorites-tabs > li.active > a,
-.dd-favorites-tabs > li.active > a:hover,
-.dd-favorites-tabs > li.active > a:focus {
-    background: var(--dz-panel-bg);
-    border-color: rgba(255,255,255,0.08);
-    border-bottom-color: var(--dz-panel-bg);
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
     color: var(--dz-body-text);
+    font-size: 0.82em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+    line-height: 1.4;
+    font-family: inherit;
 }
 
-.dd-favorites-tabs > li > a:hover {
+.dd-cat-tab:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+}
+
+.dd-cat-tab--active {
+    background: rgba(67,164,211,0.18);
+    border-color: var(--dz-widget-accent);
+}
+
+.dd-cat-tab--active:hover {
+    background: rgba(67,164,211,0.28);
+}
+
+.dd-cat-badge {
+    display: inline-block;
     background: rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 0 6px;
+    font-size: 0.85em;
+    line-height: 1.6;
+    min-width: 18px;
+    text-align: center;
+}
+
+.dd-cat-tab--active .dd-cat-badge {
+    background: var(--dz-widget-accent);
+    color: #fff;
 }
 
 /* ── Device tile grid ─────────────────────────────────────── */
@@ -1241,16 +1281,14 @@ body.dd-navbar-hidden .dd-toolbar {
     min-height: 0;
     overflow-y: auto;
     padding: 4px;
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    align-items: flex-start;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-auto-rows: min-content;
+    align-content: start;
+    gap: 8px 16px;
 }
 
 .dd-dz-fav-item {
-    flex: 0 0 100%;
-    width: 100%;
     min-width: 0;
 }
 
@@ -1326,10 +1364,10 @@ body.dd-navbar-hidden .dd-toolbar {
     overflow: hidden;
     padding: 8px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    box-sizing: border-box;
     box-sizing: border-box;
     white-space: pre-wrap;
     word-break: break-word;
@@ -1337,11 +1375,23 @@ body.dd-navbar-hidden .dd-toolbar {
     color: var(--dz-body-text);
 }
 
+.dd-text-note-html {
+    display: block;
+    width: 100%;
+    white-space: normal;
+}
 .dd-text-note-hint {
     display: block;
     color: var(--dz-text-muted, #999);
     font-size: 0.8em;
     padding: 4px 0;
+}
+.dd-text-note-divider {
+    height: 2px;
+    width: 100%;
+    margin-top: 6px;
+    border-radius: 1px;
+    background-color: var(--dz-accent-color);
 }
 
 /* ── Activity Log widget ──────────────────────────────────── */
@@ -2376,6 +2426,11 @@ dd-wcp-color {
     font-size: 0 !important;
 }
 
+.dd-wcp-swatch--auto {
+    border-style: dashed !important;
+    opacity: 0.75;
+}
+
 .dd-wcp-drop {
     position: absolute;
     top: calc(100% + 4px);
@@ -2387,6 +2442,18 @@ dd-wcp-color {
     padding: 8px;
     box-shadow: 1px 1px 6px rgba(0,0,0,.4);
 }
+
+/* Copy-deep-link button next to the editable dashboard title (edit mode only) */
+.dd-title-link-btn {
+    background: transparent;
+    border: 0;
+    padding: 2px 8px;
+    margin-left: 6px;
+    color: var(--dz-text-muted, #888);
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.dd-title-link-btn:hover { color: var(--dz-accent-color, #43A4D3); }
 
 /* Range / slider row */
 .dd-settings-form .form-group > div[style*="flex"] {
@@ -3277,6 +3344,7 @@ body.dd-standby::after {
 .dd-dial-highlight { fill: rgba(255,255,255,0.06); pointer-events: none; }
 .dd-dial-face      { fill: var(--dd-face-fill); }
 .dd-dial-ring      { transition: stroke 0.4s ease; }
+.dd-dial-timeout   { opacity: 0.85; }
 .dd-dial-tick      { stroke: rgba(255,255,255,0.28); stroke-width: 0.8; stroke-linecap: round; }
 .dd-dial-tick-minor{ stroke: rgba(255,255,255,0.14); stroke-width: 0.5; stroke-linecap: round; }
 .dd-dial-scale-lbl { font-size: 5px; fill: var(--dz-widget-stat-muted); font-family: inherit; }
