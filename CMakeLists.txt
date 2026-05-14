@@ -172,6 +172,7 @@ main/EventsPythonDevice.cpp
 main/Helper.cpp
 main/HTMLSanitizer.cpp
 main/IFTTT.cpp
+main/Imperihome.cpp
 main/json_helper.cpp
 main/KWHStats.cpp
 main/localtime_r.cpp
