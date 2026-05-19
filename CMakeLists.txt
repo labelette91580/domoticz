@@ -697,7 +697,7 @@ ELSE(Boost_FOUND)
     MESSAGE(FATAL_ERROR "Boost thread library not found on your system, try to get this installed.")
 ENDIF(Boost_FOUND)
 
-target_link_libraries(domoticz Boost::thread)
+target_link_libraries(domoticz Boost::thread Boost::atomic atomic) 
 
 # compare found vs required libBoost version
 IF(Boost_VERSION VERSION_LESS DOMO_MIN_LIBBOOST_VERSION)
