@@ -10,7 +10,7 @@
 #include "resource.h"
 #include <setupapi.h>
 
-extern bool g_bStopApplication;
+extern std::atomic<bool> g_bStopApplication;
 
 #include <comdef.h>
 #include <WbemCli.h>

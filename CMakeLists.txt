@@ -172,6 +172,7 @@ main/EventsPythonDevice.cpp
 main/Helper.cpp
 main/HTMLSanitizer.cpp
 main/IFTTT.cpp
+main/Imperihome.cpp
 main/json_helper.cpp
 main/KWHStats.cpp
 main/localtime_r.cpp
@@ -264,9 +265,14 @@ hardware/eHouse/EhouseTcpClient.cpp
 hardware/eHouse/EhouseUdpListener.cpp
 hardware/Enever.cpp
 hardware/EnOceanEEP.cpp
+hardware/EnOceanEepProfil.cpp
+hardware/EnOceanProfil.cpp
 hardware/EnOceanESP2.cpp
 hardware/EnOceanESP3.cpp
+hardware/EnOceanESP3New.cpp
 hardware/EnOceanRawValue.cpp
+hardware/EnOceanRMCC.cpp
+hardware/EnOceanSensors.cpp
 hardware/EnphaseAPI.cpp
 hardware/Ec3kMeterTCP.cpp
 hardware/eVehicles/TeslaApi.cpp
@@ -691,7 +697,7 @@ ELSE(Boost_FOUND)
     MESSAGE(FATAL_ERROR "Boost thread library not found on your system, try to get this installed.")
 ENDIF(Boost_FOUND)
 
-target_link_libraries(domoticz Boost::thread)
+target_link_libraries(domoticz Boost::thread Boost::atomic atomic) 
 
 # compare found vs required libBoost version
 IF(Boost_VERSION VERSION_LESS DOMO_MIN_LIBBOOST_VERSION)
