@@ -1815,14 +1815,29 @@ void Histo(std::string& rep_content, std::string& from)
 */
 std::string getIpAdress()
 {
-	boost::asio::io_service io_service;
+//	return "raspberrypi3";
 
-	boost::asio::ip::tcp::resolver resolver(io_service);
-	boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-	boost::asio::ip::tcp::resolver::iterator it = resolver.resolve(query);
-	boost::asio::ip::tcp::endpoint endpoint = *it;
-	//return endpoint.address().to_string();
-	return boost::asio::ip::host_name();
+	char hostname[256];
+
+#ifdef _WIN32
+
+	DWORD size = sizeof(hostname);
+
+	if (GetComputerNameA(hostname, &size))
+		return std::string(hostname);
+	else
+		return "raspberrypi3";
+
+#else
+
+	if (gethostname(hostname, sizeof(hostname)) == 0)
+	{
+		hostname[sizeof(hostname) - 1] = '\0';
+		return std::string(hostname);
+	}
+	return "raspberrypi3";
+#endif
+
 }
 //implemtation of ImperiHome Request 
 //return false if not a ImperiHome Request
