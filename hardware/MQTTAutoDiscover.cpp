@@ -337,7 +337,7 @@ std::string MQTTAutoDiscover::GetValueFromTemplate(Json::Value root, std::string
 					}
 				}
 			}
-			if (root.isObject())
+			if (root.isObject() || root.isArray())
 				return "";
 			std::string retVal;
 			if (root.isDouble())
@@ -398,11 +398,18 @@ std::string MQTTAutoDiscover::GetValueFromTemplate(Json::Value root, std::string
 				}
 			}
 			if (suffix.empty())
-				return root.asString();
+			{
+				if (root.isObject() || root.isArray())
+					return ""; //we don't support arrays as return value, probably a configuration issue
+				else
+					return root.asString();
+			}
 			else
 			{
 				if (root[suffix].empty())
 					return ""; //not found
+				if (root[suffix].isObject() || root[suffix].isArray())
+					return ""; //we don't support arrays as return value, probably a configuration issue
 				return root[suffix].asString();
 			}
 			return "";
@@ -420,7 +427,11 @@ std::string MQTTAutoDiscover::GetValueFromTemplate(Json::Value root, std::string
 		}
 		stdstring_trim(szKey);
 		if (!root[szKey].empty())
+		{
+			if (root[szKey].isObject() || root[szKey].isArray())
+				return ""; //we don't support arrays as return value, probably a configuration issue
 			return root[szKey].asString();
+		}
 	}
 	catch (const std::exception& e)
 	{
@@ -940,6 +951,11 @@ void MQTTAutoDiscover::on_auto_discovery_message(const struct mosquitto_message*
 
 		if (!root["enabled_by_default"].empty())
 			pSensor->bEnabled_by_default = root["enabled_by_default"].asBool();
+
+		if (!root["force_update"].empty())
+			pSensor->bForce_update = root["force_update"].asBool();
+		else if (!root["frc_upd"].empty())
+			pSensor->bForce_update = root["frc_upd"].asBool();
 
 		if (!root["availability_topic"].empty())
 			pSensor->availability_topic = root["availability_topic"].asString();
@@ -4583,7 +4599,7 @@ void MQTTAutoDiscover::handle_auto_discovery_text(_tMQTTASensor* pSensor, const 
 		std::string szIdx = result[0].at(0);
 		std::string devname = result[0].at(1);
 		std::string oldsValue = result[0].at(3);
-		if (oldsValue != pSensor->sValue)
+		if (pSensor->bForce_update || oldsValue != pSensor->sValue)
 		{
 			//Prevent log entry
 			//m_sql.safe_query(
