@@ -2703,6 +2703,20 @@ dd-wcp-color {
 .dd-al-rename-icon { color: var(--dz-input-text); }
 .dd-al-delete-icon { color: var(--dz-accent-red); }
 
+/* Clear/remove button next to an optional device-picker in widget settings */
+.dd-device-clear {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    padding: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--dz-accent-red);
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+.dd-device-clear:hover { opacity: 1; }
+
 
 .dd-al-empty {
     padding: 8px;
@@ -3561,3 +3575,13 @@ body.dd-standby::after {
 .dd-list-font--larger { font-size: 1.1em; }
 .dd-list-font--large  { font-size: 1.25em; }
 .dd-list-font--xl     { font-size: 1.5em; }
+
+/* Mobile favorites: active-state highlight for the "Off"/closed button.
+   Uses the same blue as the "On" button so the highlight always marks the
+   current state (on or off) — the long-standing, familiar Domoticz look. */
+.mobileitem .btn.btn-off-active {
+    background: var(--dz-btn-info-bg);
+    color: #fff;
+    border-color: var(--dz-btn-info-bg);
+    font-weight: bold;
+}
