@@ -196,6 +196,7 @@ main/SignalHandler.cpp
 main/SQLHelper.cpp
 main/StoppableTask.cpp
 main/SunRiseSet.cpp
+main/ThemeSettings.cpp
 main/TrendCalculator.cpp
 main/DomoticzWebsocketHandler.cpp
 main/WebServer.cpp
@@ -578,9 +579,11 @@ MESSAGE(STATUS "###########################")
 MESSAGE(STATUS "Compiling Revision #${ProjectRevision}")
 MESSAGE(STATUS "###########################")
 
-# The version number.
+# The version number. Keep in sync with VERSION_MAJOR/VERSION_MINOR in
+# main/appversion.h, which is what the running application reports; these two
+# only feed the CPack package name and had drifted a release behind.
 set (domoticz_VERSION_MAJOR 2026)
-set (domoticz_VERSION_MINOR 2)
+set (domoticz_VERSION_MINOR 3)
 set (domoticz_VERSION_PATCH ${ProjectRevision})
 
 # explicitly say that the executable depends on the revisiontag
@@ -624,8 +627,11 @@ ENDIF(MQTT_LIBRARIES AND MQTT_INCLUDE_DIRS)
 # sqlite3
 IF(USE_BUILTIN_SQLITE)
   MESSAGE(STATUS "Using builtin SQLite library")
+  # the bundled sqlite-cmake defaults the SQL math functions to OFF; keep them
+  # enabled as before
+  set(SQLITE_ENABLE_MATH_FUNCTIONS ON CACHE BOOL "Enable the built-in SQL math functions.")
   add_subdirectory (extern/sqlite-amalgamation EXCLUDE_FROM_ALL)
-  target_link_libraries(domoticz SQLite3::SQLite3)
+  target_link_libraries(domoticz sqlite::sqlite)
 ELSE(USE_BUILTIN_SQLITE)
   find_package(SQLite3)
   IF(SQLite3_FOUND)
